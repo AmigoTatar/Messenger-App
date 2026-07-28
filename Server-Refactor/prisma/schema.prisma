@@ -1,0 +1,153 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id              Int       @id @default(autoincrement())
+  email           String    @unique
+  username        String
+  password        String
+  avatar          String?   
+  createdAt       DateTime  @default(now())
+  
+  messages        Message[] 
+  createdChannels Channel[] 
+  createdChats    Chat[]    
+  
+  channelMembers  ChannelMember[]
+  chatMembers     ChatMember[]
+  threads         Thread[]
+  reactions       Reaction[]
+  
+  privateChats    PrivateChatMember[] @relation("UserPrivateChats")
+  privateChatsWith PrivateChatMember[] @relation("OtherUserPrivateChats")
+}
+
+model Message {
+  id          Int      @id @default(autoincrement())
+  text        String?  
+  mediaUrl    String?  
+  mediaType   String?  
+  status      String?  @default("sent")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  senderId    Int
+  receiverId  Int?     
+  channelId   Int?
+  chatId      Int?
+  
+  isForwarded Boolean? @default(false)  
+  isPinned    Boolean? @default(false)
+  edited      Boolean? @default(false) 
+  isDeleted   Boolean? @default(false)  
+  
+  
+  sender      User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  channel     Channel? @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  chat        Chat?    @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  
+  threads     Thread[]
+  reactions   Reaction[]
+}
+
+model Channel {
+  id            Int      @id @default(autoincrement())
+  name          String
+  avatar        String?  @default("📢")
+  creatorId     Int
+  creator       User     @relation(fields: [creatorId], references: [id])
+  members       ChannelMember[]
+  messages      Message[]
+  lastMessageId Int?     
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model ChannelMember {
+  id          Int      @id @default(autoincrement())
+  channelId   Int
+  userId      Int
+  role        String   @default("member")
+  joinedAt    DateTime @default(now())
+  lastReadAt  DateTime @default(now())
+  muted       Boolean? @default(false) 
+
+  channel     Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([channelId, userId])
+}
+
+model Chat {
+  id            Int      @id @default(autoincrement())
+  name          String
+  avatar        String?  @default("💬")
+  creatorId     Int
+  creator       User     @relation(fields: [creatorId], references: [id])
+  members       ChatMember[]
+  messages      Message[]
+  lastMessageId Int?     
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model ChatMember {
+  id          Int      @id @default(autoincrement())
+  chatId      Int
+  userId      Int
+  joinedAt    DateTime @default(now())
+  lastReadAt  DateTime @default(now())
+  muted       Boolean? @default(false)
+  
+  chat        Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([chatId, userId])
+}
+
+model PrivateChatMember {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  otherUserId Int
+  lastReadAt  DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  muted       Boolean? @default(false)
+
+  user        User     @relation("UserPrivateChats", fields: [userId], references: [id], onDelete: Cascade)
+  otherUser   User     @relation("OtherUserPrivateChats", fields: [otherUserId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, otherUserId])
+  @@index([userId])
+  @@index([otherUserId])
+  
+}
+
+model Thread {
+  id        Int      @id @default(autoincrement())
+  messageId Int
+  userId    Int
+  text      String
+  createdAt DateTime @default(now())
+  
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Reaction {
+  id        Int      @id @default(autoincrement())
+  messageId Int
+  userId    Int
+  type      String
+  createdAt DateTime @default(now())
+  
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([messageId, userId])
+}
