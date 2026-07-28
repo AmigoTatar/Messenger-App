@@ -55,8 +55,72 @@ function validateSearch(req, res, next) {
     next();
 }
 
+// Валидация логина
+function validateLogin(req, res, next) {
+    const { username, password } = req.body;
+
+    if (!username || username.length < 3) {
+        return res.status(400).json({ error: 'Имя пользователя обязательно (минимум 3 символа)' });
+    }
+
+    if (!password || password.length < 8) {
+        return res.status(400).json({ error: 'Пароль обязателен (минимум 8 символов)' });
+    }
+
+    next();
+}
+
+// Валидация создания канала
+function validateChannel(req, res, next) {
+    const { name } = req.body;
+
+    if (!name || name.trim().length < 3) {
+        return res.status(400).json({ error: 'Название канала должно содержать минимум 3 символа' });
+    }
+
+    if (name.trim().length > 100) {
+        return res.status(400).json({ error: 'Название канала слишком длинное (максимум 100 символов)' });
+    }
+
+    next();
+}
+
+// Валидация создания группы
+function validateChat(req, res, next) {
+    const { name } = req.body;
+
+    if (!name || name.trim().length < 3) {
+        return res.status(400).json({ error: 'Название чата должно содержать минимум 3 символа' });
+    }
+
+    if (name.trim().length > 100) {
+        return res.status(400).json({ error: 'Название чата слишком длинное (максимум 100 символов)' });
+    }
+
+    next();
+}
+
+// Валидация обновления профиля
+function validateProfile(req, res, next) {
+    const { username } = req.body;
+
+    if (!username || username.trim().length < 3) {
+        return res.status(400).json({ error: 'Имя должно содержать минимум 3 символа' });
+    }
+
+    if (username.trim().length > 50) {
+        return res.status(400).json({ error: 'Имя слишком длинное (максимум 50 символов)' });
+    }
+
+    next();
+}
+
 module.exports = {
     validateRegister,
+    validateLogin,
     validateMessage,
-    validateSearch
+    validateSearch,
+    validateChannel,
+    validateChat,
+    validateProfile
 };

@@ -26,6 +26,9 @@ model User {
   
   privateChats    PrivateChatMember[] @relation("UserPrivateChats")
   privateChatsWith PrivateChatMember[] @relation("OtherUserPrivateChats")
+
+  @@index([username])
+  @@index([email])
 }
 
 model Message {
@@ -54,6 +57,16 @@ model Message {
   
   threads     Thread[]
   reactions   Reaction[]
+
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([channelId])
+  @@index([chatId])
+  @@index([createdAt])
+  @@index([status])
+  @@index([senderId, receiverId])
+  @@index([channelId, createdAt])
+  @@index([chatId, createdAt])
 }
 
 model Channel {
@@ -67,6 +80,9 @@ model Channel {
   lastMessageId Int?     
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  @@index([creatorId])
+  @@index([createdAt])
 }
 
 model ChannelMember {
@@ -82,6 +98,8 @@ model ChannelMember {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@unique([channelId, userId])
+  @@index([userId])
+  @@index([channelId])
 }
 
 model Chat {
@@ -95,6 +113,9 @@ model Chat {
   lastMessageId Int?     
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  @@index([creatorId])
+  @@index([createdAt])
 }
 
 model ChatMember {
@@ -109,6 +130,8 @@ model ChatMember {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@unique([chatId, userId])
+  @@index([userId])
+  @@index([chatId])
 }
 
 model PrivateChatMember {
@@ -125,7 +148,6 @@ model PrivateChatMember {
   @@unique([userId, otherUserId])
   @@index([userId])
   @@index([otherUserId])
-  
 }
 
 model Thread {
@@ -137,6 +159,10 @@ model Thread {
   
   message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model Reaction {
@@ -150,4 +176,7 @@ model Reaction {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@unique([messageId, userId])
+  @@index([messageId])
+  @@index([userId])
+  @@index([type])
 }

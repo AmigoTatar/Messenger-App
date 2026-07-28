@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import MessageItem from './MessageItem';
+import LoadingSpinner from '../LoadingSpinner';
 
 export default function MessageList({
   messages,

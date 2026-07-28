@@ -1,11 +1,22 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite' // Импортируем плагин
+import tailwindcss from '@tailwindcss/vite'
 
-// https://vite.dev
 export default defineConfig({
     plugins: [
         react(),
-        tailwindcss(), // Добавляем его в массив плагинов
+        tailwindcss(),
     ],
+    build: {
+        minify: 'esbuild',
+        sourcemap: false,
+        rollupOptions: {
+            output: {
+                manualChunks: undefined,
+            },
+        },
+    },
+    esbuild: {
+        drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
+    },
 })

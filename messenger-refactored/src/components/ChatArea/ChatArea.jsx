@@ -7,6 +7,7 @@ import ForwardModal from './ForwardModal';
 import EditModal from './EditModal';
 import { useMarkAsRead } from '../../hooks/useMarkAsRead';
 import { API_BASE_URL } from '../../config';
+import LoadingSpinner from '../LoadingSpinner';
 
 export default function ChatArea({ 
   activeChatId, 
@@ -37,6 +38,7 @@ export default function ChatArea({
   groupChatsProp,   
   onSelectChat,
   channelsProp,
+  showToast,
   onPinMessage, 
 }) {
   // ==============================================
@@ -91,7 +93,7 @@ const handleForwardSend = (targetChatId, msg) => {
     const isAdmin = channel?.creatorId === currentUserId || 
                     channel?.members?.some(m => m.userId === currentUserId && m.role === 'admin');
     if (!isAdmin) {
-      alert('❌ Только администраторы могут отправлять сообщения в канал');
+      showToast('❌ Только администраторы могут отправлять сообщения в канал');
       return;
     }
   }
@@ -131,17 +133,17 @@ const handleForwardSend = (targetChatId, msg) => {
       const isAdmin = activeChatData?.members?.some(m => m.userId === currentUserId && m.role === 'admin');
       const isCreator = activeChatData?.creatorId === currentUserId;
       if (!isAdmin && !isCreator) {
-        alert('❌ Вы не можете закрепить это сообщение');
+        showToast('❌ Вы не можете закрепить это сообщение');
         return;
       }
     } else if (activeChatData?.type === 'group') {
       if (activeChatData?.creatorId !== currentUserId) {
-        alert('❌ Только создатель группы может закреплять сообщения');
+        showToast('❌ Только создатель группы может закреплять сообщения');
         return;
       }
     } else {
       // Приватный чат: только автор
-      alert('❌ Вы можете закреплять только свои сообщения');
+      showToast('❌ Вы можете закреплять только свои сообщения');
       return;
     }
   }
@@ -251,7 +253,7 @@ const handleReaction = async (messageId, emoji) => {
     });
     if (!response.ok) {
       if (response.status === 429) {
-        alert('❌ Слишком много реакций, подождите');
+        showToast('❌ Слишком много реакций, подождите');
         return;
       }
       // Пытаемся прочитать ошибку
@@ -280,7 +282,7 @@ const handleReaction = async (messageId, emoji) => {
     console.error('Ошибка реакции:', error);
     // Не показываем alert, если это просто 404 или что-то подобное
     if (!error.message.includes('404')) {
-      alert('Не удалось поставить реакцию: ' + error.message);
+      showToast('Не удалось поставить реакцию: ' + error.message);
     }
   }
 };
@@ -414,6 +416,13 @@ const canPin = (msg) => {
 
 console.log('📊 [ChatArea] received messages:', messages);
 console.log('📊 [ChatArea] messages length:', messages?.length);
+if (isHistoryLoading) {
+  return (
+    <div className="flex-1 flex items-center justify-center">
+      <LoadingSpinner size="lg" />
+    </div>
+  );
+}
   return (
   <div className="flex-col flex-1 h-full bg-zinc-100 dark:bg-zinc-900">
     {!activeChatId ? (

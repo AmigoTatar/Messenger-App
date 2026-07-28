@@ -84,7 +84,7 @@ export default function MessageInput({
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      alert('Пожалуйста, выберите изображение');
+      showToast('Пожалуйста, выберите изображение');
       return;
     }
     const formData = new FormData();
@@ -102,7 +102,7 @@ export default function MessageInput({
       sendMessage(null, fileUrl, 'image');
     } catch (err) {
       console.error(err);
-      alert('Не удалось отправить изображение');
+      showToast('Не удалось отправить изображение');
     }
     e.target.value = '';
   };
@@ -134,14 +134,14 @@ export default function MessageInput({
           sendMessage(null, fileUrl, 'audio');
         } catch (err) {
           console.error(err);
-          alert('Не удалось отправить аудио');
+          showToast('Не удалось отправить аудио');
         }
         stream.getTracks().forEach(track => track.stop());
       };
       mediaRecorderRef.current.start();
       setIsRecording(true);
     } catch (err) {
-      alert('Микрофон недоступен: ' + err.message);
+      showToast('Микрофон недоступен: ' + err.message);
     }
   };
 

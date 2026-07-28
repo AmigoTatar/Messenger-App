@@ -3,7 +3,9 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+
 const { authenticateToken } = require('../middleware/auth');
+const { validateChat } = require('../middleware/validation');
 const {
     getChats,
     createChat,
@@ -34,7 +36,7 @@ const upload = multer({
 
 // Маршруты
 router.get('/', authenticateToken, getChats);
-router.post('/', authenticateToken, createChat);
+router.post('/', authenticateToken, validateChat, createChat);  // ← С ВАЛИДАЦИЕЙ
 router.put('/:chatId', authenticateToken, upload.single('avatar'), updateChat);
 router.delete('/:chatId', authenticateToken, deleteChat);
 router.get('/:chatId/members', authenticateToken, getChatMembers);

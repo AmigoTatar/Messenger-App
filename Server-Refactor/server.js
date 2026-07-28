@@ -162,6 +162,31 @@ server.listen(PORT, () => {
 });
 
 // ==========================================
+// GRACEFUL SHUTDOWN
+// ==========================================
+const gracefulShutdown = async (signal) => {
+    console.log(`\n🛑 Получен сигнал ${signal}, завершаю работу...`);
+
+    // Закрываем HTTP-сервер
+    server.close(() => {
+        console.log('✅ HTTP-сервер закрыт');
+    });
+
+    // Закрываем соединение с БД
+    try {
+        await prisma.$disconnect();
+        console.log('✅ Соединение с БД закрыто');
+    } catch (err) {
+        console.error('❌ Ошибка при закрытии БД:', err);
+    }
+
+    process.exit(0);
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// ==========================================
 // ОБРАБОТКА НЕПРЕДВИДЕННЫХ ОШИБОК
 // ==========================================
 process.on('unhandledRejection', (error) => {

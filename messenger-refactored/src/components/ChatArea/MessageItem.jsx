@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { getAvatarUrl } from '../../utils/avatarUtils';
+import DOMPurify from 'dompurify';
 
 export default function MessageItem({ 
   msg, 
@@ -88,8 +89,10 @@ export default function MessageItem({
         )}
 
         {text && (
-          <p className="break-words whitespace-pre-wrap">{text}</p>
-        )}
+          <p 
+    className="break-words whitespace-pre-wrap" 
+    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(text) }} 
+/> )}
 
         <div className={`text-[10px] font-normal flex items-center justify-end gap-1 mt-1 select-none ${
           isOwn ? 'text-emerald-100/90' : 'text-zinc-400 dark:text-zinc-500'

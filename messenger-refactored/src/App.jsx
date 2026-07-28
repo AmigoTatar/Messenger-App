@@ -17,6 +17,8 @@ import { playNotificationSound } from './utils/soundUtils';
 import { API_BASE_URL } from './config';
 import { apiClient } from './services/apiClient';
 import { MessageContext } from './contexts/MessageContext';
+import { useToast } from './hooks/useToast';
+import Toast from '/src/Toast';
 
 export default function App() {
   // === Пользователь ===
@@ -34,13 +36,17 @@ export default function App() {
   const [chatsVersion, setChatsVersion] = useState(0);
   const [channelsVersion, setChannelsVersion] = useState(0);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
+  const [isNewChannelOpen, setIsNewChannelOpen] = useState(false);
+  const [isNewGroupOpen, setIsNewGroupOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // === Хуки ===
   const { isDarkMode, toggleTheme } = useTheme();
-  const { chats, channels, groupChats, addChannel, addGroupChat, removeChannel, removeGroupChat, setChannels, setGroupChats, setChats, reload: reloadChats } = useChats(user);
+  const { chats, channels, groupChats, addChannel, addGroupChat, removeChannel, removeGroupChat, setChannels, setGroupChats, setChats, reload: reloadChats, loading: chatsLoading } = useChats(user);
   const { unreadCounts, fetchUnread, updateUnread, resetUnread } = useUnread(user);
-  const { getMessages, addMessage, addMessages, loadHistory, hasMore, loading, markMessageAsRead, deleteMessageLocally, setMessagesByChat } = useMessages(user?.id);
+ const { getMessages, addMessage, addMessages, loadHistory, hasMore, loading, markMessageAsRead, deleteMessageLocally, setMessagesByChat } = useMessages(user?.id);
   const { markAsRead, debouncedMarkAsRead } = useMarkAsRead();
+  
 
   // === Рефы ===
   const processedEvents = useRef(new Set());
@@ -49,6 +55,7 @@ export default function App() {
 
   // === Сокет ===
   const { socket, emit, joinChat, sendMessage } = useSocket(user, {});
+  
 
   // === Обработчики из хука ===
   const messageHandlers = useMessageHandlers({
@@ -84,6 +91,7 @@ export default function App() {
     handleMessagesReadUpdate
   } = messageHandlers;
 
+  const { toast, showToast, hideToast } = useToast();
   // === Эффекты ===
   useEffect(() => {
     if (!activeChatId) return;
@@ -146,6 +154,31 @@ useEffect(() => {
       }
     });
   }, [socket, groupChats, channels, chats]);
+
+  // ==============================================
+// ⌨️ ВЫХОД ИЗ ЧАТА ПО ESCAPE
+// ==============================================
+useEffect(() => {
+  const handleEsc = (e) => {
+    if (e.key === 'Escape') {
+      // Если открыт профиль — закрываем его
+      if (isProfileOpen) {
+        setIsProfileOpen(false);
+        return;
+      }
+      
+      // Если есть активный чат — закрываем его
+      if (activeChatId) {
+        setActiveChatId(null);
+        setActiveChatData(null);
+        activeChatIdRef.current = null;
+      }
+    }
+  };
+  
+  window.addEventListener('keydown', handleEsc);
+  return () => window.removeEventListener('keydown', handleEsc);
+}, [activeChatId, isProfileOpen]);
 
   // === Обработчики ===
   const handleChannelCreated = useCallback(async (newChannel) => {
@@ -329,7 +362,7 @@ useEffect(() => {
     } catch (error) {
       console.error('Ошибка закрепления:', error);
       if (!error.message.includes('403') && !error.message.includes('404')) {
-        alert('Не удалось закрепить сообщение: ' + error.message);
+        showToast('Не удалось закрепить сообщение: ' + error.message);
       }
     } finally {
       pinnedProcessingRef.current.delete(id);
@@ -636,57 +669,65 @@ useEffect(() => {
     }
   }, [activeChatId, joinChat, resetUnread, loadHistory, channels, groupChats, chats, socket, user]);
 
-  const handleCreateChannel = useCallback(async (channelData) => {
+const handleCreateChannel = useCallback(async (channelData) => {
     try {
-      const newChannel = await apiClient('/api/channels', {
-        method: 'POST',
-        body: JSON.stringify(channelData),
-      });
-      const members = await apiClient(`/api/channels/${newChannel.id}/members`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      });
-      const channelWithMembers = { ...newChannel, members };
-      addChannel(channelWithMembers);
-      const chatId = `channel_${newChannel.id}`;
-      joinChat(chatId);
-      handleSelectChat(chatId, {
-        name: channelData.name,
-        avatar: channelData.avatar || '📢',
-        type: 'channel',
-        creatorId: user?.id,
-        members: members,
-      });
-    } catch (err) {
-      console.error(err);
-      alert('Не удалось создать канал');
-    }
-  }, [addChannel, joinChat, handleSelectChat, user]);
-
-  const handleCreateGroupChat = useCallback(async (chatData) => {
-    try {
-      const newChat = await apiClient('/api/chats', {
-        method: 'POST',
-        body: JSON.stringify(chatData),
-      });
-      const numericId = parseInt(String(newChat.id).replace('chat_', ''), 10);
-      const chatId = `chat_${numericId}`;
-      const normalized = { ...newChat, id: chatId, dbId: numericId };
-      addGroupChat(normalized);
-      joinChat(chatId);
-      setTimeout(() => {
-        handleSelectChat(chatId, {
-          name: chatData.name,
-          avatar: chatData.avatar || '💬',
-          type: 'group',
-          creatorId: user?.id,
-          members: [{ userId: user?.id, user: { id: user?.id, username: user?.username, avatar: user?.avatar } }]
+        const newChannel = await apiClient('/api/channels', {
+            method: 'POST',
+            body: JSON.stringify(channelData),
         });
-      }, 500);
+
+        const members = await apiClient(`/api/channels/${newChannel.id}/members`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        });
+
+        const channelWithMembers = { ...newChannel, members };
+        addChannel(channelWithMembers);
+        const chatId = `channel_${newChannel.id}`;
+        joinChat(chatId);
+
+        handleSelectChat(chatId, {
+            name: channelData.name,
+            avatar: channelData.avatar || '📢',
+            type: 'channel',
+            creatorId: user?.id,
+            members: members,
+        });
     } catch (err) {
-      console.error(err);
-      alert('Не удалось создать групповой чат');
+        console.error('❌ Ошибка создания канала:', err);
+        const errorMessage = err.message || 'Не удалось создать канал';
+        showToast(errorMessage, 'error');
+        throw err; // ← Чтобы ошибка дошла до модалки
     }
-  }, [addGroupChat, joinChat, handleSelectChat, user]);
+}, [addChannel, joinChat, handleSelectChat, user, showToast]);
+
+const handleCreateGroupChat = useCallback(async (chatData) => {
+    try {
+        const newChat = await apiClient('/api/chats', {
+            method: 'POST',
+            body: JSON.stringify(chatData),
+        });
+
+        const numericId = parseInt(String(newChat.id).replace('chat_', ''), 10);
+        const chatId = `chat_${numericId}`;
+        const normalized = { ...newChat, id: chatId, dbId: numericId };
+
+        addGroupChat(normalized);
+        joinChat(chatId);
+
+        handleSelectChat(chatId, {
+            name: chatData.name,
+            avatar: chatData.avatar || '💬',
+            type: 'group',
+            creatorId: user?.id,
+            members: [{ userId: user?.id, user: { id: user?.id, username: user?.username, avatar: user?.avatar } }]
+        });
+    } catch (err) {
+        console.error('❌ Ошибка создания группового чата:', err);
+        const errorMessage = err.message || 'Не удалось создать групповой чат';
+        showToast(errorMessage, 'error');
+        throw err; // ← Чтобы ошибка дошла до модалки
+    }
+}, [addGroupChat, joinChat, handleSelectChat, user, showToast]);
 
   const handleChatUpdate = useCallback((updated) => {
     if (updated.type === 'channel') {
@@ -719,27 +760,29 @@ useEffect(() => {
     <ErrorBoundary>
       <div className="bg-zinc-100 dark:bg-zinc-900 text-zinc-900 dark:text-white h-screen flex justify-center items-center font-sans antialiased transition-colors duration-300">
         <div className="w-full h-full md:max-w-5xl md:h-[90vh] md:rounded-2xl md:border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex overflow-hidden shadow-2xl transition-colors duration-300">
-          <Sidebar
-            chats={chats}
-            channels={channels}
-            groupChats={groupChats}
-            activeChatId={activeChatId}
-            unreadCounts={unreadCounts}
-            onSelectChat={handleSelectChat}
-            onCreateChannel={handleCreateChannel}
-            onCreateGroupChat={handleCreateGroupChat}
-            chatsVersion={chatsVersion}
-            channelsVersion={channelsVersion}
-            groupChatsVersion={groupChatsVersion}
-            searchQuery=""
-            setSearchQuery={() => {}}
-            isDarkMode={isDarkMode}
-            onToggleTheme={toggleTheme}
-            onLogout={handleLogout}
-            user={user}
-            onUpdateUser={(u) => { localStorage.setItem('user', JSON.stringify(u)); setUser(u); }}
-            formatMsgTime={(d) => d ? new Date(d).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-          />
+<Sidebar
+    loading={chatsLoading}
+    chats={chats}
+    channels={channels}
+    showToast={showToast}
+    groupChats={groupChats}
+    activeChatId={activeChatId}
+    unreadCounts={unreadCounts}
+    onSelectChat={handleSelectChat}
+    onCreateChannel={handleCreateChannel}
+    onCreateGroupChat={handleCreateGroupChat}
+    chatsVersion={chatsVersion}
+    channelsVersion={channelsVersion}
+    groupChatsVersion={groupChatsVersion}
+    searchQuery={searchQuery}          // ← заменили
+    setSearchQuery={setSearchQuery}    // ← заменили
+    isDarkMode={isDarkMode}
+    onToggleTheme={toggleTheme}
+    onLogout={handleLogout}
+    user={user}
+    onUpdateUser={(u) => { localStorage.setItem('user', JSON.stringify(u)); setUser(u); }}
+    formatMsgTime={(d) => d ? new Date(d).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+/>
           <MessageContext.Provider value={{ sendMessage: handleSendMessage }}>
             <ChatArea
               key={activeChatId || 'no-chat'}
@@ -754,6 +797,7 @@ useEffect(() => {
               onDeleteMessage={handleDeleteMessage}
               onSelectChat={handleSelectChat}
               chatsProp={chats}
+              showToast={showToast} 
               groupChatsProp={groupChats}
               channelsProp={channels}
               onLoadMoreHistory={() => {
@@ -772,6 +816,7 @@ useEffect(() => {
             isOpen={isProfileOpen}
             onClose={() => setIsProfileOpen(false)}
             socketRef={socket}
+            showToast={showToast} 
             onMemberRemoved={() => {}}
             onChatDeleted={() => {}}
             onChatUpdate={handleChatUpdate}
@@ -792,6 +837,14 @@ useEffect(() => {
               }
             }}
           />
+          {toast && (
+  <Toast
+    message={toast.message}
+    type={toast.type}
+    duration={toast.duration}
+    onClose={hideToast}
+  />
+)}
         </div>
       </div>
     </ErrorBoundary>

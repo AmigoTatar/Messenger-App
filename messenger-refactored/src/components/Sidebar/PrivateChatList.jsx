@@ -8,9 +8,14 @@ export default function PrivateChatList({
   unreadCounts, 
   onSelectChat, 
   formatMsgTime,
-  chatsVersion  // ← добавить пропс
+  chatsVersion,
+  searchQuery = ''
 }) {
-  const privateChats = chats?.filter(chat => chat.id !== 'chat_general' && chat.id !== 'general') || [];
+   const privateChats = chats?.filter(chat => 
+        chat.id !== 'chat_general' && 
+        chat.id !== 'general' &&
+        chat.name.toLowerCase().includes(searchQuery.toLowerCase())
+    ) || [];
 
   if (privateChats.length === 0) return null;
 

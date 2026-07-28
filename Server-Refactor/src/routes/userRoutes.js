@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { validateProfile } = require('../middleware/validation');
 const { 
     getUsers, 
     updateProfile, 
@@ -30,7 +31,7 @@ const upload = multer({
 
 // Маршруты
 router.get('/', authenticateToken, getUsers);
-router.put('/profile', authenticateToken, updateProfile);
+router.put('/profile', authenticateToken, validateProfile, updateProfile);
 router.put('/avatar', authenticateToken, upload.single('avatar'), updateAvatar);
 
 module.exports = router;

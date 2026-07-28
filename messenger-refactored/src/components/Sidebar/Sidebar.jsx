@@ -6,8 +6,10 @@ import GroupList from './GroupList';
 import CreateChannelModal from './CreateChannelModal';
 import CreateGroupModal from './CreateGroupModal';
 import SearchModal from '../SearchModal';
+import LoadingSpinner from '../LoadingSpinner';
 
 export default function Sidebar({
+  loading,
   chats,
   channels,
   groupChats,
@@ -26,6 +28,7 @@ export default function Sidebar({
   formatMsgTime,
   channelsVersion,
   groupChatsVersion,
+  showToast,
   chatsVersion,
 }) {
   // ✅ Добавь этот лог для проверки
@@ -34,6 +37,13 @@ export default function Sidebar({
   const [isNewChannelOpen, setIsNewChannelOpen] = useState(false);
   const [isNewGroupOpen, setIsNewGroupOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  if (loading) {
+  return (
+    <div className="w-full md:w-80 h-full flex items-center justify-center">
+      <LoadingSpinner size="lg" />
+    </div>
+  );
+}
 
   return (
     <div className="w-full md:w-80 h-full max-h-screen overflow-hidden border-r border-zinc-200 dark:border-zinc-800 flex flex-col bg-white dark:bg-zinc-950 transition-colors duration-300">
@@ -65,6 +75,7 @@ export default function Sidebar({
           onSelectChat={onSelectChat}
           formatMsgTime={formatMsgTime}
           chatsVersion={chatsVersion}
+          searchQuery={searchQuery}
         />
         <ChannelList
           channels={channels}
@@ -105,11 +116,13 @@ export default function Sidebar({
         isOpen={isNewChannelOpen}
         onClose={() => setIsNewChannelOpen(false)}
         onCreate={onCreateChannel}
+        showToast={showToast}
       />
       <CreateGroupModal
         isOpen={isNewGroupOpen}
         onClose={() => setIsNewGroupOpen(false)}
         onCreate={onCreateGroupChat}
+        showToast={showToast}
       />
       <SearchModal
         isOpen={isSearchOpen}

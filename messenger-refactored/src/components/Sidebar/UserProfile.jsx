@@ -22,7 +22,7 @@ export default function UserProfile({ user, onUpdateUser }) {
       if (onUpdateUser) onUpdateUser(updated);
       setIsEditing(false);
     } catch (err) {
-      alert('Не удалось изменить имя');
+      showToast('Не удалось изменить имя');
     }
   };
 
@@ -44,7 +44,7 @@ export default function UserProfile({ user, onUpdateUser }) {
       localStorage.setItem('user', JSON.stringify(updated));
       if (onUpdateUser) onUpdateUser(updated);
     } catch (err) {
-      alert('Не удалось загрузить аватарку');
+      showToast('Не удалось загрузить аватарку');
     }
   };
 

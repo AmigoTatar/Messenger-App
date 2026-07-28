@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { getAvatarUrl } from '../../utils/avatarUtils';
 import { apiClient } from '../../services/apiClient';
 import { API_BASE_URL } from '../../config';
+import LoadingSpinner from '../LoadingSpinner';
+
 export default function ProfilePanel({ activeChat, isOpen, onChatUpdate, onClose, socketRef }) {
 const [activeTab, setActiveTab] = useState('media');
 const [members, setMembers] = useState([]);
@@ -486,7 +488,7 @@ const openEditModal = () => {
             )}
 
             {isLoading ? (
-              <div className="text-center py-4 text-sm text-zinc-400 dark:text-zinc-500">Загрузка...</div>
+              <LoadingSpinner size="md" />
             ) : (
               members.map(member => {
                 const user = member.user || {};

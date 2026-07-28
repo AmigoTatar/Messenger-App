@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { validateChannel } = require('../middleware/validation');
 const { authenticateToken } = require('../middleware/auth');
 const {
     getChannels,
@@ -38,7 +39,7 @@ router.use(authenticateToken);
 // CRUD каналов
 router.get('/', getChannels);
 router.get('/:channelId', getChannel);
-router.post('/', createChannel);
+router.post('/', authenticateToken, validateChannel, createChannel);  // ← С ВАЛИДАЦИЕЙ
 router.put('/:channelId', upload.single('avatar'), updateChannel);
 router.delete('/:channelId', deleteChannel);
 
