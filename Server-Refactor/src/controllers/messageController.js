@@ -36,7 +36,9 @@ const getMessages = async (req, res) => {
         } else if (activeChatId.startsWith('chat_')) {
             const chatDbId = parseInt(activeChatId.replace('chat_', ''), 10);
             if (isNaN(chatDbId)) return res.status(400).json({ error: "Невалидный ID группового чата" });
-            whereClause = { chatId: chatDbId };
+            whereClause = {
+                chatId: chatDbId
+            };
         } else {
             return res.status(400).json({ error: "Неизвестный формат чата" });
         }

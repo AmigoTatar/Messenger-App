@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import ErrorBoundary from './components/ErrorBoundary';
 import Sidebar from './components/Sidebar/Sidebar';
 import ChatArea from './components/ChatArea/ChatArea';
@@ -19,6 +19,77 @@ import { apiClient } from './services/apiClient';
 import { MessageContext } from './contexts/MessageContext';
 import { useToast } from './hooks/useToast';
 import Toast from '/src/Toast';
+import { useContacts } from './hooks/useContacts';
+
+// ==============================================
+// 🔧 ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (ВНЕ КОМПОНЕНТА)
+// ==============================================
+
+// Нормализация ID чата (убирает лишние префиксы)
+const normalizeChatId = (chatId) => {
+    if (!chatId) return chatId;
+    let normalized = chatId;
+    while (normalized.startsWith('chat_chat_') || 
+           normalized.startsWith('channel_channel_') || 
+           normalized.startsWith('user_user_')) {
+        if (normalized.startsWith('chat_chat_')) {
+            normalized = normalized.replace('chat_chat_', 'chat_');
+        } else if (normalized.startsWith('channel_channel_')) {
+            normalized = normalized.replace('channel_channel_', 'channel_');
+        } else if (normalized.startsWith('user_user_')) {
+            normalized = normalized.replace('user_user_', 'user_');
+        }
+    }
+    return normalized;
+};
+
+// Извлекает числовой ID из строки с префиксом (channel_, chat_, user_)
+const extractNumericId = (id) => {
+    if (!id) return null;
+    const raw = String(id);
+    const numeric = parseInt(raw.replace(/^channel_/, '').replace(/^chat_/, '').replace(/^user_/, ''), 10);
+    return isNaN(numeric) ? null : numeric;
+};
+
+// Получает данные активного чата по ID
+const getActiveChatData = (chatId, channels, groupChats, chats) => {
+    if (!chatId) return null;
+    
+    if (chatId.startsWith('channel_')) {
+        const ch = channels?.find(c => `channel_${c.id}` === chatId);
+        if (ch) {
+            return { 
+                name: ch.name, 
+                avatar: ch.avatar, 
+                type: 'channel', 
+                creatorId: ch.creatorId, 
+                members: ch.members || [] 
+            };
+        }
+    } else if (chatId.startsWith('chat_')) {
+        const gr = groupChats?.find(c => c.id === chatId || `chat_${c.dbId}` === chatId);
+        if (gr) {
+            return { 
+                name: gr.name, 
+                avatar: gr.avatar, 
+                type: 'group', 
+                creatorId: gr.creatorId, 
+                members: gr.members || [] 
+            };
+        }
+    } else if (chatId.startsWith('user_')) {
+        const pr = chats?.find(c => c.id === chatId);
+        if (pr) {
+            return { 
+                name: pr.name, 
+                avatar: pr.avatar, 
+                type: 'private', 
+                dbId: pr.dbId 
+            };
+        }
+    }
+    return null;
+};
 
 export default function App() {
   // === Пользователь ===
@@ -43,8 +114,9 @@ export default function App() {
   // === Хуки ===
   const { isDarkMode, toggleTheme } = useTheme();
   const { chats, channels, groupChats, addChannel, addGroupChat, removeChannel, removeGroupChat, setChannels, setGroupChats, setChats, reload: reloadChats, loading: chatsLoading } = useChats(user);
+  const { contacts, loading: contactsLoading, addContact, removeContact, searchUsers, setContacts } = useContacts(user);
   const { unreadCounts, fetchUnread, updateUnread, resetUnread } = useUnread(user);
- const { getMessages, addMessage, addMessages, loadHistory, hasMore, loading, markMessageAsRead, deleteMessageLocally, setMessagesByChat } = useMessages(user?.id);
+  const { getMessages, addMessage, addMessages, loadHistory, hasMore, loading, markMessageAsRead, deleteMessageLocally, setMessagesByChat } = useMessages(user?.id);
   const { markAsRead, debouncedMarkAsRead } = useMarkAsRead();
   
 
@@ -92,6 +164,40 @@ export default function App() {
   } = messageHandlers;
 
   const { toast, showToast, hideToast } = useToast();
+
+  
+
+ // === Переключение чата ===
+  const handleSelectChat = useCallback(async (chatId, chatData = null) => {
+    if (!chatId) return;
+    const normalizedChatId = normalizeChatId(chatId);
+    if (normalizedChatId === activeChatId) return;
+    setActiveChatId(normalizedChatId);
+    activeChatIdRef.current = normalizedChatId;
+    joinChat(normalizedChatId);
+    
+    resetUnread(normalizedChatId);
+    await loadHistory(normalizedChatId);
+   let activeData = chatData || getActiveChatData(normalizedChatId, channels, groupChats, chats);
+setActiveChatData(activeData || { name: 'Чат', avatar: '💬', type: 'general' });
+    setIsProfileOpen(false);
+    if (socket) {
+      socket.emit('read_messages', { activeChatId: normalizedChatId });
+      setMessagesByChat(prev => {
+        const newState = { ...prev };
+        const chatMessages = newState[normalizedChatId];
+        if (chatMessages) {
+          newState[normalizedChatId] = chatMessages.map(msg =>
+            msg.senderId !== user?.id ? { ...msg, status: 'read' } : msg
+          );
+        }
+        return newState;
+      });
+    }
+  }, [activeChatId, joinChat, resetUnread, loadHistory, channels, groupChats, chats, socket, user]);
+
+
+
   // === Эффекты ===
   useEffect(() => {
     if (!activeChatId) return;
@@ -132,6 +238,7 @@ useEffect(() => {
         };
     }
 }, [socket]);
+
 
 
   useEffect(() => {
@@ -182,8 +289,8 @@ useEffect(() => {
 
   // === Обработчики ===
   const handleChannelCreated = useCallback(async (newChannel) => {
-    const rawId = String(newChannel.id);
-    const numericId = parseInt(rawId.replace(/^channel_/, '').replace(/^chat_/, '').replace(/^user_/, ''), 10);
+    const numericId = extractNumericId(newChannel.id);
+if (numericId === null) return; // защита от ошибок
     addChannel({ ...newChannel, id: numericId, members: [] });
     const idWithPrefix = `channel_${numericId}`;
     joinChat(idWithPrefix);
@@ -236,10 +343,10 @@ useEffect(() => {
 
   const handleChatCreated = useCallback((newChat) => {
     console.log('🆕 [handleChatCreated] ВЫЗВАНА! newChat:', newChat);
-    const rawId = String(newChat.id);
-    const numericId = rawId.replace(/^chat_/, '').replace(/^channel_/, '').replace(/^user_/, '');
-    const idWithPrefix = `chat_${numericId}`;
-    const normalized = { ...newChat, id: idWithPrefix, dbId: parseInt(numericId, 10) };
+    const numericId = extractNumericId(newChat.id);
+  if (numericId === null) return;
+  const idWithPrefix = `chat_${numericId}`;
+  const normalized = { ...newChat, id: idWithPrefix, dbId: numericId };
     addGroupChat(normalized);
     joinChat(idWithPrefix);
     console.log('🆕 [handleChatCreated] Вызван joinChat для', idWithPrefix);
@@ -289,35 +396,45 @@ useEffect(() => {
             return [...updated];
         });
     } else if (chatId.startsWith('user_')) {
-        const userId = parseInt(chatId.replace('user_', ''), 10);
-        // ✅ ЗДЕСЬ НЕТ addMessage — ОН УЖЕ БЫЛ ВЫЗВАН ВЫШЕ
-        setChats(prev => {
-            const existing = prev.find(ch => {
-                const id = ch.dbId || parseInt(ch.id?.replace('user_', ''), 10);
-                return id === userId;
-            });
-            if (!existing) {
-                const newChat = {
-                    id: `user_${userId}`,
-                    dbId: userId,
-                    name: newMessage.sender?.username || `Пользователь ${userId}`,
-                    avatar: newMessage.sender?.avatar || '👤',
-                    lastMessage: newMessage,
-                    unreadCount: 0,
-                    isOnline: false,
-                };
-                return [...prev, newChat];
-            }
-            return prev.map(ch => {
-                const id = ch.dbId || parseInt(ch.id?.replace('user_', ''), 10);
-                if (id === userId) {
-                    return { ...ch, lastMessage: newMessage };
-                }
-                return ch;
-            });
+    const userId = parseInt(chatId.replace('user_', ''), 10);
+    
+    // Обновляем chats (для обратной совместимости)
+    setChats(prev => {
+        const existing = prev.find(ch => {
+            const id = ch.dbId || parseInt(ch.id?.replace('user_', ''), 10);
+            return id === userId;
         });
-        setChatsVersion(prev => prev + 1);
-    }
+        if (!existing) {
+            const newChat = {
+                id: `user_${userId}`,
+                dbId: userId,
+                name: newMessage.sender?.username || `Пользователь ${userId}`,
+                avatar: newMessage.sender?.avatar || '👤',
+                lastMessage: newMessage,
+                unreadCount: 0,
+                isOnline: false,
+            };
+            return [...prev, newChat];
+        }
+        return prev.map(ch => {
+            const id = ch.dbId || parseInt(ch.id?.replace('user_', ''), 10);
+            if (id === userId) {
+                return { ...ch, lastMessage: newMessage };
+            }
+            return ch;
+        });
+    });
+    
+    // ✅ Обновляем contacts
+    setContacts(prev => prev.map(contact => {
+        if (contact.id === userId) {
+            return { ...contact, lastMessage: newMessage };
+        }
+        return contact;
+    }));
+    
+    setChatsVersion(prev => prev + 1);
+}
 
     if (String(newMessage.senderId) !== String(user?.id)) {
         playNotificationSound();
@@ -555,6 +672,11 @@ useEffect(() => {
     setUser(userData);
   };
 
+  const handleUpdateUser = useCallback((u) => {
+    localStorage.setItem('user', JSON.stringify(u));
+    setUser(u);
+}, [setUser]);
+
   // === Подписки на сокеты ===
   useEffect(() => {
     if (!socket) return;
@@ -576,6 +698,13 @@ useEffect(() => {
     socket.on('messages_read_update', handleMessagesReadUpdate);
     socket.on('message_pinned', handleMessagePinned);
     socket.on('kicked_from_channel', handleKickedFromChannel);
+    socket.on('contact_added', (userData) => {
+    console.log('📱 Вас добавили в контакты:', userData);
+    setContacts(prev => {
+        if (prev.some(c => c.id === userData.id)) return prev;
+        return [...prev, userData];
+    });
+});
     socket.on('channel_updated', (data) => {
       setChannels(prev => prev.map(ch =>
         ch.id === data.id ? data : ch
@@ -617,57 +746,7 @@ useEffect(() => {
     };
   }, [socket, handleChannelCreated, handleChannelDeleted, handleChatCreated, handleChatDeleted, handleReceiveMessage, handleMessageDeleted, handleReactionUpdated, handleThreadCreated, handleUnreadUpdated, handleMessageEdited, handleChannelMemberAdded, handleChannelMemberRemoved, handleChatMemberAdded, handleChatMemberRemoved, handleUserUpdated, handleMessagesReadUpdate, handleMessagePinned, handleKickedFromChannel]);
 
-  // === Переключение чата ===
-  const handleSelectChat = useCallback(async (chatId, chatData = null) => {
-    if (!chatId) return;
-    let normalizedChatId = chatId;
-    while (normalizedChatId.startsWith('chat_chat_') ||
-           normalizedChatId.startsWith('channel_channel_') ||
-           normalizedChatId.startsWith('user_user_')) {
-      if (normalizedChatId.startsWith('chat_chat_')) {
-        normalizedChatId = normalizedChatId.replace('chat_chat_', 'chat_');
-      } else if (normalizedChatId.startsWith('channel_channel_')) {
-        normalizedChatId = normalizedChatId.replace('channel_channel_', 'channel_');
-      } else if (normalizedChatId.startsWith('user_user_')) {
-        normalizedChatId = normalizedChatId.replace('user_user_', 'user_');
-      }
-    }
-    if (normalizedChatId === activeChatId) return;
-    setActiveChatId(normalizedChatId);
-    activeChatIdRef.current = normalizedChatId;
-    joinChat(normalizedChatId);
-    console.log('🔄 Сброс непрочитанных для чата:', normalizedChatId);
-    resetUnread(normalizedChatId);
-    await loadHistory(normalizedChatId);
-    let activeData = chatData;
-    if (!activeData) {
-      if (normalizedChatId.startsWith('channel_')) {
-        const ch = channels.find(c => `channel_${c.id}` === normalizedChatId);
-        if (ch) activeData = { name: ch.name, avatar: ch.avatar, type: 'channel', creatorId: ch.creatorId, members: ch.members || [] };
-      } else if (normalizedChatId.startsWith('chat_')) {
-        const gr = groupChats.find(c => c.id === normalizedChatId || `chat_${c.dbId}` === normalizedChatId);
-        if (gr) activeData = { name: gr.name, avatar: gr.avatar, type: 'group', creatorId: gr.creatorId, members: gr.members || [] };
-      } else if (normalizedChatId.startsWith('user_')) {
-        const pr = chats.find(c => c.id === normalizedChatId);
-        if (pr) activeData = { name: pr.name, avatar: pr.avatar, type: 'private', dbId: pr.dbId };
-      }
-    }
-    setActiveChatData(activeData || { name: 'Чат', avatar: '💬', type: 'general' });
-    setIsProfileOpen(false);
-    if (socket) {
-      socket.emit('read_messages', { activeChatId: normalizedChatId });
-      setMessagesByChat(prev => {
-        const newState = { ...prev };
-        const chatMessages = newState[normalizedChatId];
-        if (chatMessages) {
-          newState[normalizedChatId] = chatMessages.map(msg =>
-            msg.senderId !== user?.id ? { ...msg, status: 'read' } : msg
-          );
-        }
-        return newState;
-      });
-    }
-  }, [activeChatId, joinChat, resetUnread, loadHistory, channels, groupChats, chats, socket, user]);
+ 
 
 const handleCreateChannel = useCallback(async (channelData) => {
     try {
@@ -707,7 +786,8 @@ const handleCreateGroupChat = useCallback(async (chatData) => {
             body: JSON.stringify(chatData),
         });
 
-        const numericId = parseInt(String(newChat.id).replace('chat_', ''), 10);
+        const numericId = extractNumericId(newChat.id);
+if (numericId === null) return;
         const chatId = `chat_${numericId}`;
         const normalized = { ...newChat, id: chatId, dbId: numericId };
 
@@ -729,6 +809,9 @@ const handleCreateGroupChat = useCallback(async (chatData) => {
     }
 }, [addGroupChat, joinChat, handleSelectChat, user, showToast]);
 
+
+
+
   const handleChatUpdate = useCallback((updated) => {
     if (updated.type === 'channel') {
       setChannels(prev => prev.map(ch =>
@@ -748,13 +831,19 @@ const handleCreateGroupChat = useCallback(async (chatData) => {
     }
   }, [setChannels, setGroupChats, activeChatId, setActiveChatData]);
 
+// Мемоизируем активные сообщения, чтобы не пересчитывать при каждом рендере
+const activeMessages = useMemo(() => {
+    const msgs = getMessages(activeChatId);
+    console.log('🔁 activeMessages обновлён:', msgs.length);
+    return msgs;
+}, [activeChatId, getMessages]);
+
   // === Рендер ===
   if (!user) {
     return <Auth onAuthSuccess={handleAuthSuccess} apiBaseUrl={API_BASE_URL} />;
   }
 
-  const activeMessages = getMessages(activeChatId);
-  console.log('🔁 activeMessages обновлён:', activeMessages.length);
+  
 
   return (
     <ErrorBoundary>
@@ -774,14 +863,19 @@ const handleCreateGroupChat = useCallback(async (chatData) => {
     chatsVersion={chatsVersion}
     channelsVersion={channelsVersion}
     groupChatsVersion={groupChatsVersion}
-    searchQuery={searchQuery}          // ← заменили
-    setSearchQuery={setSearchQuery}    // ← заменили
+    searchQuery={searchQuery}          
+    setSearchQuery={setSearchQuery}    
     isDarkMode={isDarkMode}
     onToggleTheme={toggleTheme}
     onLogout={handleLogout}
     user={user}
-    onUpdateUser={(u) => { localStorage.setItem('user', JSON.stringify(u)); setUser(u); }}
+    onUpdateUser={handleUpdateUser}
     formatMsgTime={(d) => d ? new Date(d).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+    contacts={contacts}
+    contactsLoading={contactsLoading}
+    onAddContact={addContact}
+    onRemoveContact={removeContact}
+    onSearchUsers={searchUsers}
 />
           <MessageContext.Provider value={{ sendMessage: handleSendMessage }}>
             <ChatArea

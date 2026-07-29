@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import UserProfile from './UserProfile';
-import PrivateChatList from './PrivateChatList';
 import ChannelList from './ChannelList';
 import GroupList from './GroupList';
 import CreateChannelModal from './CreateChannelModal';
 import CreateGroupModal from './CreateGroupModal';
 import SearchModal from '../SearchModal';
 import LoadingSpinner from '../LoadingSpinner';
+import ContactList from './ContactList';
+import AddContactModal from './AddContactModal';
 
 export default function Sidebar({
   loading,
@@ -30,6 +31,11 @@ export default function Sidebar({
   groupChatsVersion,
   showToast,
   chatsVersion,
+  contacts,
+  contactsLoading,
+  onAddContact,
+  onRemoveContact,
+  onSearchUsers,
 }) {
   // ✅ Добавь этот лог для проверки
   console.log('🔍 Sidebar: onSelectChat =', onSelectChat);
@@ -37,6 +43,7 @@ export default function Sidebar({
   const [isNewChannelOpen, setIsNewChannelOpen] = useState(false);
   const [isNewGroupOpen, setIsNewGroupOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isAddContactOpen, setIsAddContactOpen] = useState(false);
   if (loading) {
   return (
     <div className="w-full md:w-80 h-full flex items-center justify-center">
@@ -53,12 +60,29 @@ export default function Sidebar({
         <UserProfile user={user} onUpdateUser={onUpdateUser} />
 
         <div className="flex justify-between items-center">
-          <h1 className="text-xl font-bold text-zinc-800 dark:text-white">Чаты</h1>
-          <div className="flex gap-2">
-            <button onClick={() => setIsNewChannelOpen(true)} className="p-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-medium transition shadow-md">📢+</button>
-            <button onClick={() => setIsNewGroupOpen(true)} className="p-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-medium transition shadow-md">👥+</button>
-          </div>
-        </div>
+    <h1 className="text-xl font-bold text-zinc-800 dark:text-white">Чаты</h1>
+    <div className="flex gap-2">
+        <button 
+            onClick={() => setIsAddContactOpen(true)} 
+            className="p-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-sm font-medium transition shadow-md"
+            title="Добавить контакт"
+        >
+            ➕
+        </button>
+        <button 
+            onClick={() => setIsNewChannelOpen(true)} 
+            className="p-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-medium transition shadow-md"
+        >
+            📢+
+        </button>
+        <button 
+            onClick={() => setIsNewGroupOpen(true)} 
+            className="p-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-medium transition shadow-md"
+        >
+            👥+
+        </button>
+    </div>
+</div>
 
         <div className="relative">
           <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Поиск..." className="w-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800 rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:border-emerald-500 transition text-zinc-800 dark:text-white placeholder-zinc-400" />
@@ -68,15 +92,13 @@ export default function Sidebar({
 
       {/* Списки чатов */}
       <div className="flex-1 overflow-y-auto no-scrollbar px-2 py-2 space-y-1">
-        <PrivateChatList
-          chats={chats}
-          activeChatId={activeChatId}
-          unreadCounts={unreadCounts}
-          onSelectChat={onSelectChat}
-          formatMsgTime={formatMsgTime}
-          chatsVersion={chatsVersion}
-          searchQuery={searchQuery}
-        />
+        <ContactList
+    contacts={contacts}
+    activeChatId={activeChatId}
+    unreadCounts={unreadCounts}
+    onSelectChat={onSelectChat}
+    formatMsgTime={formatMsgTime}
+          />
         <ChannelList
           channels={channels}
           channelsVersion={channelsVersion}
@@ -131,6 +153,13 @@ export default function Sidebar({
           if (typeof onSelectChat === 'function') onSelectChat(chatId);
         }}
       />
+      <AddContactModal
+    isOpen={isAddContactOpen}
+    onClose={() => setIsAddContactOpen(false)}
+    onSearch={onSearchUsers}
+    onAdd={onAddContact}
+    existingContacts={contacts}
+/>
     </div>
   );
 }

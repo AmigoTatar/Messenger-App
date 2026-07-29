@@ -26,9 +26,25 @@ model User {
   
   privateChats    PrivateChatMember[] @relation("UserPrivateChats")
   privateChatsWith PrivateChatMember[] @relation("OtherUserPrivateChats")
+  contacts      Contact[] @relation("UserContacts")
+  addedBy       Contact[] @relation("ContactUser")
 
   @@index([username])
   @@index([email])
+}
+
+model Contact {
+  id        Int      @id @default(autoincrement())
+  userId    Int      // Владелец контакта (кто добавил)
+  contactId Int      // ID добавленного пользователя
+  createdAt DateTime @default(now())
+
+  user      User     @relation("UserContacts", fields: [userId], references: [id], onDelete: Cascade)
+  contact   User     @relation("ContactUser", fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, contactId])
+  @@index([userId])
+  @@index([contactId])
 }
 
 model Message {

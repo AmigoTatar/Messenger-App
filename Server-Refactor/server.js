@@ -8,6 +8,7 @@ require('dotenv').config();
 const rateLimit = require('express-rate-limit');
 const { authenticateToken } = require('./src/middleware/auth');
 const { getMuteStatus } = require('./src/controllers/muteController');
+const contactRoutes = require('./src/routes/contactRoutes');
 
 // ==========================================
 // ИНИЦИАЛИЗАЦИЯ
@@ -130,6 +131,8 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/read', readRoutes);
 app.use('/api/unread', unreadRoutes);
 app.use('/api/mute', muteRoutes);
+app.use('/api/contacts', contactRoutes);
+
 
 // ==========================================
 // ДОПОЛНИТЕЛЬНЫЕ РОУТЫ (для совместимости с фронтендом)

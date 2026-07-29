@@ -41,6 +41,28 @@ export default function ChatArea({
   showToast,
   onPinMessage, 
 }) {
+
+
+const getChatName = (activeChatId, activeChatData, channelsProp, groupChatsProp, chatsProp) => {
+    if (!activeChatId) return 'Выберите чат';
+    if (activeChatId === 'chat_general') return 'Общий чат';
+    if (activeChatData?.name) return activeChatData.name;
+    if (activeChatId.startsWith('channel_')) {
+        const ch = channelsProp?.find(c => `channel_${c.id}` === activeChatId);
+        return ch?.name || 'Канал';
+    }
+    if (activeChatId.startsWith('chat_')) {
+        const gr = groupChatsProp?.find(c => c.id === activeChatId);
+        return gr?.name || 'Групповой чат';
+    }
+    if (activeChatId.startsWith('user_')) {
+        const pr = chatsProp?.find(c => c.id === activeChatId);
+        return pr?.name || 'Пользователь';
+    }
+    return 'Чат';
+};
+
+
   // ==============================================
   // 🧠 СОСТОЯНИЯ ДЛЯ UI
   // ==============================================
@@ -63,6 +85,7 @@ export default function ChatArea({
 
 
   
+
 
   // ==============================================
   // 🎯 ОБРАБОТЧИКИ ДЛЯ КОНТЕКСТНОГО МЕНЮ
@@ -395,24 +418,7 @@ const canPin = (msg) => {
   const handleReactionToggle = () => {};
   const handleThreadReply = () => {};
   
-  const getChatName = () => {
-  if (!activeChatId) return 'Выберите чат';
-  if (activeChatId === 'chat_general') return 'Общий чат';
-  if (activeChatData?.name) return activeChatData.name;
-  if (activeChatId.startsWith('channel_')) {
-    const ch = channelsProp?.find(c => `channel_${c.id}` === activeChatId);
-    return ch?.name || 'Канал';
-  }
-  if (activeChatId.startsWith('chat_')) {
-    const gr = groupChatsProp?.find(c => c.id === activeChatId);
-    return gr?.name || 'Групповой чат';
-  }
-  if (activeChatId.startsWith('user_')) {
-    const pr = chatsProp?.find(c => c.id === activeChatId);
-    return pr?.name || 'Пользователь';
-  }
-  return 'Чат';
-};
+  
 
 console.log('📊 [ChatArea] received messages:', messages);
 console.log('📊 [ChatArea] messages length:', messages?.length);
@@ -423,6 +429,7 @@ if (isHistoryLoading) {
     </div>
   );
 }
+const chatName = getChatName(activeChatId, activeChatData, channelsProp, groupChatsProp, chatsProp);
   return (
   <div className="flex-col flex-1 h-full bg-zinc-100 dark:bg-zinc-900">
     {!activeChatId ? (
@@ -434,7 +441,7 @@ if (isHistoryLoading) {
       // ✅ Добавляем обёртку flex flex-col h-full
       <div className="flex flex-col h-full">
         <ChatHeader
-          chatName={getChatName()}
+          chatName={chatName}
           chatAvatar={activeChatData?.avatar}
           chatType={activeChatData?.type}
           isOnline={activeChatData?.isOnline}
