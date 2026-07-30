@@ -555,9 +555,7 @@ const chatName = getChatName(activeChatId, activeChatData, channelsProp, groupCh
             onDelete={handleDelete}
             onReaction={handleReaction}
             canDelete={
-              Number(contextMenu.message?.senderId) === Number(currentUserId) ||
-              (activeChatData?.type === 'channel' && activeChatData?.creatorId === Number(currentUserId)) ||
-              (activeChatData?.type === 'group' && activeChatData?.creatorId === Number(currentUserId))
+              Number(contextMenu.message?.senderId) === Number(currentUserId)
             }
           />
         )}

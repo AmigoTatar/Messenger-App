@@ -1,7 +1,8 @@
 import React from 'react';
 import ChatListItem from './ChatListItem';
 
-export default function ContactList({ contacts, activeChatId, unreadCounts, onSelectChat, formatMsgTime }) {
+export default function ContactList({ contacts, contactsVersion, activeChatId, unreadCounts, onSelectChat, formatMsgTime }) {
+    console.log('📊 [ContactList] РЕНДЕР: contactsVersion=', contactsVersion, 'contacts=', contacts);
     if (!contacts || contacts.length === 0) {
         return (
             <div className="px-3 py-4 text-center text-xs text-zinc-400 dark:text-zinc-500">
@@ -21,7 +22,7 @@ export default function ContactList({ contacts, activeChatId, unreadCounts, onSe
                 const unreadCount = unreadCounts[chatId] || 0;
                 return (
                     <ChatListItem
-                        key={contact.id}
+                        key={`${contact.id}-${contactsVersion}`}
                         id={chatId}
                         name={contact.username}
                         avatar={contact.avatar}

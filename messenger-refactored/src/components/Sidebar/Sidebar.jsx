@@ -36,6 +36,7 @@ export default function Sidebar({
   onAddContact,
   onRemoveContact,
   onSearchUsers,
+  contactsVersion,
 }) {
   // ✅ Добавь этот лог для проверки
   console.log('🔍 Sidebar: onSelectChat =', onSelectChat);
@@ -92,8 +93,11 @@ export default function Sidebar({
 
       {/* Списки чатов */}
       <div className="flex-1 overflow-y-auto no-scrollbar px-2 py-2 space-y-1">
+        
         <ContactList
+        
     contacts={contacts}
+    contactsVersion={contactsVersion}
     activeChatId={activeChatId}
     unreadCounts={unreadCounts}
     onSelectChat={onSelectChat}

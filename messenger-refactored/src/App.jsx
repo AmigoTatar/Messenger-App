@@ -110,11 +110,12 @@ export default function App() {
   const [isNewChannelOpen, setIsNewChannelOpen] = useState(false);
   const [isNewGroupOpen, setIsNewGroupOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [contactsVersion, setContactsVersion] = useState(0);
 
   // === Хуки ===
   const { isDarkMode, toggleTheme } = useTheme();
   const { chats, channels, groupChats, addChannel, addGroupChat, removeChannel, removeGroupChat, setChannels, setGroupChats, setChats, reload: reloadChats, loading: chatsLoading } = useChats(user);
-  const { contacts, loading: contactsLoading, addContact, removeContact, searchUsers, setContacts } = useContacts(user);
+  const { contacts, loading: contactsLoading, addContact, removeContact, searchUsers, setContacts, fetchContacts } = useContacts(user);
   const { unreadCounts, fetchUnread, updateUnread, resetUnread } = useUnread(user);
   const { getMessages, addMessage, addMessages, loadHistory, hasMore, loading, markMessageAsRead, deleteMessageLocally, setMessagesByChat } = useMessages(user?.id);
   const { markAsRead, debouncedMarkAsRead } = useMarkAsRead();
@@ -148,7 +149,10 @@ export default function App() {
     activeChatIdRef,
     updateUnread,
     loadHistory,
-    processedEvents
+    processedEvents,
+    setContacts,
+    setContactsVersion,
+    fetchContacts,
   });
 
   const {
@@ -876,6 +880,7 @@ const activeMessages = useMemo(() => {
     onAddContact={addContact}
     onRemoveContact={removeContact}
     onSearchUsers={searchUsers}
+    contactsVersion={contactsVersion}
 />
           <MessageContext.Provider value={{ sendMessage: handleSendMessage }}>
             <ChatArea

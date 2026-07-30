@@ -209,19 +209,44 @@ const setupSocket = (io, prisma) => {
             }
         });
 
-        // === 3. УДАЛЕНИЕ СООБЩЕНИЯ ===
-// === 3. УДАЛЕНИЕ СООБЩЕНИЯ ===
+ // === 3. УДАЛЕНИЕ СООБЩЕНИЯ ===
 socket.on('delete_message', async ({ messageId, activeChatId }) => {
     try {
         console.log(`🗑️ [delete_message] messageId: ${messageId}, activeChatId: ${activeChatId}`);
-        const message = await prisma.message.findUnique({
-            where: { id: Number(messageId) }
-        });
-        if (!message || message.senderId !== socket.userId) return;
 
+        const message = await prisma.message.findUnique({
+            where: { id: Number(messageId) },
+            include: {
+                sender: { select: { id: true, username: true } }
+            }
+        });
+
+        if (!message) {
+            console.log('❌ [delete_message] Сообщение не найдено');
+            return;
+        }
+
+        // ✅ ПРОВЕРКА ПРАВ: в групповых чатах удалять можно только свои сообщения
+        if (message.chatId) {
+            if (message.senderId !== socket.userId) {
+                console.log(`❌ [delete_message] Пользователь ${socket.userId} пытается удалить чужое сообщение в группе`);
+                socket.emit('error', { message: 'В групповом чате можно удалять только свои сообщения' });
+                return;
+            }
+        }
+
+        // ✅ В приватных чатах и каналах — только автор может удалять
+        if (message.senderId !== socket.userId) {
+            console.log(`❌ [delete_message] Пользователь ${socket.userId} не является автором сообщения`);
+            socket.emit('error', { message: 'Вы не можете удалить это сообщение' });
+            return;
+        }
+
+        // Удаляем реакции и треды
         await prisma.reaction.deleteMany({ where: { messageId: Number(messageId) } });
         await prisma.thread.deleteMany({ where: { messageId: Number(messageId) } });
 
+        // Обновляем сообщение
         const updatedMessage = await prisma.message.update({
             where: { id: Number(messageId) },
             data: {
@@ -235,11 +260,11 @@ socket.on('delete_message', async ({ messageId, activeChatId }) => {
 
         const deletePayload = {
             messageId: updatedMessage.id,
-            activeChatId,  // ← ЭТО ДОЛЖНО БЫТЬ
+            activeChatId,
             isDeleted: true
         };
 
-        // Отправляем ВСЕМ участникам
+        // Отправляем всем участникам
         if (activeChatId?.startsWith('channel_')) {
             const channelId = parseInt(activeChatId.replace('channel_', ''), 10);
             io.to(`channel_${channelId}`).emit('message_deleted', deletePayload);
@@ -267,16 +292,16 @@ socket.on('delete_message', async ({ messageId, activeChatId }) => {
                 }
             }
         } else if (activeChatId?.startsWith('user_')) {
-    const receiverId = parseInt(activeChatId.replace('user_', ''), 10);
-    socket.emit('message_deleted', deletePayload);
-    const targetSocketId = onlineUsers.get(receiverId);
-    if (targetSocketId) {
-        io.to(targetSocketId).emit('message_deleted', deletePayload);
-    }
-    io.to(activeChatId).emit('message_deleted', deletePayload);
+            const receiverId = parseInt(activeChatId.replace('user_', ''), 10);
+            io.to(activeChatId).emit('message_deleted', deletePayload);
+            socket.emit('message_deleted', deletePayload);
+            const targetSocketId = onlineUsers.get(receiverId);
+            if (targetSocketId) {
+                io.to(targetSocketId).emit('message_deleted', deletePayload);
+            }
         }
 
-        console.log(`✅ [delete_message] Событие разослано для ${messageId}`);
+        console.log(`✅ [delete_message] Сообщение ${messageId} удалено`);
     } catch (err) {
         console.error('❌ Ошибка delete_message:', err);
     }

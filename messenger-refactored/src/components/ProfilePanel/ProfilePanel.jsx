@@ -408,16 +408,20 @@ const openEditModal = () => {
       <span>{activeChat.avatar || '💬'}</span>
     )}
   </div>
-  <h2 className="font-bold text-lg text-zinc-900 dark:text-white">
-    {activeChat.name}
-  </h2>
-  <button
-    onClick={openEditModal}
-    className="text-sm text-emerald-400 hover:text-emerald-300 transition"
-    title="Редактировать"
-  >
-    ✏️
-  </button>
+  <div className="flex items-center gap-2">
+    <h2 className="font-bold text-lg text-zinc-900 dark:text-white">
+        {activeChat.name}
+    </h2>
+    {activeChat?.type !== 'private' && (
+        <button
+            onClick={openEditModal}
+            className="text-sm text-emerald-400 hover:text-emerald-300 transition"
+            title="Редактировать"
+        >
+            ✏️
+        </button>
+    )}
+</div>
   <span className="text-xs text-zinc-500 dark:text-zinc-400">
     {activeChat.type === 'channel' ? '📢 Канал' :
      activeChat.type === 'group' ? '👥 Групповой чат' : '💬 Чат'}

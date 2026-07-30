@@ -20,7 +20,11 @@ export function useMessageHandlers({
     joinChat,
     loadHistory,
     reloadChats,
-    processedEvents
+    processedEvents,
+    setContacts,
+    setContactsVersion,
+    fetchContacts, 
+    
 }) {
 
     // ==============================================
@@ -134,78 +138,102 @@ const handleMessageDeleted = useCallback(({ messageId, activeChatId }) => {
         }));
         setGroupChatsVersion(prev => prev + 1);
         console.log('✅ lastMessage обновлён для группы', activeChatId, 'новое:', newLastMessage);
-    } else if (activeChatId.startsWith('user_')) {
-        // Принудительно перезагружаем список приватных чатов
-        if (reloadChats) {
-            reloadChats();
-            console.log('📊 [handleMessageDeleted] Перезагружаю список приватных чатов');
+ } else if (activeChatId.startsWith('user_')) {
+    const chatUserId = parseInt(activeChatId.replace('user_', ''), 10);
+    
+    // 1. Обновляем chats (для обратной совместимости)
+    setChats(prev => prev.map(ch => {
+        const chUserId = parseInt(ch.id?.replace('user_', ''), 10);
+        if (chUserId === chatUserId) {
+            return { ...ch, lastMessage: newLastMessage };
         }
-        const chatUserId = parseInt(activeChatId.replace('user_', ''), 10);
-        setChats(prev => prev.map(ch => {
-            const chUserId = parseInt(ch.id?.replace('user_', ''), 10);
-            if (chUserId === chatUserId) {
-                return { ...ch, lastMessage: newLastMessage };
-            }
-            return ch;
-        }));
-        setChatsVersion(prev => prev + 1);
-        console.log('✅ lastMessage обновлён для приватного чата', activeChatId, 'новое:', newLastMessage);
+        return ch;
+    }));
+    setChatsVersion(prev => prev + 1);
+
+    // 2. ✅ Принудительно перезагружаем контакты с сервера
+    if (fetchContacts) {
+        fetchContacts();
+        console.log('📊 [handleMessageDeleted] Контакты перезагружены с сервера');
     }
+
+    // 3. Увеличиваем версию для перерендера
+    if (setContactsVersion) {
+        setContactsVersion(prev => prev + 1);
+    }
+
+    console.log('✅ lastMessage обновлён для приватного чата', activeChatId, 'новое:', newLastMessage);
+}
 }, [setMessagesByChat, setChats, setChannels, setGroupChats, setChatsVersion, setChannelsVersion, setGroupChatsVersion, reloadChats]);    // 🎯 ОБРАБОТЧИК ОБНОВЛЕНИЯ ПОЛЬЗОВАТЕЛЯ
     // ==============================================
 
 
 
     const handleUserUpdated = useCallback((data) => {
-        const { userId, username, avatar } = data;
-        console.log('🔄 [user_updated] Получено:', data);
+    const { userId, username, avatar } = data;
+    console.log('🔄 [user_updated] Получено:', data);
 
-        if (userId === user?.id) {
-            const updatedUser = { ...user, username, avatar };
-            setUser(updatedUser);
-            localStorage.setItem('user', JSON.stringify(updatedUser));
+    // 1. Обновляем текущего пользователя (если это он)
+    if (userId === user?.id) {
+        const updatedUser = { ...user, username, avatar };
+        setUser(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+    }
+
+    // 2. Обновляем в списке приватных чатов (chats)
+    setChats(prev => prev.map(ch => {
+        if (ch.dbId === userId) {
+            return { ...ch, name: username, avatar: avatar || ch.avatar };
         }
+        return ch;
+    }));
 
-        setChats(prev => prev.map(ch => {
-            if (ch.dbId === userId) {
-                return { ...ch, name: username, avatar: avatar || ch.avatar };
+    // 3. Обновляем в групповых чатах (как участник)
+    setGroupChats(prev => prev.map(chat => ({
+        ...chat,
+        members: chat.members?.map(m => {
+            if (m.userId === userId) {
+                return { ...m, user: { ...m.user, username, avatar } };
             }
-            return ch;
+            return m;
+        })
+    })));
+
+    // 4. Обновляем в каналах (как участник)
+    setChannels(prev => prev.map(channel => ({
+        ...channel,
+        members: channel.members?.map(m => {
+            if (m.userId === userId) {
+                return { ...m, user: { ...m.user, username, avatar } };
+            }
+            return m;
+        })
+    })));
+
+    // 5. ✅ Обновляем в контактах (сайдбар)
+    if (setContacts) {
+        setContacts(prev => prev.map(contact => {
+            if (contact.id === userId) {
+                return { ...contact, username, avatar: avatar || contact.avatar };
+            }
+            return contact;
         }));
+    }
 
-        setGroupChats(prev => prev.map(chat => ({
-            ...chat,
-            members: chat.members?.map(m => {
-                if (m.userId === userId) {
-                    return { ...m, user: { ...m.user, username, avatar } };
-                }
-                return m;
-            })
-        })));
+    // 6. Обновляем activeChatData (если этот чат открыт)
+    if (activeChatData && activeChatData.type === 'private' && activeChatData.dbId === userId) {
+        setActiveChatData(prev => ({
+            ...prev,
+            name: username,
+            avatar: avatar || prev.avatar
+        }));
+    }
 
-        setChannels(prev => prev.map(channel => ({
-            ...channel,
-            members: channel.members?.map(m => {
-                if (m.userId === userId) {
-                    return { ...m, user: { ...m.user, username, avatar } };
-                }
-                return m;
-            })
-        })));
-
-        if (activeChatData && activeChatData.type === 'private' && activeChatData.dbId === userId) {
-            setActiveChatData(prev => ({
-                ...prev,
-                name: username,
-                avatar: avatar || prev.avatar
-            }));
-        }
-
-        setChatsVersion(prev => prev + 1);
-        setGroupChatsVersion(prev => prev + 1);
-        setChannelsVersion(prev => prev + 1);
-    }, [user, setUser, setChats, setGroupChats, setChannels, activeChatData, setActiveChatData, setChatsVersion, setGroupChatsVersion, setChannelsVersion]);
-
+    // 7. Форсируем перерендер
+    setChatsVersion(prev => prev + 1);
+    setGroupChatsVersion(prev => prev + 1);
+    setChannelsVersion(prev => prev + 1);
+}, [user, setUser, setChats, setGroupChats, setChannels, activeChatData, setActiveChatData, setChatsVersion, setGroupChatsVersion, setChannelsVersion, setContacts]);
     // ==============================================
     // 🎯 ОБРАБОТЧИК УДАЛЕНИЯ ИЗ КАНАЛА
     // ==============================================
