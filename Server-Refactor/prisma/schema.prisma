@@ -32,7 +32,18 @@ model User {
   @@index([username])
   @@index([email])
 }
+model PasswordReset {
+  id        Int      @id @default(autoincrement())
+  email     String   // Email пользователя, который запросил сброс
+  token     String   @unique // Уникальный токен для сброса
+  expiresAt DateTime // Время жизни токена (например, 1 час)
+  createdAt DateTime @default(now())
+  used      Boolean  @default(false) // Использован ли токен
 
+  @@index([email])
+  @@index([token])
+  @@index([expiresAt])
+}
 model Contact {
   id        Int      @id @default(autoincrement())
   userId    Int      // Владелец контакта (кто добавил)

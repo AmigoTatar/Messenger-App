@@ -9,7 +9,8 @@ const rateLimit = require('express-rate-limit');
 const { authenticateToken } = require('./src/middleware/auth');
 const { getMuteStatus } = require('./src/controllers/muteController');
 const contactRoutes = require('./src/routes/contactRoutes');
-
+const passwordRoutes = require('./src/routes/passwordRoutes');
+const nodemailer = require('nodemailer');
 // ==========================================
 // ИНИЦИАЛИЗАЦИЯ
 // ==========================================
@@ -132,6 +133,7 @@ app.use('/api/read', readRoutes);
 app.use('/api/unread', unreadRoutes);
 app.use('/api/mute', muteRoutes);
 app.use('/api/contacts', contactRoutes);
+app.use('/api/auth', passwordRoutes);
 
 
 // ==========================================
