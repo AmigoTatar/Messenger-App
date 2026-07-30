@@ -1,6 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const crypto = require('crypto');
+const { sendResetEmail } = require('../utils/email');
 
 // Генерация случайного токена
 const generateToken = () => {
