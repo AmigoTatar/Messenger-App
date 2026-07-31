@@ -45,3 +45,68 @@ export const extractIdFromChatId = (chatId) => {
     const parts = chatId.split('_');
     return parts.length > 1 ? parts[1] : null;
 };
+// Извлекает числовой ID из строки с префиксом (channel_, chat_, user_)
+export const extractNumericId = (id) => {
+    if (!id) return null;
+    const raw = String(id);
+    const numeric = parseInt(raw.replace(/^channel_/, '').replace(/^chat_/, '').replace(/^user_/, ''), 10);
+    return isNaN(numeric) ? null : numeric;
+};
+
+// Получает данные активного чата по ID
+export const getActiveChatData = (chatId, channels, groupChats, chats) => {
+    if (!chatId) return null;
+    
+    if (chatId.startsWith('channel_')) {
+        const ch = channels?.find(c => `channel_${c.id}` === chatId);
+        if (ch) {
+            return { 
+                name: ch.name, 
+                avatar: ch.avatar, 
+                type: 'channel', 
+                creatorId: ch.creatorId, 
+                members: ch.members || [] 
+            };
+        }
+    } else if (chatId.startsWith('chat_')) {
+        const gr = groupChats?.find(c => c.id === chatId || `chat_${c.dbId}` === chatId);
+        if (gr) {
+            return { 
+                name: gr.name, 
+                avatar: gr.avatar, 
+                type: 'group', 
+                creatorId: gr.creatorId, 
+                members: gr.members || [] 
+            };
+        }
+    } else if (chatId.startsWith('user_')) {
+        const pr = chats?.find(c => c.id === chatId);
+        if (pr) {
+            return { 
+                name: pr.name, 
+                avatar: pr.avatar, 
+                type: 'private', 
+                dbId: pr.dbId 
+            };
+        }
+    }
+    return null;
+};
+
+// Нормализация ID чата
+export const normalizeChatId = (chatId) => {
+    if (!chatId) return chatId;
+    let normalized = chatId;
+    while (normalized.startsWith('chat_chat_') || 
+           normalized.startsWith('channel_channel_') || 
+           normalized.startsWith('user_user_')) {
+        if (normalized.startsWith('chat_chat_')) {
+            normalized = normalized.replace('chat_chat_', 'chat_');
+        } else if (normalized.startsWith('channel_channel_')) {
+            normalized = normalized.replace('channel_channel_', 'channel_');
+        } else if (normalized.startsWith('user_user_')) {
+            normalized = normalized.replace('user_user_', 'user_');
+        }
+    }
+    return normalized;
+};
