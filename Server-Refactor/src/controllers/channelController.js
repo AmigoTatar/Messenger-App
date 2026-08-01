@@ -51,15 +51,20 @@ const getChannels = async (req, res) => {
 // --- GET /api/channels/:channelId ---
 const getChannel = async (req, res) => {
     try {
+         console.log('🔍 getChannel вызвана! channelId:', req.params.channelId);
         const channelId = parseInt(req.params.channelId);
         const userId = req.userId;
 
         const member = await prisma.channelMember.findFirst({
-            where: { channelId, userId }
+            where: {
+                channelId: channelId,
+                userId: userId
+            }
         });
         if (!member) {
             return res.status(403).json({ error: 'Вы не участник этого канала' });
         }
+
 
         const channel = await prisma.channel.findUnique({
             where: { id: channelId },
@@ -74,6 +79,10 @@ const getChannel = async (req, res) => {
             }
         });
 
+        if (!channel) {
+            return res.status(404).json({ error: 'Канал не найден' });
+        }
+
         const lastMessage = channel.messages[0] || null;
         const { messages, ...channelData } = channel;
         res.json({ ...channelData, lastMessage });
@@ -82,7 +91,6 @@ const getChannel = async (req, res) => {
         res.status(500).json({ error: 'Ошибка загрузки канала' });
     }
 };
-
 // --- POST /api/channels ---
 const createChannel = async (req, res) => {
     try {
@@ -134,7 +142,6 @@ const updateChannel = async (req, res) => {
             return res.status(404).json({ error: 'Канал не найден' });
         }
 
-        // Проверка прав (админ или создатель)
         const isAdmin = await prisma.channelMember.findFirst({
             where: { channelId, userId, role: 'admin' }
         });
@@ -144,7 +151,6 @@ const updateChannel = async (req, res) => {
 
         let avatar = channel.avatar;
         if (req.file) {
-            // Удаляем старый аватар
             if (avatar && avatar.startsWith('/uploads/')) {
                 const oldPath = path.join(__dirname, '../../public', avatar);
                 if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
@@ -171,7 +177,6 @@ const updateChannel = async (req, res) => {
         const { messages, ...channelData } = updatedChannel;
         const result = { ...channelData, lastMessage, type: 'channel' };
 
-        // Отправляем событие всем участникам канала
         const io = req.app.get('io');
         io.to(`channel_${channelId}`).emit('channel_updated', result);
 
@@ -201,22 +206,16 @@ const deleteChannel = async (req, res) => {
             return res.status(403).json({ error: 'Только создатель может удалить канал' });
         }
 
-        // Удаляем всех участников канала (связи)
         await prisma.channelMember.deleteMany({
             where: { channelId }
         });
 
-        // Удаляем сам канал
         await prisma.channel.delete({
             where: { id: channelId }
         });
 
-        // Отправляем событие через сокет
         const io = req.app.get('io');
         io.emit('channel_deleted', { channelId });
-
-        // Также можно отправить каждому участнику лично, чтобы они закрыли комнату
-        // Но проще через io.emit – все клиенты получат и обновят списки
 
         console.log(`🗑️ Канал ${channelId} удалён, событие разослано`);
         res.json({ success: true, message: 'Канал удален' });
@@ -245,6 +244,7 @@ const getChannelMembers = async (req, res) => {
     }
 };
 
+// --- ADD MEMBER ---
 const addChannelMember = async (req, res) => {
     try {
         const channelId = parseInt(req.params.channelId);
@@ -275,7 +275,6 @@ const addChannelMember = async (req, res) => {
             include: { user: { select: { id: true, username: true, avatar: true } } }
         });
 
-        // 🔥 Отправка сокет-события
         try {
             const io = req.app.get('io');
             const roomName = `channel_${channelId}`;
@@ -285,10 +284,8 @@ const addChannelMember = async (req, res) => {
                 channelName: channel.name
             });
 
-            // Отправляем новому участнику
             const newUserSocketId = onlineUsers.get(userId);
             if (newUserSocketId) {
-                // Получаем полные данные канала для нового участника
                 const fullChannel = await prisma.channel.findUnique({
                     where: { id: channelId },
                     include: {
@@ -306,13 +303,11 @@ const addChannelMember = async (req, res) => {
                     lastMessage,
                     members: [member]
                 });
-                // Подписываем нового участника на комнату
                 const socket = io.sockets.sockets.get(newUserSocketId);
                 if (socket) socket.join(roomName);
             }
         } catch (socketError) {
             console.error('❌ Ошибка отправки сокет-события при добавлении участника в канал:', socketError);
-            // Не прерываем выполнение, чтобы клиент получил успешный ответ
         }
 
         res.status(201).json(member);
@@ -322,7 +317,7 @@ const addChannelMember = async (req, res) => {
     }
 };
 
-// --- DELETE /api/channels/:channelId/members/:userId ---
+// --- REMOVE MEMBER ---
 const removeChannelMember = async (req, res) => {
     try {
         const channelId = parseInt(req.params.channelId);
@@ -338,13 +333,10 @@ const removeChannelMember = async (req, res) => {
             return res.status(404).json({ error: 'Канал не найден' });
         }
 
-        // Если пользователь пытается удалить себя (выйти из канала) - разрешаем
         if (userId === currentUserId) {
-            // Проверяем, что пользователь не создатель (создатель не может покинуть канал)
             if (userId === channel.creatorId) {
                 return res.status(400).json({ error: 'Создатель не может покинуть канал' });
             }
-            // Удаляем участника
             const member = await prisma.channelMember.findUnique({
                 where: { channelId_userId: { channelId, userId } }
             });
@@ -354,14 +346,12 @@ const removeChannelMember = async (req, res) => {
             await prisma.channelMember.delete({
                 where: { channelId_userId: { channelId, userId } }
             });
-            // Отправляем событие
             const io = req.app.get('io');
             io.to(`channel_${channelId}`).emit('channel_member_removed', {
                 channelId,
                 userId,
                 channelName: channel.name
             });
-            // Отправляем лично покинувшему пользователю
             const removedSocketId = onlineUsers.get(userId);
             if (removedSocketId) {
                 io.to(removedSocketId).emit('kicked_from_channel', {
@@ -377,7 +367,6 @@ const removeChannelMember = async (req, res) => {
             return res.json({ success: true, message: 'Вы покинули канал' });
         }
 
-        // Иначе проверяем права админа для удаления других участников
         const isAdmin = await prisma.channelMember.findFirst({
             where: { channelId, userId: currentUserId, role: 'admin' }
         });
@@ -414,6 +403,327 @@ const removeChannelMember = async (req, res) => {
     }
 };
 
+// ==============================================
+// ЗАЯВКИ НА ВСТУПЛЕНИЕ В КАНАЛ
+// ==============================================
+const searchChannels = async (req, res) => {
+    try {
+        console.log('🔍 1. Функция searchChannels вызвана!');
+        const { query } = req.query;
+        const userId = req.userId;
+        
+        console.log(`🔍 2. query: "${query}", userId: ${userId}`);
+
+        if (!query || query.length < 2) {
+            console.log('🔍 3. Запрос слишком короткий');
+            return res.status(400).json({ error: 'Минимум 2 символа' });
+        }
+
+        console.log('🔍 4. Начинаю поиск в БД...');
+        const channels = await prisma.channel.findMany({
+            where: {
+                name: { 
+                    contains: query,
+                    mode: 'insensitive'
+                }
+            },
+            include: {
+                members: {
+                    where: { userId },
+                    select: { userId: true, role: true }
+                }
+            },
+            take: 20
+        });
+
+        console.log(`🔍 5. Найдено каналов: ${channels.length}`);
+
+        const result = channels.map(channel => {
+            const isMember = channel.members.some(m => m.userId === userId);
+            const isAdmin = channel.members.some(m => m.userId === userId && m.role === 'admin');
+            const { members, ...channelData } = channel;
+            
+            return {
+                ...channelData,
+                isMember,
+                isAdmin,
+                memberCount: channel.members.length,
+                lastMessage: null
+            };
+        });
+
+        console.log('🔍 6. Отправляю результат:', result.length, 'каналов');
+        res.json(result);
+    } catch (error) {
+        console.error('❌ ОШИБКА в searchChannels:', error);
+        console.error('❌ Стек ошибки:', error.stack);
+        res.status(500).json({ 
+            error: 'Не удалось найти каналы',
+            details: error.message,
+            stack: error.stack
+        });
+    }
+};
+
+// --- ПОДАТЬ ЗАЯВКУ ---
+const createJoinRequest = async (req, res) => {
+    try {
+        const channelId = parseInt(req.params.channelId);
+        const userId = req.userId;
+
+        const channel = await prisma.channel.findUnique({
+            where: { id: channelId }
+        });
+        if (!channel) {
+            return res.status(404).json({ error: 'Канал не найден' });
+        }
+
+        const existingMember = await prisma.channelMember.findUnique({
+            where: { channelId_userId: { channelId, userId } }
+        });
+        if (existingMember) {
+            return res.status(400).json({ error: 'Вы уже участник канала' });
+        }
+
+        // ✅ НОВАЯ ПРОВЕРКА: ищем последнюю заявку
+        const existingRequest = await prisma.joinRequest.findUnique({
+            where: { channelId_userId: { channelId, userId } }
+        });
+
+        if (existingRequest) {
+            // Если заявка уже одобрена
+            if (existingRequest.status === 'approved') {
+                return res.status(400).json({ error: 'Вы уже участник канала' });
+            }
+            
+            // Если заявка отклонена — проверяем время
+            if (existingRequest.status === 'rejected') {
+                const now = new Date();
+                const createdAt = new Date(existingRequest.createdAt);
+                const diffMinutes = (now - createdAt) / (1000 * 60);
+                
+                if (diffMinutes < 5) {
+                    const remainingMinutes = Math.ceil(5 - diffMinutes);
+                    return res.status(400).json({ 
+                        error: `Заявка отклонена. Повторно подать можно через ${remainingMinutes} мин.`,
+                        canRetryAfter: 5 - diffMinutes,
+                        status: 'rejected'
+                    });
+                }
+                
+                // ✅ Прошло 5 минут — удаляем старую заявку и создаём новую
+                await prisma.joinRequest.delete({
+                    where: { id: existingRequest.id }
+                });
+                // Продолжаем создание новой заявки
+            }
+            
+            // Если заявка в статусе pending
+            if (existingRequest.status === 'pending') {
+                return res.status(400).json({ 
+                    error: 'Заявка уже отправлена и ожидает рассмотрения',
+                    status: 'pending'
+                });
+            }
+        }
+
+        // Создаём новую заявку
+        const joinRequest = await prisma.joinRequest.create({
+            data: {
+                channelId,
+                userId,
+                status: 'pending'
+            },
+            include: {
+                user: {
+                    select: { id: true, username: true, avatar: true }
+                }
+            }
+        });
+
+        // Отправляем уведомление админам
+        const io = req.app.get('io');
+        const admins = await prisma.channelMember.findMany({
+            where: {
+                channelId,
+                role: 'admin'
+            },
+            select: { userId: true }
+        });
+
+        for (const admin of admins) {
+            const socketId = onlineUsers.get(admin.userId);
+            if (socketId) {
+                io.to(socketId).emit('join_request_received', {
+                    channelId,
+                    channelName: channel.name,
+                    request: joinRequest
+                });
+            }
+        }
+
+        res.status(201).json(joinRequest);
+    } catch (error) {
+        console.error('❌ Ошибка создания заявки:', error);
+        res.status(500).json({ error: 'Не удалось отправить заявку' });
+    }
+};
+
+// --- ПОЛУЧИТЬ ЗАЯВКИ ---
+const getJoinRequests = async (req, res) => {
+    try {
+        const channelId = parseInt(req.params.channelId);
+        const userId = req.userId;
+
+        const isAdmin = await prisma.channelMember.findFirst({
+            where: { channelId, userId, role: 'admin' }
+        });
+        if (!isAdmin) {
+            return res.status(403).json({ error: 'Только администраторы могут просматривать заявки' });
+        }
+
+        const requests = await prisma.joinRequest.findMany({
+            where: {
+                channelId,
+                status: 'pending'
+            },
+            include: {
+                user: {
+                    select: { id: true, username: true, avatar: true, email: true }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        res.json(requests);
+    } catch (error) {
+        console.error('❌ Ошибка получения заявок:', error);
+        res.status(500).json({ error: 'Не удалось получить заявки' });
+    }
+};
+
+// --- ОДОБРИТЬ ЗАЯВКУ ---
+const approveJoinRequest = async (req, res) => {
+    try {
+        const requestId = parseInt(req.params.requestId);
+        const userId = req.userId;
+
+        const request = await prisma.joinRequest.findUnique({
+            where: { id: requestId },
+            include: { channel: true }
+        });
+        if (!request) {
+            return res.status(404).json({ error: 'Заявка не найдена' });
+        }
+
+        const isAdmin = await prisma.channelMember.findFirst({
+            where: { channelId: request.channelId, userId, role: 'admin' }
+        });
+        if (!isAdmin) {
+            return res.status(403).json({ error: 'Только администраторы могут одобрять заявки' });
+        }
+
+        await prisma.channelMember.create({
+            data: {
+                channelId: request.channelId,
+                userId: request.userId,
+                role: 'member'
+            }
+        });
+
+        const updatedRequest = await prisma.joinRequest.update({
+            where: { id: requestId },
+            data: { status: 'approved' }
+        });
+
+        const io = req.app.get('io');
+        const socketId = onlineUsers.get(request.userId);
+        if (socketId) {
+            io.to(socketId).emit('join_request_approved', {
+                channelId: request.channelId,
+                channelName: request.channel.name
+            });
+        }
+
+        res.json({ success: true, request: updatedRequest });
+    } catch (error) {
+        console.error('❌ Ошибка одобрения заявки:', error);
+        res.status(500).json({ error: 'Не удалось одобрить заявку' });
+    }
+};
+
+// --- ОТКЛОНИТЬ ЗАЯВКУ ---
+const rejectJoinRequest = async (req, res) => {
+    try {
+        const requestId = parseInt(req.params.requestId);
+        const userId = req.userId;
+
+        const request = await prisma.joinRequest.findUnique({
+            where: { id: requestId },
+            include: { channel: true }
+        });
+        if (!request) {
+            return res.status(404).json({ error: 'Заявка не найдена' });
+        }
+
+        const isAdmin = await prisma.channelMember.findFirst({
+            where: { channelId: request.channelId, userId, role: 'admin' }
+        });
+        if (!isAdmin) {
+            return res.status(403).json({ error: 'Только администраторы могут отклонять заявки' });
+        }
+
+        const updatedRequest = await prisma.joinRequest.update({
+            where: { id: requestId },
+            data: { status: 'rejected' }
+        });
+
+        const io = req.app.get('io');
+        const socketId = onlineUsers.get(request.userId);
+        if (socketId) {
+            io.to(socketId).emit('join_request_rejected', {
+                channelId: request.channelId,
+                channelName: request.channel.name
+            });
+        }
+
+        res.json({ success: true, request: updatedRequest });
+    } catch (error) {
+        console.error('❌ Ошибка отклонения заявки:', error);
+        res.status(500).json({ error: 'Не удалось отклонить заявку' });
+    }
+};
+
+// --- ОТМЕНИТЬ ЗАЯВКУ ---
+const cancelJoinRequest = async (req, res) => {
+    try {
+        const channelId = parseInt(req.params.channelId);
+        const userId = req.userId;
+
+        const request = await prisma.joinRequest.findUnique({
+            where: { channelId_userId: { channelId, userId } }
+        });
+        if (!request) {
+            return res.status(404).json({ error: 'Заявка не найдена' });
+        }
+
+        if (request.status !== 'pending') {
+            return res.status(400).json({ error: 'Заявка уже обработана' });
+        }
+
+        await prisma.joinRequest.delete({
+            where: { id: request.id }
+        });
+
+        res.json({ success: true, message: 'Заявка отменена' });
+    } catch (error) {
+        console.error('❌ Ошибка отмены заявки:', error);
+        res.status(500).json({ error: 'Не удалось отменить заявку' });
+    }
+};
+console.log('✅ channelController экспортирует:');
+console.log('  - approveJoinRequest:', typeof approveJoinRequest);
+console.log('  - rejectJoinRequest:', typeof rejectJoinRequest);
 module.exports = {
     getChannels,
     getChannel,
@@ -423,4 +733,10 @@ module.exports = {
     getChannelMembers,
     addChannelMember,
     removeChannelMember,
+    searchChannels,          
+    createJoinRequest,       
+    getJoinRequests,         
+    approveJoinRequest,      
+    rejectJoinRequest,       
+    cancelJoinRequest,    
 };

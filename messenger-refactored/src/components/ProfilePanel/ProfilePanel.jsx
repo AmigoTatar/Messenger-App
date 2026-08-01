@@ -4,8 +4,10 @@ import { getAvatarUrl } from '../../utils/avatarUtils';
 import { apiClient } from '../../services/apiClient';
 import { API_BASE_URL } from '../../config';
 import LoadingSpinner from '../LoadingSpinner';
+import JoinRequestsPanel from './JoinRequestsPanel';
+import ConfirmModal from '../ConfirmModal';
 
-export default function ProfilePanel({ activeChat, isOpen, onChatUpdate, onClose, socketRef }) {
+export default function ProfilePanel({ activeChat, isOpen, onChatUpdate, onClose, socketRef,showToast,}) {
 const [activeTab, setActiveTab] = useState('media');
 const [members, setMembers] = useState([]);
 const [isLoading, setIsLoading] = useState(false);
@@ -24,6 +26,15 @@ const [avatarPreview, setAvatarPreview] = useState(null);
 const [editName, setEditName] = useState('');
 const [editAvatar, setEditAvatar] = useState('');
 
+const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: '',
+    onConfirm: null,
+    variant: 'danger'
+});
+
   // Вспомогательная функция для извлечения числового ID из строки с префиксом
 const getNumericId = (chatId) => {
   if (!chatId) return null;
@@ -31,6 +42,19 @@ const getNumericId = (chatId) => {
   return isNaN(numeric) ? null : numeric;
 };
 
+const showConfirm = (title, message, confirmText, onConfirm, variant = 'danger') => {
+    setConfirmModal({
+        isOpen: true,
+        title,
+        message,
+        confirmText,
+        onConfirm: () => {
+            onConfirm();
+            setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        },
+        variant
+    });
+};
 
 // Синхронизируем имя в модалке с текущим чатом
 useEffect(() => {
@@ -41,23 +65,7 @@ useEffect(() => {
 }, [activeChat]);
 
 
-  // ==============================================
-  // Загрузка участников и статуса mute
-  // ==============================================
-  useEffect(() => {
-    // ✅ Защита: если профиль закрыт или нет чата или нет id
-    if (!isOpen || !activeChat || !activeChat.id) {
-      return;
-    }
-
-    // Проверяем, что id начинается с корректного префикса
-    const chatId = activeChat.id;
-    if (!chatId.startsWith('channel_') && !chatId.startsWith('chat_') && !chatId.startsWith('user_')) {
-      // Если это общий чат или что-то другое – выходим
-      return;
-    }
-
-  const fetchMembers = async () => {
+const fetchMembers = async () => {
   // ✅ Если это общий чат — ничего не делаем
   if (!activeChat || activeChat.id === 'chat_general' || activeChat.id === 'general') {
     setIsLoading(false);
@@ -108,6 +116,24 @@ useEffect(() => {
     console.error('Ошибка загрузки mute:', err);
   }
 };
+
+  // ==============================================
+  // Загрузка участников и статуса mute
+  // ==============================================
+  useEffect(() => {
+    // ✅ Защита: если профиль закрыт или нет чата или нет id
+    if (!isOpen || !activeChat || !activeChat.id) {
+      return;
+    }
+
+    // Проверяем, что id начинается с корректного префикса
+    const chatId = activeChat.id;
+    if (!chatId.startsWith('channel_') && !chatId.startsWith('chat_') && !chatId.startsWith('user_')) {
+      // Если это общий чат или что-то другое – выходим
+      return;
+    }
+
+  
 
     fetchMembers();
     fetchMuteStatus();
@@ -217,7 +243,7 @@ const handleSaveChat = async (e) => {
     setAvatarFile(null);
     setAvatarPreview(null);
   } catch (err) {
-    alert('Не удалось обновить: ' + err.message);
+    showToast('Не удалось обновить: ' + err.message);
   } finally {
     setIsSaving(false);
   }
@@ -266,99 +292,125 @@ const handleAddMember = async () => {
   // ==============================================
   // Удаление участника
   // ==============================================
-const handleRemoveMember = async (userId) => {
-  if (!confirm('Удалить участника?')) return;
-  try {
-    const token = localStorage.getItem('token');
-    const chatId = activeChat.id;
-    const numericId = getNumericId(chatId);
-    if (!numericId) return;
-    let endpoint;
-    if (chatId.startsWith('channel_')) {
-      endpoint = `/api/channels/${numericId}/members/${userId}`;
-    } else if (chatId.startsWith('chat_')) {
-      endpoint = `/api/chats/${numericId}/members/${userId}`;
-    } else return;
-    await apiClient(endpoint, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    setMembers(prev => prev.filter(m => m.userId !== userId));
-    if (socketRef?.current) {
-      socketRef.current.emit('remove_member', {
-        chatId: activeChat.id,
-        userId,
-        chatType: chatId.startsWith('channel_') ? 'channel' : 'group',
-      });
-    }
-  } catch (err) {
-    console.error('Ошибка удаления:', err);
-  }
+const handleRemoveMember = async (userId, username) => {
+    showConfirm(
+        'Удалить участника?',
+        `Вы уверены, что хотите удалить пользователя "${username}" из чата?`,
+        'Удалить',
+        async () => {
+            try {
+                const token = localStorage.getItem('token');
+                const chatId = activeChat.id;
+                const numericId = getNumericId(chatId);
+                if (!numericId) return;
+                let endpoint;
+                if (chatId.startsWith('channel_')) {
+                    endpoint = `/api/channels/${numericId}/members/${userId}`;
+                } else if (chatId.startsWith('chat_')) {
+                    endpoint = `/api/chats/${numericId}/members/${userId}`;
+                } else return;
+                await apiClient(endpoint, {
+                    method: 'DELETE',
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                setMembers(prev => prev.filter(m => m.userId !== userId));
+                if (socketRef?.current) {
+                    socketRef.current.emit('remove_member', {
+                        chatId: activeChat.id,
+                        userId,
+                        chatType: chatId.startsWith('channel_') ? 'channel' : 'group',
+                    });
+                }
+                showToast(`✅ Пользователь удалён из чата`, 'success');
+            } catch (err) {
+                console.error('Ошибка удаления:', err);
+                showToast('❌ Не удалось удалить участника', 'error');
+            }
+        }
+    );
 };
 // Покинуть группу
 const handleLeaveGroup = async () => {
-  if (!confirm('Вы уверены, что хотите покинуть группу?')) return;
-  try {
-    const token = localStorage.getItem('token');
-    const chatId = activeChat.id;
-    const numericId = getNumericId(chatId);
-    if (!numericId) return;
-    await apiClient(`/api/chats/${numericId}/members/${currentUserId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    // Закрыть профиль и переключиться на общий чат
-    onClose();
-    // Также нужно удалить чат из списка (это сделает сервер через socket)
-  } catch (err) {
-    console.error('Ошибка выхода из группы:', err);
-    alert('Не удалось покинуть группу');
-  }
+    showConfirm(
+        'Покинуть группу?',
+        'Вы уверены, что хотите покинуть группу? Вы потеряете доступ к чату.',
+        'Покинуть',
+        async () => {
+            try {
+                const token = localStorage.getItem('token');
+                const chatId = activeChat.id;
+                const numericId = getNumericId(chatId);
+                if (!numericId) return;
+                await apiClient(`/api/chats/${numericId}/members/${currentUserId}`, {
+                    method: 'DELETE',
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                onClose();
+            } catch (err) {
+                console.error('Ошибка выхода из группы:', err);
+                showToast('❌ Не удалось покинуть группу', 'error');
+            }
+        }
+    );
 };
 // Покинуть канал
 const handleLeaveChannel = async () => {
-  if (!confirm('Вы уверены, что хотите покинуть канал?')) return;
-  try {
-    const token = localStorage.getItem('token');
-    const chatId = activeChat.id;
-    const numericId = getNumericId(chatId);
-    if (!numericId) return;
-    await apiClient(`/api/channels/${numericId}/members/${currentUserId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    // Закрыть профиль и переключиться на общий чат
-    onClose();
-    // Удаляем канал из списка (сервер пришлёт событие через socket)
-  } catch (err) {
-    console.error('Ошибка выхода из канала:', err);
-    alert('Не удалось покинуть канал');
-  }
+    showConfirm(
+        'Покинуть канал?',
+        'Вы уверены, что хотите покинуть канал? Вы потеряете доступ к нему.',
+        'Покинуть',
+        async () => {
+            try {
+                const token = localStorage.getItem('token');
+                const chatId = activeChat.id;
+                const numericId = getNumericId(chatId);
+                if (!numericId) return;
+                await apiClient(`/api/channels/${numericId}/members/${currentUserId}`, {
+                    method: 'DELETE',
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                onClose();
+            } catch (err) {
+                console.error('Ошибка выхода из канала:', err);
+                showToast('❌ Не удалось покинуть канал', 'error');
+            }
+        }
+    );
 };
   // ==============================================
   // Удаление чата/канала
   // ==============================================
 const handleDeleteChat = async () => {
-  const chatId = activeChat.id;
-  if (!confirm(`Удалить ${chatId.startsWith('channel_') ? 'канал' : 'групповой чат'}?`)) return;
-  try {
-    const token = localStorage.getItem('token');
-    const numericId = getNumericId(chatId);
-    if (!numericId) return;
-    let endpoint;
-    if (chatId.startsWith('channel_')) {
-      endpoint = `/api/channels/${numericId}`;
-    } else if (chatId.startsWith('chat_')) {
-      endpoint = `/api/chats/${numericId}`;
-    } else return;
-    await apiClient(endpoint, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    onClose();
-  } catch (err) {
-    console.error('Ошибка удаления:', err);
-  }
+    const chatId = activeChat.id;
+    const type = chatId.startsWith('channel_') ? 'канал' : 'групповой чат';
+    showConfirm(
+        `Удалить ${type}?`,
+        `Вы уверены, что хотите удалить ${type} "${activeChat.name}"? Это действие необратимо!`,
+        'Удалить',
+        async () => {
+            try {
+                const token = localStorage.getItem('token');
+                const numericId = getNumericId(chatId);
+                if (!numericId) return;
+                let endpoint;
+                if (chatId.startsWith('channel_')) {
+                    endpoint = `/api/channels/${numericId}`;
+                } else if (chatId.startsWith('chat_')) {
+                    endpoint = `/api/chats/${numericId}`;
+                } else return;
+                await apiClient(endpoint, {
+                    method: 'DELETE',
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                onClose();
+                showToast(`✅ ${type} удалён`, 'success');
+            } catch (err) {
+                console.error('Ошибка удаления:', err);
+                showToast(`❌ Не удалось удалить ${type}`, 'error');
+            }
+        },
+        'danger'
+    );
 };
 
   // ==============================================
@@ -434,12 +486,12 @@ const openEditModal = () => {
 
         {/* Кнопка выхода из группы для обычных участников */}
 {activeChat.type === 'group' && !isCreator && (
-  <button
+<button
     onClick={handleLeaveGroup}
-    className="w-full py-2 px-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 rounded-xl text-sm font-medium transition flex items-center justify-center gap-2"
-  >
+    className="w-full py-2 px-4 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-600 dark:text-red-300 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"
+>
     <span>🚪</span> Покинуть группу
-  </button>
+</button>
 )}
 {/* Кнопка выхода из канала для обычных участников */}
 {activeChat.type === 'channel' && !isCreator && (
@@ -456,9 +508,12 @@ const openEditModal = () => {
             <div className="flex justify-between items-center mb-3">
               <h4 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Участники ({members.length})</h4>
               {isAdmin && (
-                <button onClick={() => setShowAddMember(!showAddMember)} className="text-xs text-emerald-400 hover:text-emerald-300 transition">
-                  {showAddMember ? '✕ Отмена' : '+ Добавить'}
-                </button>
+                <button
+    onClick={() => setShowAddMember(!showAddMember)}
+    className="text-xs text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 transition-colors"
+>
+    {showAddMember ? '✕ Отмена' : '+ Добавить'}
+</button>
               )}
             </div>
 
@@ -481,13 +536,13 @@ const openEditModal = () => {
                     </label>
                   ))}
                 </div>
-                <button
-                  onClick={handleAddMember}
-                  disabled={!selectedUserId}
-                  className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium py-2 rounded-lg transition"
-                >
-                  Добавить
-                </button>
+<button
+    onClick={handleAddMember}
+    disabled={!selectedUserId}
+    className="w-full bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium py-2 rounded-lg transition-colors"
+>
+    Добавить
+</button>
               </div>
             )}
 
@@ -517,7 +572,12 @@ const openEditModal = () => {
                       </div>
                     </div>
                     {isAdmin && member.role !== 'admin' && member.userId !== currentUserId && (
-                      <button onClick={() => handleRemoveMember(member.userId)} className="text-xs text-red-400 hover:text-red-300 transition">Удалить</button>
+                      <button 
+    onClick={() => handleRemoveMember(member.userId, user.username)} 
+    className="text-xs text-red-400 hover:text-red-300 transition"
+>
+    Удалить
+</button>
                     )}
                   </div>
                 );
@@ -540,14 +600,14 @@ const openEditModal = () => {
 
         <hr className="border-zinc-200 dark:border-zinc-800" />
 
-        {(activeChat.type === 'channel' || activeChat.type === 'group') && isCreator && (
-          <button
-            onClick={handleDeleteChat}
-            className="w-full py-2 px-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 rounded-xl text-sm font-medium transition flex items-center justify-center gap-2"
-          >
-            <span>🗑️</span> Удалить {activeChat.type === 'channel' ? 'канал' : 'групповой чат'}
-          </button>
-        )}
+      {(activeChat.type === 'channel' || activeChat.type === 'group') && isCreator && (
+    <button
+        onClick={handleDeleteChat}
+        className="w-full py-2 px-4 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-600 dark:text-red-300 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"
+    >
+        <span>🗑️</span> Удалить {activeChat.type === 'channel' ? 'канал' : 'групповой чат'}
+    </button>
+)}
 
 
 
@@ -652,6 +712,32 @@ const openEditModal = () => {
     </div>
   </div>
 )}
+
+ {/* Заявки на вступление (только для админов) */}
+      {activeChat?.type === 'channel' && isAdmin && (
+        <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-800">
+          <JoinRequestsPanel
+            channelId={getNumericId(activeChat.id)}
+            currentUserId={currentUserId}
+            showToast={showToast}
+            onRequestHandled={() => {
+              fetchMembers();
+            }}
+          />
+        </div>
+      )}
+
+      {/* ✅ ConfirmModal ВНЕ всех условий */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        confirmVariant={confirmModal.variant}
+      />
+
     </div>
   );
 }

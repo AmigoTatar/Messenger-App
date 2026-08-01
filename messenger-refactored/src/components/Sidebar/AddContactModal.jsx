@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import LoadingSpinner from '../LoadingSpinner';
 
 export default function AddContactModal({ isOpen, onClose, onSearch, onAdd, existingContacts }) {
@@ -6,11 +6,23 @@ export default function AddContactModal({ isOpen, onClose, onSearch, onAdd, exis
     const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(false);
     const [adding, setAdding] = useState(null);
+    const [searched, setSearched] = useState(false); // ← НОВОЕ
+
+    // Сброс при закрытии
+    useEffect(() => {
+        if (!isOpen) {
+            setQuery('');
+            setResults([]);
+            setSearched(false);
+            setLoading(false);
+        }
+    }, [isOpen]);
 
     if (!isOpen) return null;
 
     const handleSearch = async () => {
         if (!query.trim() || query.length < 2) return;
+        setSearched(true); // ← НОВОЕ
         setLoading(true);
         try {
             const data = await onSearch(query);
@@ -26,7 +38,6 @@ export default function AddContactModal({ isOpen, onClose, onSearch, onAdd, exis
         setAdding(userId);
         try {
             await onAdd(userId);
-            // Удаляем добавленного пользователя из результатов
             setResults(prev => prev.filter(u => u.id !== userId));
         } catch (err) {
             console.error('Ошибка добавления:', err);
@@ -79,11 +90,20 @@ export default function AddContactModal({ isOpen, onClose, onSearch, onAdd, exis
                     </div>
                 ) : (
                     <div className="max-h-60 overflow-y-auto space-y-1">
-                        {results.length === 0 && query.length >= 2 && (
+                        {/* Показываем, только если пользователь нажал на лупу и ничего не найдено */}
+                        {searched && query.length >= 2 && results.length === 0 && (
                             <div className="text-center text-sm text-zinc-400 py-8">
-                                Пользователи не найдены
+                                🔍 Пользователи не найдены
                             </div>
                         )}
+
+                        {/* Если ещё не нажимали на лупу — показываем подсказку */}
+                        {!searched && query.length >= 2 && results.length === 0 && (
+                            <div className="text-center text-sm text-zinc-400 py-8">
+                                💡 Нажмите 🔍 для поиска
+                            </div>
+                        )}
+
                         {results.map((user) => {
                             const alreadyContact = isContact(user.id);
                             return (

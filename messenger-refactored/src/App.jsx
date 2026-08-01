@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useEffect } from 'react';
+import React, { useCallback, useMemo, useEffect, useState } from 'react';
 import ErrorBoundary from './components/ErrorBoundary';
 import Sidebar from './components/Sidebar/Sidebar';
 import ChatArea from './components/ChatArea/ChatArea';
@@ -22,7 +22,7 @@ import { MessageContext } from './contexts/MessageContext';
 import Toast from '/src/Toast';
 import { useAppHandlers } from './hooks/useAppHandlers';
 import { extractNumericId } from './utils/chatUtils';
-
+import ConfirmModal from './components/ConfirmModal';
 
 
 export default function App() {
@@ -150,7 +150,29 @@ export default function App() {
     setUser(u);
   }, [setUser]);
 
-  
+  // ====== МОДАЛКА ПОДТВЕРЖДЕНИЯ ======
+const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: '',
+    onConfirm: null,
+    variant: 'danger'
+});
+
+const showConfirm = useCallback((title, message, confirmText, onConfirm, variant = 'danger') => {
+    setConfirmModal({
+        isOpen: true,
+        title,
+        message,
+        confirmText,
+        onConfirm: () => {
+            onConfirm();
+            setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        },
+        variant
+    });
+}, []);
 
 
   const handleChannelCreated = useCallback(async (newChannel) => {
@@ -343,9 +365,6 @@ export default function App() {
   }, [setGroupChats, user, removeGroupChat, setActiveChatId, setActiveChatData]);
 
   
-
-  // ====== ЭФФЕКТЫ ======
-  // ... эффекты остаются без изменений (слишком длинные, я их не трогаю)
  
   // ====== РЕНДЕР ======
   const activeMessages = useMemo(() => {
@@ -476,6 +495,22 @@ useEffect(() => {
     }
   });
 
+// обарботчики для админа 
+socket.on('join_request_approved', (data) => {
+    showToast(`🎉 Вас приняли в канал "${data.channelName}"!`, 'success');
+    // Обновляем список каналов
+    reloadChats();
+});
+
+socket.on('join_request_rejected', (data) => {
+    showToast(`😔 Ваша заявка в канал "${data.channelName}" отклонена`, 'info');
+});
+
+socket.on('join_request_received', (data) => {
+    showToast(`📩 Новая заявка в канал "${data.channelName}"`, 'info');
+});
+
+
   return () => {
     socket.off('channel_created', handleChannelCreated);
     socket.off('channel_deleted', handleChannelDeleted);
@@ -586,6 +621,8 @@ useEffect(() => {
               onToggleProfile={() => setIsProfileOpen(!isProfileOpen)}
               onMarkAsRead={debouncedMarkAsRead}
               onPinMessage={handlePin}
+              showConfirm={showConfirm}
+
             />
           </MessageContext.Provider>
           <ProfilePanel
@@ -622,6 +659,17 @@ useEffect(() => {
               onClose={hideToast}
             />
           )}
+
+          {/* Модалка подтверждения */}
+<ConfirmModal
+    isOpen={confirmModal.isOpen}
+    onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+    onConfirm={confirmModal.onConfirm}
+    title={confirmModal.title}
+    message={confirmModal.message}
+    confirmText={confirmModal.confirmText}
+    confirmVariant={confirmModal.variant}
+/>
         </div>
       </div>
     </ErrorBoundary>

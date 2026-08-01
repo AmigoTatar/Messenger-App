@@ -56,7 +56,7 @@ const forgotPassword = async (req, res) => {
 
         // ✅ ВРЕМЕННО: выводим токен в консоль (пока без email)
         // Отправляем письмо с ссылкой
-const { sendResetEmail } = require('../utils/email');
+
 const emailSent = await sendResetEmail(email, token);
 
 if (!emailSent) {

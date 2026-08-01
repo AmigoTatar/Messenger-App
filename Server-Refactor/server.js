@@ -126,6 +126,12 @@ const muteRoutes = require('./src/routes/muteRoutes');
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/channels', channelRoutes);
+console.log('📋 Роуты каналов:');
+channelRoutes.stack.forEach(r => {
+    if (r.route) {
+        console.log(`  ${Object.keys(r.route.methods).join(', ').toUpperCase()} /api/channels${r.route.path}`);
+    }
+});
 app.use('/api/chats', chatRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/upload', uploadRoutes);

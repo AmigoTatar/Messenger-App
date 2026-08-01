@@ -1,6 +1,6 @@
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -28,6 +28,7 @@ model User {
   privateChatsWith PrivateChatMember[] @relation("OtherUserPrivateChats")
   contacts      Contact[] @relation("UserContacts")
   addedBy       Contact[] @relation("ContactUser")
+  joinRequests JoinRequest[]
 
   @@index([username])
   @@index([email])
@@ -110,6 +111,7 @@ model Channel {
 
   @@index([creatorId])
   @@index([createdAt])
+  joinRequests JoinRequest[]
 }
 
 model ChannelMember {
@@ -206,4 +208,21 @@ model Reaction {
   @@index([messageId])
   @@index([userId])
   @@index([type])
+}
+
+model JoinRequest {
+  id        Int      @id @default(autoincrement())
+  channelId Int
+  userId    Int
+  status    String   @default("pending") // pending, approved, rejected
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([channelId, userId])
+  @@index([channelId])
+  @@index([userId])
+  @@index([status])
 }

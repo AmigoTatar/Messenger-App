@@ -14,6 +14,12 @@ const {
     getChannelMembers,
     addChannelMember,
     removeChannelMember,
+    searchChannels,
+    createJoinRequest,
+    getJoinRequests,
+    approveJoinRequest,
+    rejectJoinRequest,
+    cancelJoinRequest,
 } = require('../controllers/channelController');
 
 // Настройка multer для аватарок каналов
@@ -36,14 +42,40 @@ const upload = multer({
 // Все маршруты требуют аутентификации
 router.use(authenticateToken);
 
-// CRUD каналов
+// ✅ ТЕСТОВЫЙ РОУТ
+router.get('/test', (req, res) => {
+    res.json({ message: 'Channel routes working!' });
+});
+// ==============================================
+// ✅ 1. СПЕЦИФИЧНЫЕ РОУТЫ (БЕЗ ПАРАМЕТРОВ)
+// ==============================================
+router.get('/search', searchChannels);
+
+// ==============================================
+// ✅ 2. ГЛОБАЛЬНЫЕ РОУТЫ ДЛЯ ЗАЯВОК (БЕЗ CHANNELID)
+// ==============================================
+router.post('/join-requests/:requestId/approve', approveJoinRequest);
+router.post('/join-requests/:requestId/reject', rejectJoinRequest);
+
+// ==============================================
+// ✅ 3. РОУТЫ ДЛЯ ЗАЯВОК (С ПАРАМЕТРОМ :channelId)
+// ==============================================
+router.post('/:channelId/join-request', createJoinRequest);
+router.get('/:channelId/join-requests', getJoinRequests);
+router.delete('/:channelId/join-request', cancelJoinRequest);
+
+// ==============================================
+// ✅ 4. CRUD КАНАЛОВ (С ПАРАМЕТРОМ :channelId)
+// ==============================================
 router.get('/', getChannels);
 router.get('/:channelId', getChannel);
-router.post('/', authenticateToken, validateChannel, createChannel);  // ← С ВАЛИДАЦИЕЙ
+router.post('/', authenticateToken, validateChannel, createChannel);
 router.put('/:channelId', upload.single('avatar'), updateChannel);
 router.delete('/:channelId', deleteChannel);
 
-// Участники
+// ==============================================
+// ✅ 5. УЧАСТНИКИ (С ПАРАМЕТРОМ :channelId)
+// ==============================================
 router.get('/:channelId/members', getChannelMembers);
 router.post('/:channelId/members', addChannelMember);
 router.delete('/:channelId/members/:userId', removeChannelMember);

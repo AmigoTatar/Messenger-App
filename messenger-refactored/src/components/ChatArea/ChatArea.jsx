@@ -40,6 +40,7 @@ export default function ChatArea({
   channelsProp,
   showToast,
   onPinMessage, 
+  showConfirm,
 }) {
 
 
@@ -554,6 +555,7 @@ const chatName = getChatName(activeChatId, activeChatData, channelsProp, groupCh
             onPin={handlePin}
             onDelete={handleDelete}
             onReaction={handleReaction}
+            showConfirm={showConfirm}
             canDelete={
               Number(contextMenu.message?.senderId) === Number(currentUserId)
             }

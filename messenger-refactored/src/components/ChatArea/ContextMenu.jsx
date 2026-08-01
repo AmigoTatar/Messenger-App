@@ -15,6 +15,7 @@ export default function ContextMenu({
   onDelete,
   onReaction,
   canDelete,
+  showConfirm,
 }) {
   const menuRef = useRef(null);
 
@@ -169,24 +170,29 @@ export default function ContextMenu({
         </div>
       </div>
 
-      {/* Удалить (если есть права) */}
-      {canDelete && (
-        <>
-          <div className="border-t border-zinc-200 dark:border-zinc-700/50 my-1" />
-          <button
-            onClick={() => {
-              if (window.confirm('Удалить это сообщение?')) {
-                onDelete(message.id);
-              }
-              onClose();
-            }}
-            className="w-full text-left px-4 py-2 hover:bg-red-50 dark:hover:bg-red-950/40 text-red-500 dark:text-red-400 transition flex items-center gap-3"
-          >
-            <span className="text-base">🗑️</span>
-            <span>Удалить сообщение</span>
-          </button>
-        </>
-      )}
+{/* Удалить (если есть права) */}
+{canDelete && (
+  <>
+    <div className="border-t border-zinc-200 dark:border-zinc-700/50 my-1" />
+    <button
+      onClick={() => {
+        showConfirm(
+          'Удалить сообщение?',
+          'Вы уверены, что хотите удалить это сообщение?',
+          'Удалить',
+          () => {
+            onDelete(message.id);
+            onClose();
+          }
+        );
+      }}
+      className="w-full text-left px-4 py-2 hover:bg-red-50 dark:hover:bg-red-950/40 text-red-500 dark:text-red-400 transition flex items-center gap-3"
+    >
+      <span className="text-base">🗑️</span>
+      <span>Удалить сообщение</span>
+    </button>
+  </>
+)}
     </div>
   );
 }

@@ -8,6 +8,7 @@ import SearchModal from '../SearchModal';
 import LoadingSpinner from '../LoadingSpinner';
 import ContactList from './ContactList';
 import AddContactModal from './AddContactModal';
+import ChannelSearchModal from './ChannelSearchModal';
 
 export default function Sidebar({
   loading,
@@ -45,6 +46,7 @@ export default function Sidebar({
   const [isNewGroupOpen, setIsNewGroupOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isAddContactOpen, setIsAddContactOpen] = useState(false);
+  const [isChannelSearchOpen, setIsChannelSearchOpen] = useState(false);
   if (loading) {
   return (
     <div className="w-full md:w-80 h-full flex items-center justify-center">
@@ -52,6 +54,16 @@ export default function Sidebar({
     </div>
   );
 }
+
+const filteredContacts = contacts.filter(c => 
+    c.username?.toLowerCase().includes(searchQuery.toLowerCase())
+);
+const filteredChannels = channels.filter(c => 
+    c.name?.toLowerCase().includes(searchQuery.toLowerCase())
+);
+const filteredGroups = groupChats.filter(c => 
+    c.name?.toLowerCase().includes(searchQuery.toLowerCase())
+);
 
   return (
     <div className="w-full md:w-80 h-full max-h-screen overflow-hidden border-r border-zinc-200 dark:border-zinc-800 flex flex-col bg-white dark:bg-zinc-950 transition-colors duration-300">
@@ -62,27 +74,39 @@ export default function Sidebar({
 
         <div className="flex justify-between items-center">
     <h1 className="text-xl font-bold text-zinc-800 dark:text-white">Чаты</h1>
-    <div className="flex gap-2">
-        <button 
-            onClick={() => setIsAddContactOpen(true)} 
-            className="p-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-sm font-medium transition shadow-md"
-            title="Добавить контакт"
-        >
-            ➕
-        </button>
-        <button 
-            onClick={() => setIsNewChannelOpen(true)} 
-            className="p-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-medium transition shadow-md"
-        >
-            📢+
-        </button>
-        <button 
-            onClick={() => setIsNewGroupOpen(true)} 
-            className="p-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-medium transition shadow-md"
-        >
-            👥+
-        </button>
-    </div>
+
+<div className="flex gap-2">
+    <button 
+        onClick={() => setIsAddContactOpen(true)} 
+        className="p-2.5 bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-600 dark:text-purple-300 rounded-xl text-sm font-medium transition-all duration-200 hover:scale-105 active:scale-95"
+        title="Добавить контакт"
+    >
+        ➕
+    </button>
+    <button 
+        onClick={() => setIsChannelSearchOpen(true)} 
+        className="p-2.5 bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 text-amber-600 dark:text-amber-300 rounded-xl text-sm font-medium transition-all duration-200 hover:scale-105 active:scale-95"
+        title="Поиск каналов"
+    >
+        🔍
+    </button>
+    <button 
+        onClick={() => setIsNewChannelOpen(true)} 
+        className="p-2.5 bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/50 text-emerald-600 dark:text-emerald-300 rounded-xl text-sm font-medium transition-all duration-200 hover:scale-105 active:scale-95"
+        title="Создать канал"
+    >
+        📢+
+    </button>
+    <button 
+        onClick={() => setIsNewGroupOpen(true)} 
+        className="p-2.5 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-300 rounded-xl text-sm font-medium transition-all duration-200 hover:scale-105 active:scale-95"
+        title="Создать групповой чат"
+    >
+        👥+
+    </button>
+</div>
+
+
 </div>
 
         <div className="relative">
@@ -96,7 +120,7 @@ export default function Sidebar({
         
         <ContactList
         
-    contacts={contacts}
+    contacts={filteredContacts}
     contactsVersion={contactsVersion}
     activeChatId={activeChatId}
     unreadCounts={unreadCounts}
@@ -104,7 +128,7 @@ export default function Sidebar({
     formatMsgTime={formatMsgTime}
           />
         <ChannelList
-          channels={channels}
+          channels={filteredChannels}
           channelsVersion={channelsVersion}
           activeChatId={activeChatId}
           unreadCounts={unreadCounts}
@@ -112,7 +136,7 @@ export default function Sidebar({
           formatMsgTime={formatMsgTime}
         />
         <GroupList
-          groupChats={groupChats}
+          groupChats={filteredGroups}
           activeChatId={activeChatId}
           unreadCounts={unreadCounts}
           onSelectChat={onSelectChat}
@@ -163,6 +187,13 @@ export default function Sidebar({
     onSearch={onSearchUsers}
     onAdd={onAddContact}
     existingContacts={contacts}
+/>
+<ChannelSearchModal
+    isOpen={isChannelSearchOpen}
+    onClose={() => setIsChannelSearchOpen(false)}
+    onSelectChannel={onSelectChat}
+    currentUserId={user?.id}
+    showToast={showToast}
 />
     </div>
   );
