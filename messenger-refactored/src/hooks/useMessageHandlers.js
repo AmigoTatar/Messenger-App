@@ -333,88 +333,110 @@ export function useMessageHandlers({
     });
   }, [setMessagesByChat]);
 
-  const handleMessageDeleted = useCallback(({ messageId, activeChatId }) => {
-    console.log('🔥 [handleMessageDeleted] messageId:', messageId, 'activeChatId:', activeChatId);
-
+  
+const handleMessageDeleted = useCallback(({ messageId, activeChatId, otherUserId, senderId, receiverId }) => {
+    // Теперь senderId и receiverId доступны
+    console.log('🔥 [handleMessageDeleted] activeChatId:', activeChatId);
+    console.log('🔥 [handleMessageDeleted] messageId:', messageId);
+    console.log('🔥 [handleMessageDeleted] otherUserId:', otherUserId);
+    console.log('🔥 [handleMessageDeleted] senderId:', senderId);
+    console.log('🔥 [handleMessageDeleted] receiverId:', receiverId);
+    
     if (!activeChatId) {
-      console.log('❌ [handleMessageDeleted] Нет activeChatId');
-      return;
+        console.log('❌ [handleMessageDeleted] Нет activeChatId');
+        return;
     }
 
     let newLastMessage = null;
 
     setMessagesByChat(prev => {
-      const newState = { ...prev };
-      for (const chatId in newState) {
-        newState[chatId] = newState[chatId].map(msg =>
-          msg.id === messageId
-            ? { ...msg, isDeleted: true, text: 'Сообщение удалено', mediaUrl: null, mediaType: null, reactions: [], threads: [] }
-            : msg
-        );
-      }
-      if (newState[activeChatId]) {
-        const lastValid = newState[activeChatId]
-          .filter(msg => !msg.isDeleted)
-          .pop();
-        newLastMessage = lastValid || null;
-      }
-      return newState;
+        const newState = { ...prev };
+        for (const chatId in newState) {
+            newState[chatId] = newState[chatId].map(msg =>
+                msg.id === messageId
+                    ? { ...msg, isDeleted: true, text: 'Сообщение удалено', mediaUrl: null, mediaType: null, reactions: [], threads: [] }
+                    : msg
+            );
+        }
+        if (newState[activeChatId]) {
+            const lastValid = newState[activeChatId]
+                .filter(msg => !msg.isDeleted)
+                .pop();
+            newLastMessage = lastValid || null;
+        }
+        return newState;
     });
 
     if (newLastMessage === null) {
-      newLastMessage = {
-        id: messageId,
-        isDeleted: true,
-        text: 'Сообщение удалено',
-        mediaUrl: null,
-        mediaType: null,
-        createdAt: new Date().toISOString(),
-        sender: { id: null, username: 'Unknown' }
-      };
+        newLastMessage = {
+            id: messageId,
+            isDeleted: true,
+            text: 'Сообщение удалено',
+            mediaUrl: null,
+            mediaType: null,
+            createdAt: new Date().toISOString(),
+            sender: { id: null, username: 'Unknown' }
+        };
     }
 
     // Обновляем сайдбар
     if (activeChatId.startsWith('channel_')) {
-      setChannels(prev => prev.map(ch => {
-        if (`channel_${ch.id}` === activeChatId) {
-          return { ...ch, lastMessage: newLastMessage };
-        }
-        return ch;
-      }));
-      setChannelsVersion(prev => prev + 1);
-    } else if (activeChatId.startsWith('chat_')) {
-      setGroupChats(prev => prev.map(ch => {
-        if (ch.id === activeChatId) {
-          return { ...ch, lastMessage: newLastMessage };
-        }
-        return ch;
-      }));
-      setGroupChatsVersion(prev => prev + 1);
-    } else if (activeChatId.startsWith('user_')) {
-      const chatUserId = parseInt(activeChatId.replace('user_', ''), 10);
-      setChats(prev => prev.map(ch => {
-        const chUserId = parseInt(ch.id?.replace('user_', ''), 10);
-        if (chUserId === chatUserId) {
-          return { ...ch, lastMessage: newLastMessage };
-        }
-        return ch;
-      }));
-      setChatsVersion(prev => prev + 1);
-
-      if (setContacts) {
-        setContacts(prev => prev.map(contact => {
-          if (contact.id === chatUserId) {
-            return { ...contact, lastMessage: newLastMessage };
-          }
-          return contact;
+        setChannels(prev => prev.map(ch => {
+            if (`channel_${ch.id}` === activeChatId) {
+                return { ...ch, lastMessage: newLastMessage };
+            }
+            return ch;
         }));
-      }
-      if (setContactsVersion) {
-        setContactsVersion(prev => prev + 1);
-      }
-    }
-  }, [setMessagesByChat, setChats, setChannels, setGroupChats, setChatsVersion, setChannelsVersion, setGroupChatsVersion, setContacts, setContactsVersion]);
+        setChannelsVersion(prev => prev + 1);
+    } else if (activeChatId.startsWith('chat_')) {
+        setGroupChats(prev => prev.map(ch => {
+            if (ch.id === activeChatId) {
+                return { ...ch, lastMessage: newLastMessage };
+            }
+            return ch;
+        }));
+        setGroupChatsVersion(prev => prev + 1);
 
+} else if (activeChatId.startsWith('user_')) {
+    const currentUserId = user?.id;
+    let userIdToUpdate;
+
+    if (senderId && receiverId) {
+        // Если удаляющий — текущий пользователь, то обновляем собеседника
+        userIdToUpdate = senderId === currentUserId ? receiverId : senderId;
+    } else {
+        // fallback
+        userIdToUpdate = otherUserId || parseInt(activeChatId.replace('user_', ''), 10);
+    }
+
+    console.log('🔥 [handleMessageDeleted] Обновляю приватный чат для userId:', userIdToUpdate);
+
+    setChats(prev => {
+        const updated = prev.map(ch => {
+            const chUserId = parseInt(ch.id?.replace('user_', ''), 10);
+            if (chUserId === userIdToUpdate) {
+                return { ...ch, lastMessage: newLastMessage };
+            }
+            return ch;
+        });
+        return updated;
+    });
+    setChatsVersion(prev => prev + 1);
+
+    if (setContacts) {
+        setContacts(prev => {
+            const updated = prev.map(contact => {
+                if (contact.id === userIdToUpdate) {
+                    return { ...contact, lastMessage: newLastMessage };
+                }
+                return contact;
+            });
+            return updated;
+        });
+        setContactsVersion(prev => prev + 1);
+    }
+}
+}, [setMessagesByChat, setChats, setChannels, setGroupChats, setChatsVersion, setChannelsVersion, setGroupChatsVersion, setContacts, setContactsVersion]);
   const handleUserUpdated = useCallback((data) => {
     const { userId, username, avatar } = data;
     console.log('🔄 [user_updated] Получено:', data);

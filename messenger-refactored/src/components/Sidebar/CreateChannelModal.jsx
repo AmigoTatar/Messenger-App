@@ -19,11 +19,10 @@ export default function CreateChannelModal({ isOpen, onClose, onCreate, showToas
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
-        e.stopPropagation();
-        if (!hasError) {
-          onClose();
-        }
-      }
+  e.stopPropagation();
+  onClose();
+}
+      
     };
     if (isOpen) {
       document.addEventListener('keydown', handleKeyDown);
@@ -79,15 +78,13 @@ export default function CreateChannelModal({ isOpen, onClose, onCreate, showToas
             />
           </div>
           <div className="flex justify-end space-x-3 pt-2">
-            <button 
-              type="button" 
-              onClick={() => {
-                if (!hasError) onClose();
-              }} 
-              className="px-4 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition"
-            >
-              Отмена
-            </button>
+<button 
+  type="button" 
+  onClick={() => onClose()} 
+  className="..."
+>
+  Отмена
+</button>
             <button 
               type="submit" 
               className="px-4 py-2 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition shadow-md"

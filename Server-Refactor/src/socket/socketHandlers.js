@@ -241,6 +241,12 @@ socket.on('delete_message', async ({ messageId, activeChatId }) => {
             socket.emit('error', { message: 'Вы не можете удалить это сообщение' });
             return;
         }
+        let otherUserId = null;
+if (activeChatId?.startsWith('user_')) {
+    // Определяем собеседника: если текущий пользователь — отправитель, то otherUserId = receiverId, иначе senderId
+    otherUserId = message.senderId === socket.userId ? message.receiverId : message.senderId;
+    console.log(`🗑️ [delete_message] Приватный чат, otherUserId: ${otherUserId}`);
+}
 
         // Удаляем реакции и треды
         await prisma.reaction.deleteMany({ where: { messageId: Number(messageId) } });
@@ -258,11 +264,14 @@ socket.on('delete_message', async ({ messageId, activeChatId }) => {
             }
         });
 
-        const deletePayload = {
-            messageId: updatedMessage.id,
-            activeChatId,
-            isDeleted: true
-        };
+const deletePayload = {
+    messageId: updatedMessage.id,
+    activeChatId,
+    isDeleted: true,
+    otherUserId,
+    senderId: message.senderId,
+    receiverId: message.receiverId,
+};
 
         // Отправляем всем участникам
         if (activeChatId?.startsWith('channel_')) {

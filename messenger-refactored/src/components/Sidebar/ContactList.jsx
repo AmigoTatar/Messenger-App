@@ -2,8 +2,12 @@ import React from 'react';
 import ChatListItem from './ChatListItem';
 
 export default function ContactList({ contacts, contactsVersion, activeChatId, unreadCounts, onSelectChat, formatMsgTime }) {
-    console.log('📊 [ContactList] РЕНДЕР: contactsVersion=', contactsVersion, 'contacts=', contacts);
-    if (!contacts || contacts.length === 0) {
+ console.log('📊 ContactList: contacts for render:', JSON.stringify(contacts.map(c => ({ 
+    id: c.id, 
+    name: c.username, 
+    lastMessage: c.lastMessage 
+})), null, 2));
+  if (!contacts || contacts.length === 0) {
         return (
             <div className="px-3 py-4 text-center text-xs text-zinc-400 dark:text-zinc-500">
                 Нет контактов. Добавьте пользователей через поиск.
@@ -22,7 +26,7 @@ export default function ContactList({ contacts, contactsVersion, activeChatId, u
                 const unreadCount = unreadCounts[chatId] || 0;
                 return (
                     <ChatListItem
-                        key={`${contact.id}-${contactsVersion}`}
+                         key={`${contact.id}-${contactsVersion}-${contact.avatar}-${contact.lastMessage?.id || ''}`}
                         id={chatId}
                         name={contact.username}
                         avatar={contact.avatar}

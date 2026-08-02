@@ -36,12 +36,11 @@ export default function CreateGroupModal({ isOpen, onClose, onCreate, showToast 
   // Escape — закрываем только если нет ошибки
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        if (!hasError) {
-          onClose();
-        }
-      }
+     if (e.key === 'Escape') {
+  e.stopPropagation();
+  onClose();
+}
+      
     };
     if (isOpen) {
       document.addEventListener('keydown', handleKeyDown);
@@ -118,15 +117,14 @@ export default function CreateGroupModal({ isOpen, onClose, onCreate, showToast 
             </div>
           </div>
           <div className="flex justify-end space-x-3 pt-2">
-            <button 
-              type="button" 
-              onClick={() => {
-                if (!hasError) onClose();
-              }} 
-              className="px-4 py-2 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition"
-            >
-              Отмена
-            </button>
+<button 
+  type="button" 
+  onClick={() => onClose()} 
+  className="..."
+>
+  Отмена
+</button>
+
             <button 
               type="submit" 
               disabled={selectedUsers.length === 0 || !name.trim()} 

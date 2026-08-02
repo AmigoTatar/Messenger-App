@@ -16,7 +16,13 @@ export default function ChatListItem({
   type, // 'private', 'channel', 'group'
 }) {
   const isImageAvatar = avatar && typeof avatar === 'string' && avatar.startsWith('/uploads/');
-
+console.log('🔄 [ChatListItem] Рендер:', {
+    id,
+    name,
+    lastMessage,
+    isDeleted: lastMessage?.isDeleted,
+    text: lastMessage?.text
+});
   return (
     <button
       onClick={onClick}
