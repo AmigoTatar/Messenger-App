@@ -8,7 +8,7 @@
 База данных:** PostgreSQL (основная), SQLite (для разработки)  
 Хранение файлов:** Yandex Cloud Object Storage (S3)  
 Деплой:** VPS (Ubuntu), Nginx, PM2 
-Структура папок
+1.Структура папок
 Messenger-App/
 ├── Server-Refactor/              # Бэкенд (Node.js + Express + Prisma)
 │   ├── server.js                 # Точка входа
@@ -43,7 +43,7 @@ Messenger-App/
     │   └── main.jsx              # React Router (/, /reset-password)
     └── vite.config.js            
 
-. БАЗА ДАННЫХ (Prisma + PostgreSQL)
+2 БАЗА ДАННЫХ (Prisma + PostgreSQL)
 Модели (9 таблиц)
 Модель	Описание
 User	Пользователи (username, email, password, avatar)
