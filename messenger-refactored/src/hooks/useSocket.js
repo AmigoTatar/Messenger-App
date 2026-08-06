@@ -1,4 +1,4 @@
-// hooks/useSocket.js
+
 import { useEffect, useRef, useCallback } from 'react';
 import io from 'socket.io-client';
 import { API_BASE_URL } from '../config';
@@ -39,10 +39,10 @@ export function useSocket(user, eventHandlers) {
         // Базовые события
         socket.on('connect', () => {
             console.log('✅ Socket connected');
-            // ✅ После переподключения заново подписываемся на все комнаты
+            //  После переподключения заново подписываемся на все комнаты
             roomsRef.current.forEach(room => {
                 socket.emit('join_chat', room);
-                console.log('🔄 Повторная подписка на комнату:', room);
+                console.log(' Повторная подписка на комнату:', room);
             });
             // Подписываемся на свой приватный чат
             if (user?.id) {
@@ -51,11 +51,11 @@ export function useSocket(user, eventHandlers) {
         });
 
         socket.on('disconnect', (reason) => {
-            console.log('🔌 Socket disconnected:', reason);
+            console.log(' Socket disconnected:', reason);
         });
 
         socket.on('reconnect_attempt', (attempt) => {
-            console.log(`🔄 Попытка переподключения #${attempt}`);
+            console.log(` Попытка переподключения #${attempt}`);
         });
 
         socket.on('reconnect', () => {
@@ -99,7 +99,7 @@ export function useSocket(user, eventHandlers) {
     }, []);
 
     const joinChat = useCallback((chatId) => {
-        console.log('📡 [joinChat] Вызвана для', chatId);
+        console.log(' [joinChat] Вызвана для', chatId);
         if (!socketRef.current) {
             console.warn('⚠️ joinChat: сокет отсутствует');
             return;

@@ -43,7 +43,7 @@ const getChannels = async (req, res) => {
 
         res.json(channels);
     } catch (error) {
-        console.error('❌ Ошибка получения каналов:', error);
+        console.error(' Ошибка получения каналов:', error);
         res.status(500).json({ error: 'Ошибка загрузки каналов' });
     }
 };
@@ -51,7 +51,7 @@ const getChannels = async (req, res) => {
 // --- GET /api/channels/:channelId ---
 const getChannel = async (req, res) => {
     try {
-         console.log('🔍 getChannel вызвана! channelId:', req.params.channelId);
+         console.log(' getChannel вызвана! channelId:', req.params.channelId);
         const channelId = parseInt(req.params.channelId);
         const userId = req.userId;
 
@@ -217,7 +217,7 @@ const deleteChannel = async (req, res) => {
         const io = req.app.get('io');
         io.emit('channel_deleted', { channelId });
 
-        console.log(`🗑️ Канал ${channelId} удалён, событие разослано`);
+        console.log(` Канал ${channelId} удалён, событие разослано`);
         res.json({ success: true, message: 'Канал удален' });
     } catch (error) {
         console.error('Ошибка удаления канала:', error);
@@ -403,23 +403,22 @@ const removeChannelMember = async (req, res) => {
     }
 };
 
-// ==============================================
 // ЗАЯВКИ НА ВСТУПЛЕНИЕ В КАНАЛ
-// ==============================================
+
 const searchChannels = async (req, res) => {
     try {
-        console.log('🔍 1. Функция searchChannels вызвана!');
+        console.log(' 1. Функция searchChannels вызвана!');
         const { query } = req.query;
         const userId = req.userId;
         
-        console.log(`🔍 2. query: "${query}", userId: ${userId}`);
+        console.log(`2. query: "${query}", userId: ${userId}`);
 
         if (!query || query.length < 2) {
-            console.log('🔍 3. Запрос слишком короткий');
+            console.log(' 3. Запрос слишком короткий');
             return res.status(400).json({ error: 'Минимум 2 символа' });
         }
 
-        console.log('🔍 4. Начинаю поиск в БД...');
+        console.log(' 4. Начинаю поиск в БД...');
         const channels = await prisma.channel.findMany({
             where: {
                 name: { 
@@ -436,7 +435,7 @@ const searchChannels = async (req, res) => {
             take: 20
         });
 
-        console.log(`🔍 5. Найдено каналов: ${channels.length}`);
+        console.log(` 5. Найдено каналов: ${channels.length}`);
 
         const result = channels.map(channel => {
             const isMember = channel.members.some(m => m.userId === userId);
@@ -452,7 +451,7 @@ const searchChannels = async (req, res) => {
             };
         });
 
-        console.log('🔍 6. Отправляю результат:', result.length, 'каналов');
+        console.log('. Отправляю результат:', result.length, 'каналов');
         res.json(result);
     } catch (error) {
         console.error('❌ ОШИБКА в searchChannels:', error);
@@ -485,7 +484,7 @@ const createJoinRequest = async (req, res) => {
             return res.status(400).json({ error: 'Вы уже участник канала' });
         }
 
-        // ✅ НОВАЯ ПРОВЕРКА: ищем последнюю заявку
+        //  НОВАЯ ПРОВЕРКА: ищем последнюю заявку
         const existingRequest = await prisma.joinRequest.findUnique({
             where: { channelId_userId: { channelId, userId } }
         });
@@ -511,7 +510,7 @@ const createJoinRequest = async (req, res) => {
                     });
                 }
                 
-                // ✅ Прошло 5 минут — удаляем старую заявку и создаём новую
+                // Прошло 5 минут — удаляем старую заявку и создаём новую
                 await prisma.joinRequest.delete({
                     where: { id: existingRequest.id }
                 });
@@ -721,10 +720,11 @@ const cancelJoinRequest = async (req, res) => {
         res.status(500).json({ error: 'Не удалось отменить заявку' });
     }
 };
-console.log('✅ channelController экспортирует:');
+console.log(' channelController экспортирует:');
 console.log('  - approveJoinRequest:', typeof approveJoinRequest);
 console.log('  - rejectJoinRequest:', typeof rejectJoinRequest);
 module.exports = {
+
     getChannels,
     getChannel,
     createChannel,

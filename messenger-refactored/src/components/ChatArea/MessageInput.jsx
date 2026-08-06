@@ -1,4 +1,4 @@
-// src/components/ChatArea/MessageInput.jsx
+
 import React, { useState, useRef, useEffect } from 'react';
 import { API_BASE_URL } from '../../config';
 import { useMessage } from '../../contexts/MessageContext';
@@ -42,7 +42,7 @@ export default function MessageInput({
     if (!text) return;
 
     if (replyingTo) {
-      // ✅ Убираем .current
+      
       if (socketRef) {
         socketRef.emit('create_thread', {
           messageId: replyingTo.messageId,
@@ -55,7 +55,7 @@ export default function MessageInput({
       sendMessage(text, null, null);
     }
     setInputValue('');
-    // ✅ Убираем .current
+    
     if (socketRef) {
       socketRef.emit('stop_typing', { activeChatId });
     }
@@ -67,14 +67,14 @@ export default function MessageInput({
     e.target.style.height = '40px';
     e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
 
-    // ✅ Убираем .current
+    
     if (socketRef && !isTypingEmitted && activeChatData?.type !== 'channel') {
   setIsTypingEmitted(true);
   console.log('📤 Отправляю typing для чата:', activeChatId);
   socketRef.emit('typing', { activeChatId });
       setTimeout(() => {
         setIsTypingEmitted(false);
-        // ✅ Убираем .current
+       
         if (socketRef) socketRef.emit('stop_typing', { activeChatId });
       }, 1500);
     }
@@ -91,11 +91,11 @@ export default function MessageInput({
     formData.append('file', file);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${apiBaseUrl}/api/upload`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData,
-      });
+const response = await fetch(`${API_BASE_URL}/api/upload`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}` },
+    body: formData,
+});
       if (!response.ok) throw new Error('Ошибка загрузки');
       const data = await response.json();
       const fileUrl = data.fileUrl.startsWith('http') ? data.fileUrl : `${apiBaseUrl}${data.fileUrl}`;

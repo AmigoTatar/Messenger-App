@@ -7,7 +7,16 @@ import LoadingSpinner from '../LoadingSpinner';
 import JoinRequestsPanel from './JoinRequestsPanel';
 import ConfirmModal from '../ConfirmModal';
 
-export default function ProfilePanel({ activeChat, isOpen, onChatUpdate, onClose, socketRef,showToast,}) {
+export default function ProfilePanel({ 
+  activeChat, 
+  isOpen,
+  onChatUpdate,
+  onClose,
+  socketRef,
+  showToast,
+  contacts
+}) {
+  console.log('📤 [ProfilePanel] contacts получены:', contacts);
 const [activeTab, setActiveTab] = useState('media');
 const [members, setMembers] = useState([]);
 const [isLoading, setIsLoading] = useState(false);
@@ -66,7 +75,7 @@ useEffect(() => {
 
 
 const fetchMembers = async () => {
-  // ✅ Если это общий чат — ничего не делаем
+  //  Если это общий чат — ничего не делаем
   if (!activeChat || activeChat.id === 'chat_general' || activeChat.id === 'general') {
     setIsLoading(false);
     return;
@@ -117,11 +126,10 @@ const fetchMembers = async () => {
   }
 };
 
-  // ==============================================
   // Загрузка участников и статуса mute
-  // ==============================================
+  
   useEffect(() => {
-    // ✅ Защита: если профиль закрыт или нет чата или нет id
+    //  Защита: если профиль закрыт или нет чата или нет id
     if (!isOpen || !activeChat || !activeChat.id) {
       return;
     }
@@ -133,37 +141,52 @@ const fetchMembers = async () => {
       return;
     }
 
-  
-
     fetchMembers();
     fetchMuteStatus();
   }, [isOpen, activeChat]);
 
-  // ==============================================
+  
   // Загрузка всех пользователей для добавления
-  // ==============================================
+
   useEffect(() => {
     if (!showAddMember) return;
-    const fetchUsers = async () => {
-      try {
+
+const fetchUsers = async () => {
+
+    try {
         const token = localStorage.getItem('token');
         const users = await apiClient('/api/users', {
-          headers: { Authorization: `Bearer ${token}` },
+            headers: { Authorization: `Bearer ${token}` },
         });
+        console.log('📤 [ProfilePanel] Все пользователи (users):', users);
+        console.log('📤 [ProfilePanel] members:', members);
+        console.log('📤 [ProfilePanel] contacts:', contacts);
+
         const memberIds = members.map(m => m.userId);
-        const availableUsers = users.filter(u => !memberIds.includes(u.dbId || u.id));
+        const contactIds = contacts.map(c => c.id); 
+
+           console.log('📤 [ProfilePanel] memberIds:', memberIds);
+        console.log('📤 [ProfilePanel] contactIds:', contactIds);
+        
+        const availableUsers = users
+            .filter(u => !memberIds.includes(u.dbId || u.id))
+            .filter(u => contactIds.includes(u.dbId || u.id));
+        
         setAllUsers(availableUsers);
-      } catch (err) {
+        console.log('📤 [ProfilePanel] users для групп:', users.map(u => ({ id: u.id, dbId: u.dbId, name: u.name })));
+console.log('📤 [ProfilePanel] memberIds для групп:', memberIds);
+console.log('📤 [ProfilePanel] contactIds для групп:', contactIds);
+    } catch (err) {
         console.error('Ошибка загрузки пользователей:', err);
-      }
-    };
+    }
+};
     fetchUsers();
   }, [showAddMember, members]);
   
 
-  // ==============================================
+  
   // Переключение "Не беспокоить"
-  // ==============================================
+ 
   const handleToggleMute = async () => {
   setIsMuteLoading(true);
   try {
@@ -223,14 +246,13 @@ const handleSaveChat = async (e) => {
       formData.append('avatar', avatarFile);
     }
 
-    const res = await fetch(url, {
-      method: 'PUT',
-      headers: {
+const res = await fetch(url, {
+    method: 'PUT',
+    headers: {
         'Authorization': `Bearer ${token}`,
-        // Content-Type не ставим, браузер сам добавит с boundary
-      },
-      body: formData,
-    });
+    },
+    body: formData,
+});
     if (!res.ok) {
       const errorData = await res.json();
       throw new Error(errorData.error || 'Ошибка обновления');
@@ -250,9 +272,9 @@ const handleSaveChat = async (e) => {
 };
 
 
-  // ==============================================
+  
   // Добавление участника
-  // ==============================================
+  
 const handleAddMember = async () => {
   if (!selectedUserId) return;
   try {
@@ -289,9 +311,8 @@ const handleAddMember = async () => {
   }
 };
 
-  // ==============================================
   // Удаление участника
-  // ==============================================
+  
 const handleRemoveMember = async (userId, username) => {
     showConfirm(
         'Удалить участника?',
@@ -377,9 +398,9 @@ const handleLeaveChannel = async () => {
         }
     );
 };
-  // ==============================================
+  
   // Удаление чата/канала
-  // ==============================================
+  
 const handleDeleteChat = async () => {
     const chatId = activeChat.id;
     const type = chatId.startsWith('channel_') ? 'канал' : 'групповой чат';
@@ -413,9 +434,8 @@ const handleDeleteChat = async () => {
     );
 };
 
-  // ==============================================
-  // Рендер (без изменений)
-  // ==============================================
+  // Рендер 
+  
   if (!isOpen || !activeChat) return null;
 
   const messages = activeChat.messages || [];
@@ -428,7 +448,7 @@ const handleDeleteChat = async () => {
 
   const isCreator = activeChat.creatorId === currentUserId;
 
-  console.log('🔍 ProfilePanel: activeChat.creatorId=', activeChat?.creatorId, 'currentUserId=', currentUserId, 'isCreator=', isCreator)
+  console.log(' ProfilePanel: activeChat.creatorId=', activeChat?.creatorId, 'currentUserId=', currentUserId, 'isCreator=', isCreator)
 
 
 
@@ -518,7 +538,7 @@ const openEditModal = () => {
             </div>
 
             
-
+              {console.log('📤 [ProfilePanel] allUsers для рендера:', allUsers)}
             {showAddMember && (
               <div className="mb-3 p-3 rounded-lg bg-zinc-100 dark:bg-zinc-900">
                 <div className="max-h-48 overflow-y-auto space-y-1 mb-2">

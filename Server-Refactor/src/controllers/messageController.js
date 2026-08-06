@@ -2,9 +2,9 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { onlineUsers } = require('../socket/socketHandlers');
 
-// ==============================================
+
 // ПОЛУЧЕНИЕ СООБЩЕНИЙ (с пагинацией)
-// ==============================================
+
 const getMessages = async (req, res) => {
     try {
         const { activeChatId, cursorMessageId } = req.query;
@@ -80,9 +80,9 @@ const getMessages = async (req, res) => {
     }
 };
 
-// ==============================================
+
 // ПОЛУЧЕНИЕ ЗАКРЕПЛЁННЫХ
-// ==============================================
+
 const getPinnedMessages = async (req, res) => {
     try {
         const { channelId, chatId, privateUserId } = req.query;
@@ -122,9 +122,9 @@ const getPinnedMessages = async (req, res) => {
     }
 };
 
-// ==============================================
+
 // ПЕРЕКЛЮЧЕНИЕ ЗАКРЕПЛЕНИЯ
-// ==============================================
+
 const togglePin = async (req, res) => {
     try {
         const messageId = parseInt(req.params.messageId);
@@ -219,9 +219,9 @@ const togglePin = async (req, res) => {
     }
 };
 
-// ==============================================
+
 // РЕДАКТИРОВАНИЕ СООБЩЕНИЯ
-// ==============================================
+
 const editMessage = async (req, res) => {
     try {
         const messageId = parseInt(req.params.id);
@@ -281,9 +281,9 @@ const editMessage = async (req, res) => {
     }
 };
 
-// ==============================================
+
 // РЕАКЦИИ
-// ==============================================
+
 const toggleReaction = async (req, res) => {
     try {
         const messageId = parseInt(req.params.messageId);
@@ -380,9 +380,9 @@ const toggleReaction = async (req, res) => {
         res.status(500).json({ error: 'Не удалось обработать реакцию' });
     }
 };
-// ==============================================
+
 // ПОИСК СООБЩЕНИЙ
-// ==============================================
+
 const searchMessages = async (req, res) => {
     try {
         const userId = req.userId;

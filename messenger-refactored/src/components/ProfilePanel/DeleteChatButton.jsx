@@ -1,4 +1,4 @@
-// src/components/ProfilePanel/DeleteChatButton.jsx
+
 import React from 'react';
 
 export default function DeleteChatButton({ type, onDelete, isCreator, chatName }) {

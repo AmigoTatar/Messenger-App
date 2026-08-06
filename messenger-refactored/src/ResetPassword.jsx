@@ -16,7 +16,7 @@ export default function ResetPassword({ apiBaseUrl }) {
     // Проверка, что токен есть
     useEffect(() => {
         if (!token) {
-            setError('❌ Неверная ссылка для сброса пароля');
+            setError(' Неверная ссылка для сброса пароля');
         }
     }, [token]);
 
@@ -37,12 +37,12 @@ export default function ResetPassword({ apiBaseUrl }) {
         setSuccess(false);
 
         if (!token) {
-            setError('❌ Неверная ссылка для сброса пароля');
+            setError(' Неверная ссылка для сброса пароля');
             return;
         }
 
         if (newPassword !== confirmPassword) {
-            setError('❌ Пароли не совпадают');
+            setError(' Пароли не совпадают');
             return;
         }
 

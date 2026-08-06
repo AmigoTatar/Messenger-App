@@ -18,7 +18,7 @@ export default function ChannelSearchModal({
     const [joinStatuses, setJoinStatuses] = useState({});
     const [retryTimers, setRetryTimers] = useState({}); // ← НОВОЕ
 
-    // ✅ Таймер обратного отсчёта
+    //  Таймер обратного отсчёта
     useEffect(() => {
         const interval = setInterval(() => {
             setRetryTimers(prev => {

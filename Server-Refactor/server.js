@@ -11,15 +11,15 @@ const { getMuteStatus } = require('./src/controllers/muteController');
 const contactRoutes = require('./src/routes/contactRoutes');
 const passwordRoutes = require('./src/routes/passwordRoutes');
 const nodemailer = require('nodemailer');
-// ==========================================
+
 // ИНИЦИАЛИЗАЦИЯ
-// ==========================================
+
 const app = express();
 const server = http.createServer(app);
 
-// ==========================================
+
 // ПОДКЛЮЧЕНИЕ К БАЗЕ ДАННЫХ
-// ==========================================
+
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
@@ -32,9 +32,9 @@ prisma.$connect()
 
 app.set('prisma', prisma);
 
-// ==========================================
+
 // БЕЗОПАСНОСТЬ И НАСТРОЙКИ
-// ==========================================
+
 app.use(helmet({
     contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
@@ -43,25 +43,25 @@ app.use(helmet({
 }));
 
 app.use(cors({
-    origin: ["http://localhost:5173", "http://localhost:5001"],
+    origin: ["http://localhost:5173", "http://localhost:5001", "https://potokmessenger.ru" ],
     credentials: true
 }));
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// ==========================================
+
 // СТАТИКА (uploads)
-// ==========================================
+
 const uploadDir = path.join(__dirname, 'public', 'uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
 app.use('/uploads', express.static(uploadDir));
 
-// ==========================================
+
 // RATE LIMITING
-// ==========================================
+
 const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 1000,
@@ -108,9 +108,9 @@ app.use('/api/messages/:messageId/reactions', reactionLimiter);
 app.use('/api/messages/search', searchLimiter);
 app.use('/api/auth/login', authLimiter);
 
-// ==========================================
+
 // ПОДКЛЮЧЕНИЕ РОУТОВ
-// ==========================================
+
 const authRoutes = require('./src/routes/authRoutes');
 const userRoutes = require('./src/routes/userRoutes');
 const channelRoutes = require('./src/routes/channelRoutes');
@@ -126,7 +126,7 @@ const muteRoutes = require('./src/routes/muteRoutes');
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/channels', channelRoutes);
-console.log('📋 Роуты каналов:');
+console.log(' Роуты каналов:');
 channelRoutes.stack.forEach(r => {
     if (r.route) {
         console.log(`  ${Object.keys(r.route.methods).join(', ').toUpperCase()} /api/channels${r.route.path}`);
@@ -142,53 +142,49 @@ app.use('/api/contacts', contactRoutes);
 app.use('/api/auth', passwordRoutes);
 
 
-// ==========================================
+
 // ДОПОЛНИТЕЛЬНЫЕ РОУТЫ (для совместимости с фронтендом)
-// ==========================================
+
 app.get('/api/mute-status', authenticateToken, getMuteStatus);
 
 
-// ==========================================
+
 // СОКЕТЫ
-// ==========================================
+
 const { Server } = require('socket.io');
 const { setupSocket } = require('./src/socket/socketHandlers');
 
 const io = new Server(server, {
     cors: {
-        origin: ["http://localhost:5173", "http://localhost:5001"],
+        origin: ["http://localhost:5173", "http://localhost:5001", "https://potokmessenger.ru"],
         methods: ["GET", "POST"]
     },
-    transports: ['websocket']
+    transports: ['websocket', 'polling']
 });
 app.set('io', io);
 setupSocket(io, prisma);
 
-// ==========================================
 // ЗАПУСК СЕРВЕРА
-// ==========================================
 const PORT = process.env.PORT || 5001;
 server.listen(PORT, () => {
     console.log(`🚀 Сервер успешно запущен на http://localhost:${PORT}`);
 });
 
-// ==========================================
 // GRACEFUL SHUTDOWN
-// ==========================================
 const gracefulShutdown = async (signal) => {
-    console.log(`\n🛑 Получен сигнал ${signal}, завершаю работу...`);
+    console.log(`\n Получен сигнал ${signal}, завершаю работу...`);
 
     // Закрываем HTTP-сервер
     server.close(() => {
-        console.log('✅ HTTP-сервер закрыт');
+        console.log(' HTTP-сервер закрыт');
     });
 
     // Закрываем соединение с БД
     try {
         await prisma.$disconnect();
-        console.log('✅ Соединение с БД закрыто');
+        console.log(' Соединение с БД закрыто');
     } catch (err) {
-        console.error('❌ Ошибка при закрытии БД:', err);
+        console.error(' Ошибка при закрытии БД:', err);
     }
 
     process.exit(0);
@@ -197,13 +193,11 @@ const gracefulShutdown = async (signal) => {
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-// ==========================================
 // ОБРАБОТКА НЕПРЕДВИДЕННЫХ ОШИБОК
-// ==========================================
 process.on('unhandledRejection', (error) => {
-    console.error('❌ Unhandled Rejection:', error);
+    console.error(' Unhandled Rejection:', error);
 });
 
 process.on('uncaughtException', (error) => {
-    console.error('❌ Uncaught Exception:', error);
+    console.error(' Uncaught Exception:', error);
 });

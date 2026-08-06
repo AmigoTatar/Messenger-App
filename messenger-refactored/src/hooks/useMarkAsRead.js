@@ -1,4 +1,4 @@
-// hooks/useMarkAsRead.js
+
 import { useRef, useCallback } from 'react';
 import { apiClient } from '../services/apiClient';
 

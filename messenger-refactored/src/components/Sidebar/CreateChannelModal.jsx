@@ -1,4 +1,4 @@
-// src/components/Sidebar/CreateChannelModal.jsx
+
 import React, { useState, useEffect } from 'react';
 
 export default function CreateChannelModal({ isOpen, onClose, onCreate, showToast }) {

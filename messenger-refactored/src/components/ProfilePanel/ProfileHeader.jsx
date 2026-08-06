@@ -1,4 +1,4 @@
-// src/components/ProfilePanel/ProfileHeader.jsx
+
 import React from 'react';
 import { getAvatarUrl } from '../../utils/avatarUtils';
 

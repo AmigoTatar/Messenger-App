@@ -59,7 +59,7 @@ export default function JoinRequestsPanel({ channelId, currentUserId, showToast,
             const token = localStorage.getItem('token');
             const response = await fetch(
                 `${API_BASE_URL}/api/channels/join-requests/${requestId}/reject`,
-                //           ↑↑↑ ВОТ ЗДЕСЬ ДОБАВЛЕНО /channels ↑↑↑
+                
                 {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}` }

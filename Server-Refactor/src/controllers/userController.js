@@ -3,7 +3,7 @@ const prisma = new PrismaClient();
 const path = require('path');
 const fs = require('fs');
 
-// 1. Получить список всех пользователей (кроме себя)
+//  Получить список всех пользователей (кроме себя)
 const getUsers = async (req, res) => {
     try {
         const currentUserId = req.userId;
@@ -54,8 +54,8 @@ const getUsers = async (req, res) => {
     }
 };
 
-// 2. Обновить имя пользователя
-// --- Обновление имени ---
+//  Обновить имя пользователя
+
 const updateProfile = async (req, res) => {
     try {
         const userId = req.userId;
@@ -92,7 +92,7 @@ const updateProfile = async (req, res) => {
             }
         });
 
-        // ✅ Отправляем событие всем подключённым клиентам
+        //  Отправляем событие всем подключённым клиентам
         const io = req.app.get('io');
         io.emit('user_updated', {
             userId: updatedUser.id,
@@ -134,7 +134,7 @@ const updateAvatar = async (req, res) => {
             }
         });
 
-        // ✅ Отправляем событие всем подключённым клиентам
+        //  Отправляем событие всем подключённым клиентам
         const io = req.app.get('io');
         io.emit('user_updated', {
             userId: updatedUser.id,

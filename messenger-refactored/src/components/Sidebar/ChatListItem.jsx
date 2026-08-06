@@ -1,4 +1,4 @@
-// src/components/Sidebar/ChatListItem.jsx
+
 import React from 'react';
 import { getAvatarUrl } from '../../utils/avatarUtils';
 
@@ -16,7 +16,7 @@ export default function ChatListItem({
   type, // 'private', 'channel', 'group'
 }) {
   const isImageAvatar = avatar && typeof avatar === 'string' && avatar.startsWith('/uploads/');
-console.log('🔄 [ChatListItem] Рендер:', {
+console.log(' [ChatListItem] Рендер:', {
     id,
     name,
     lastMessage,

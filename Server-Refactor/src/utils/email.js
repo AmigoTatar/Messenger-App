@@ -1,6 +1,6 @@
 const nodemailer = require('nodemailer');
 
-// Настройка транспорта (для Gmail нужно создать пароль приложения)
+// Настройка транспорта (
 const transporter = nodemailer.createTransport({
     host: 'smtp.yandex.ru',
     port: 465,
@@ -9,7 +9,7 @@ const transporter = nodemailer.createTransport({
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
     },
-    // ✅ ДОБАВЛЯЕМ ЭТУ СТРОЧКУ
+    
     tls: {
         rejectUnauthorized: false,
     },

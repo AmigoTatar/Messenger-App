@@ -1,11 +1,11 @@
-// server/src/socket/socketHandlers.js
+
 const jwt = require('jsonwebtoken');
 
 // Глобальное хранилище онлайн-пользователей
 const onlineUsers = new Map();
 
 const setupSocket = (io, prisma) => {
-    // === АУТЕНТИФИКАЦИЯ ===
+    // === АУТЕНТИФИКАЦИЯ 
     io.use((socket, next) => {
         const token = (socket.handshake.auth && socket.handshake.auth.token) ||
             (socket.handshake.headers['authorization'] && socket.handshake.headers['authorization'].split(' ')[1]);
@@ -28,17 +28,17 @@ const setupSocket = (io, prisma) => {
         onlineUsers.set(currentUserId, socket.id);
         io.emit('user_status_change', { userId: currentUserId, status: 'online' });
 
-        // === 1. ПРИСОЕДИНЕНИЕ К КОМНАТЕ ===
+        // ===  ПРИСОЕДИНЕНИЕ К КОМНАТЕ ===
         socket.on('join_chat', (chatId) => {
             if (!chatId) return;
             socket.join(String(chatId));
             console.log(`🚪 Сокет ${socket.id} (юзер ${currentUserId}) в комнате: ${chatId}`);
         });
 
-        // === 2. ОТПРАВКА СООБЩЕНИЯ ===
+        // ===  ОТПРАВКА СООБЩЕНИЯ ===
         socket.on('send_message', async (messageData) => {
             try {
-                console.log('📨 [send_message] START от', currentUserId, messageData);
+                console.log(' [send_message] START от', currentUserId, messageData);
 
                 const { text, mediaUrl, mediaType, activeChatId, isForwarded } = messageData;
                 if (!text && !mediaUrl) return;
@@ -105,7 +105,7 @@ const setupSocket = (io, prisma) => {
                     }
                 });
 
-                console.log(`✅ [send_message] Сохранено сообщение ${savedMessage.id}`);
+                console.log(`[send_message] Сохранено сообщение ${savedMessage.id}`);
 
                 const newMessage = {
                     id: savedMessage.id,
@@ -209,10 +209,10 @@ const setupSocket = (io, prisma) => {
             }
         });
 
- // === 3. УДАЛЕНИЕ СООБЩЕНИЯ ===
+ // ===  УДАЛЕНИЕ СООБЩЕНИЯ 
 socket.on('delete_message', async ({ messageId, activeChatId }) => {
     try {
-        console.log(`🗑️ [delete_message] messageId: ${messageId}, activeChatId: ${activeChatId}`);
+        console.log(` [delete_message] messageId: ${messageId}, activeChatId: ${activeChatId}`);
 
         const message = await prisma.message.findUnique({
             where: { id: Number(messageId) },
@@ -226,18 +226,18 @@ socket.on('delete_message', async ({ messageId, activeChatId }) => {
             return;
         }
 
-        // ✅ ПРОВЕРКА ПРАВ: в групповых чатах удалять можно только свои сообщения
+        //  ПРОВЕРКА ПРАВ: в групповых чатах удалять можно только свои сообщения
         if (message.chatId) {
             if (message.senderId !== socket.userId) {
-                console.log(`❌ [delete_message] Пользователь ${socket.userId} пытается удалить чужое сообщение в группе`);
+                console.log(` [delete_message] Пользователь ${socket.userId} пытается удалить чужое сообщение в группе`);
                 socket.emit('error', { message: 'В групповом чате можно удалять только свои сообщения' });
                 return;
             }
         }
 
-        // ✅ В приватных чатах и каналах — только автор может удалять
+        //  В приватных чатах и каналах — только автор может удалять
         if (message.senderId !== socket.userId) {
-            console.log(`❌ [delete_message] Пользователь ${socket.userId} не является автором сообщения`);
+            console.log(` [delete_message] Пользователь ${socket.userId} не является автором сообщения`);
             socket.emit('error', { message: 'Вы не можете удалить это сообщение' });
             return;
         }
@@ -310,13 +310,13 @@ const deletePayload = {
             }
         }
 
-        console.log(`✅ [delete_message] Сообщение ${messageId} удалено`);
+        console.log(` [delete_message] Сообщение ${messageId} удалено`);
     } catch (err) {
-        console.error('❌ Ошибка delete_message:', err);
+        console.error(' Ошибка delete_message:', err);
     }
 });
 
-        // === 4. ПРОЧТЕНИЕ СООБЩЕНИЙ ===
+        // === ПРОЧТЕНИЕ СООБЩЕНИЙ 
         socket.on('read_messages', async ({ activeChatId }) => {
             if (!activeChatId) return;
             const myId = socket.userId;
@@ -399,11 +399,11 @@ const deletePayload = {
                     }
                 }
             } catch (err) {
-                console.error('❌ Ошибка read_messages:', err);
+                console.error(' Ошибка read_messages:', err);
             }
         });
 
-        // === 5. ПЕЧАТАНИЕ ===
+        // === ПЕЧАТАНИЕ ===
         socket.on('typing', (data) => {
             if (!data || !data.activeChatId) return;
             const { activeChatId } = data;
@@ -450,7 +450,7 @@ const deletePayload = {
             }
         });
 
-        // === 6. УДАЛЕНИЕ УЧАСТНИКА ===
+        // === УДАЛЕНИЕ УЧАСТНИКА ===
         socket.on('remove_member', async (data) => {
             const { chatId, userId, chatType } = data;
             console.log(`🗑️ [SERVER] remove_member: chatId=${chatId}, userId=${userId}, chatType=${chatType}`);
@@ -512,7 +512,7 @@ const deletePayload = {
             }
         });
 
-        // === 7. ДОБАВЛЕНИЕ УЧАСТНИКА ===
+        // === ДОБАВЛЕНИЕ УЧАСТНИКА ===
         socket.on('add_member', async (data) => {
             const { chatId, userId, chatType } = data;
             console.log(`➕ [SERVER] add_member: chatId=${chatId}, userId=${userId}, chatType=${chatType}`);
@@ -620,7 +620,7 @@ const deletePayload = {
             }
         });
 
-        // === 8. УДАЛЕНИЕ КАНАЛА ===
+        // === УДАЛЕНИЕ КАНАЛА ===
         socket.on('delete_channel', async ({ channelId }) => {
             try {
                 const userId = socket.userId;
@@ -633,7 +633,7 @@ const deletePayload = {
             }
         });
 
-        // === 9. ТРЕДЫ ===
+        // ===  ТРЕДЫ ===
         socket.on('create_thread', async ({ messageId, text, activeChatId }) => {
             try {
                 const userId = socket.userId;
@@ -654,7 +654,7 @@ const deletePayload = {
             }
         });
 
-        // === 10. РЕАКЦИИ ===
+        // ===  РЕАКЦИИ ===
         socket.on('toggle_reaction', async ({ messageId, type, activeChatId }) => {
             try {
                 const userId = socket.userId;
@@ -684,7 +684,7 @@ const deletePayload = {
             }
         });
 
-        // === 11. УДАЛЕНИЕ ГРУППЫ ===
+        // ===  УДАЛЕНИЕ ГРУППЫ ===
         socket.on('delete_group', async ({ chatId }) => {
             try {
                 const userId = socket.userId;
@@ -697,16 +697,15 @@ const deletePayload = {
             }
         });
 
-        // === 12. ОБНОВЛЕНИЕ КАНАЛА/ГРУППЫ (добавляем новые события) ===
+        // === 1 ОБНОВЛЕНИЕ КАНАЛА/ГРУППЫ (добавляем новые события) ===
         socket.on('channel_updated', async (data) => {
-            // Это событие приходит с клиента, когда канал обновлён
-            // Отправляем всем участникам канала
+            
             const { channelId, ...updateData } = data;
             io.to(`channel_${channelId}`).emit('channel_updated', updateData);
         });
 
         socket.on('chat_updated', async (data) => {
-            // Это событие приходит с клиента, когда группа обновлена
+            
             const { chatId, ...updateData } = data;
             io.to(`chat_${chatId}`).emit('chat_updated', updateData);
         });

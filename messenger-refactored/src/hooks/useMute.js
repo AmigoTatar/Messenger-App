@@ -1,4 +1,4 @@
-// src/hooks/useMute.js
+
 import { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '../services/apiClient';
 

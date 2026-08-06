@@ -7,7 +7,7 @@ export default function GroupList({
   unreadCounts, 
   onSelectChat, 
   formatMsgTime,
-  groupChatsVersion  // ← ДОБАВЛЯЕМ ПРОПС
+  groupChatsVersion  
   
 }) {
   console.log('🔍 GroupList рендерится, version:', groupChatsVersion, 'groups:', groupChats.length);

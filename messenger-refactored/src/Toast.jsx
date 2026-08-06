@@ -1,4 +1,3 @@
-// src/components/Toast.jsx
 import { useEffect, useState } from 'react';
 
 export default function Toast({ message, type = 'info', duration = 3000, onClose }) {

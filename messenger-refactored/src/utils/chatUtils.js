@@ -1,5 +1,5 @@
 export const getChatIdFromMessage = (msg, currentUserId) => {
-    console.log('🔍 getChatIdFromMessage:', msg);
+    console.log(' getChatIdFromMessage:', msg);
     if (!msg) return 'chat_general';
 
     // === КАНАЛЫ ===

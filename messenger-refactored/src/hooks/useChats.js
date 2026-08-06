@@ -1,4 +1,4 @@
-// hooks/useChats.js
+
 import { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '../services/apiClient';
 

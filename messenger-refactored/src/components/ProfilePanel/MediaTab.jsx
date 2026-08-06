@@ -1,4 +1,4 @@
-// src/components/ProfilePanel/MediaTab.jsx
+
 import React from 'react';
 
 export default function MediaTab({ messages, onMediaClick }) {

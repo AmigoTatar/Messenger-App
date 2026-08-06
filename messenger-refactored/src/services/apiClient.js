@@ -1,4 +1,4 @@
-// services/apiClient.js
+
 import { API_BASE_URL } from '../config';
 
 export const apiClient = async (endpoint, options = {}) => {

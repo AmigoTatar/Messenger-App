@@ -4,7 +4,7 @@ import { apiClient } from '../services/apiClient';
 export function useContacts(user) {
     const [contacts, setContacts] = useState([]);
     const [loading, setLoading] = useState(true);
-
+console.log('📤 [useContacts] contacts после загрузки:', contacts);
     const fetchContacts = useCallback(async () => {
         if (!user) return;
         setLoading(true);

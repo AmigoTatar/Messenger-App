@@ -1,8 +1,9 @@
-// src/components/Sidebar/UserProfile.jsx
+
 import React, { useState } from 'react';
 import { getAvatarUrl } from '../../utils/avatarUtils';
+import { API_BASE_URL } from '../../config';
 
-export default function UserProfile({ user, onUpdateUser }) {
+export default function UserProfile({ user, onUpdateUser, showToast  }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(user?.username || '');
 
@@ -33,11 +34,11 @@ export default function UserProfile({ user, onUpdateUser }) {
     formData.append('avatar', file);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5001/api/users/avatar', {
-        method: 'PUT',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData,
-      });
+const res = await fetch(`${API_BASE_URL}/api/users/avatar`, {
+    method: 'PUT',
+    headers: { 'Authorization': `Bearer ${token}` },
+    body: formData,
+});
       if (!res.ok) throw new Error('Ошибка');
       const data = await res.json();
       const updated = { ...user, avatar: data.user.avatar };
@@ -48,7 +49,22 @@ export default function UserProfile({ user, onUpdateUser }) {
     }
   };
 
-  return (
+ return (
+  <div className="space-y-3">
+    {/* Логотип */}
+    <div className="flex items-center gap-3 px-1 py-2">
+      <img 
+        src="/logo.png" 
+        alt="Поток" 
+        className="w-8 h-8 rounded-lg object-cover shadow-sm"
+      />
+      <div>
+        <h1 className="text-sm font-bold text-zinc-800 dark:text-white leading-tight">Поток</h1>
+        <p className="text-[10px] text-zinc-400 dark:text-zinc-500">Мессенджер</p>
+      </div>
+    </div>
+
+    {/* Блок пользователя */}
     <div className="flex items-center gap-3 p-2 rounded-xl bg-zinc-100 dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-zinc-800/50">
       {/* Аватар с возможностью загрузки */}
       <div className="relative w-10 h-10 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-xl flex-shrink-0 overflow-hidden group">
@@ -86,5 +102,6 @@ export default function UserProfile({ user, onUpdateUser }) {
         {user?.email && <p className="text-[10px] text-zinc-400 dark:text-zinc-500 truncate">{user.email}</p>}
       </div>
     </div>
-  );
+  </div>
+);
 }

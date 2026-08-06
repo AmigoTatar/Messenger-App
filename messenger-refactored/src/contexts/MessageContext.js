@@ -1,4 +1,4 @@
-// src/contexts/MessageContext.js
+
 import { createContext, useContext } from 'react';
 
 export const MessageContext = createContext(null);

@@ -1,10 +1,10 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
-const { onlineUsers } = require('../socket/socketHandlers'); // ← ДОБАВИТЬ
+const { onlineUsers } = require('../socket/socketHandlers'); 
 
-// ==============================================
+
 // ПОЛУЧИТЬ СПИСОК КОНТАКТОВ
-// ==============================================
+
 const getContacts = async (req, res) => {
     try {
         const userId = req.userId;
@@ -26,7 +26,7 @@ const getContacts = async (req, res) => {
             }
         });
 
-        // ✅ Добавляем последнее сообщение для каждого контакта
+        //  Добавляем последнее сообщение для каждого контакта
         const contactsWithLastMessage = await Promise.all(
             contacts.map(async (c) => {
                 const lastMessage = await prisma.message.findFirst({
@@ -57,9 +57,9 @@ const getContacts = async (req, res) => {
     }
 };
 
-// ==============================================
+
 // ДОБАВИТЬ КОНТАКТ (ВЗАИМНО)
-// ==============================================
+
 const addContact = async (req, res) => {
     try {
         const userId = req.userId;
@@ -156,9 +156,9 @@ const addContact = async (req, res) => {
     }
 };
 
-// ==============================================
+
 // УДАЛИТЬ КОНТАКТ
-// ==============================================
+
 const deleteContact = async (req, res) => {
     try {
         const userId = req.userId;
@@ -204,9 +204,9 @@ const deleteContact = async (req, res) => {
     }
 };
 
-// ==============================================
+
 // ПОИСК ПОЛЬЗОВАТЕЛЕЙ
-// ==============================================
+
 const searchUsers = async (req, res) => {
     try {
         const userId = req.userId;

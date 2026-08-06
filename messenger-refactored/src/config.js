@@ -1,4 +1,3 @@
-// src/config.js
 
 // Определяем окружение (для Vite)
 const isDevelopment = import.meta.env?.MODE === 'development';

@@ -1,8 +1,8 @@
-// src/components/Sidebar/CreateGroupModal.jsx
+
 import React, { useState, useEffect } from 'react';
 import { apiClient } from '../../services/apiClient';
 
-export default function CreateGroupModal({ isOpen, onClose, onCreate, showToast }) {
+export default function CreateGroupModal({ isOpen, onClose, onCreate, showToast, contacts }) {
   const [name, setName] = useState('');
   const [avatar, setAvatar] = useState('💬');
   const [selectedUsers, setSelectedUsers] = useState([]);
@@ -12,14 +12,17 @@ export default function CreateGroupModal({ isOpen, onClose, onCreate, showToast 
   // Загрузка пользователей при открытии
   useEffect(() => {
     if (!isOpen) return;
-    const fetchUsers = async () => {
-      try {
+const fetchUsers = async () => {
+    try {
         const data = await apiClient('/api/users');
-        setAllUsers(data);
-      } catch (err) {
+        
+        const contactIds = contacts.map(c => c.id);
+        const filteredUsers = data.filter(u => contactIds.includes(u.dbId || u.id));
+        setAllUsers(filteredUsers);
+    } catch (err) {
         console.error('Ошибка загрузки пользователей:', err);
-      }
-    };
+    }
+};
     fetchUsers();
   }, [isOpen]);
 

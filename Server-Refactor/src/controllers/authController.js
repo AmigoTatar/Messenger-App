@@ -3,9 +3,9 @@ const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-// ==========================================
+
 // РЕГИСТРАЦИЯ
-// ==========================================
+
 const register = async (req, res) => {
     try {
         const { username, email, password } = req.body;
@@ -113,9 +113,9 @@ const register = async (req, res) => {
     }
 };
 
-// ==========================================
+
 // ВХОД (ЛОГИН)
-// ==========================================
+
 const login = async (req, res) => {
     try {
         const { username, password } = req.body;

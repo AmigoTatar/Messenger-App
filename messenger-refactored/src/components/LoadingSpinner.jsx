@@ -1,4 +1,4 @@
-// src/components/LoadingSpinner.jsx
+
 export default function LoadingSpinner({ size = 'md', color = 'emerald' }) {
   const sizes = {
     sm: 'w-4 h-4',

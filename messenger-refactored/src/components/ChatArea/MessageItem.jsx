@@ -14,9 +14,9 @@ export default function MessageItem({
   onPin, 
   onDelete 
 }) {
-  // ==============================================
-  // 🛡️ ЗАЩИТА: если msg нет или это не объект
-  // ==============================================
+  
+  //  ЗАЩИТА: если msg нет или это не объект
+  
   if (!msg || typeof msg !== 'object') {
     return (
       <div className="text-xs text-zinc-400 p-2 border border-dashed border-zinc-300 rounded-lg my-1">
@@ -69,7 +69,7 @@ export default function MessageItem({
         {isImage && mediaUrl && (
           <div className="mb-2 max-w-full overflow-hidden rounded-lg bg-zinc-900/50">
             <img 
-              src={mediaUrl} 
+              src={msg.mediaUrl} 
               alt="Вложение" 
               className="max-h-60 w-full object-cover cursor-pointer hover:opacity-90 transition"
               onClick={() => window.open(mediaUrl, '_blank')}
@@ -81,7 +81,7 @@ export default function MessageItem({
         {mediaType === 'audio' && mediaUrl && (
           <div className="mb-2 p-1 bg-zinc-100/80 dark:bg-zinc-950/60 rounded-xl flex items-center gap-2 min-w-[240px] border border-zinc-200 dark:border-zinc-800/50">
             <audio 
-              src={mediaUrl} 
+              src={msg.mediaUrl} 
               controls 
               className="w-full h-8 accent-emerald-500" 
             />

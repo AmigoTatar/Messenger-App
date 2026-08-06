@@ -52,7 +52,6 @@ export function useAppState() {
     setSearchQuery,
     contactsVersion,
     setContactsVersion,
-    // Рефы
     processedEvents,
     activeChatIdRef,
     pinnedProcessingRef,

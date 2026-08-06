@@ -1,4 +1,4 @@
-// components/ChatArea/ForwardModal.jsx
+
 import React, { useState, useEffect } from 'react';
 import { getAvatarUrl } from '../../utils/avatarUtils';
 
@@ -10,6 +10,7 @@ export default function ForwardModal({
   groupChats,
   channels,
   onForward,
+  currentUserId
 }) {
   const [search, setSearch] = useState('');
 
@@ -26,11 +27,16 @@ export default function ForwardModal({
     onForward(targetChatId, message);
     onClose();
   };
-
+console.log('📤 [ForwardModal] chats (contacts):', chats);
+console.log('📤 [ForwardModal] groupChats:', groupChats);
+console.log('📤 [ForwardModal] channels:', channels);
+console.log('📤 [ForwardModal] Первый контакт:', chats?.[0]);
   // Фильтрация
-  const filteredChats = (chats || []).filter(chat =>
-    chat.name.toLowerCase().includes(search.toLowerCase())
-  );
+const filteredChats = (chats || [])
+    .filter(chat => {
+        const name = chat.username || chat.name || '';
+        return name.toLowerCase().includes(search.toLowerCase());
+    });
   const filteredGroups = (groupChats || []).filter(chat =>
     chat.name.toLowerCase().includes(search.toLowerCase())
   );
@@ -90,9 +96,9 @@ export default function ForwardModal({
                     <ChatButton
                       key={chat.id}
                       chat={chat}
-                      onClick={() => handleForward(chat.id)}
+                      onClick={() => handleForward(`user_${chat.id}`)}
                       avatar={chat.avatar}
-                      name={chat.name}
+                      name={chat.username || chat.name || 'Без имени'}
                       type="приватный"
                     />
                   ))}
@@ -109,9 +115,9 @@ export default function ForwardModal({
                     <ChatButton
                       key={chat.id}
                       chat={chat}
-                      onClick={() => handleForward(chat.id)}
+                      onClick={() => handleForward(`user_${chat.id}`)}
                       avatar={chat.avatar}
-                      name={chat.name}
+                      name={chat.username || chat.name || 'Без имени'}  
                       type="группа"
                     />
                   ))}
@@ -156,6 +162,8 @@ export default function ForwardModal({
 
 // Вспомогательный компонент для кнопки чата
 function ChatButton({ chat, onClick, avatar, name, type }) {
+    console.log('🖼️ [ChatButton] chat:', chat);
+    console.log('🖼️ [ChatButton] name:', name);
   const isImageAvatar = avatar && typeof avatar === 'string' && avatar.startsWith('/uploads/');
   const avatarUrl = isImageAvatar ? getAvatarUrl(avatar) : null;
 

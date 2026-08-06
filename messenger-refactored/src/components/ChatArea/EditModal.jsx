@@ -11,7 +11,7 @@ export default function EditModal({ message, onSave, onCancel }) {
       await onSave(message.id, text.trim());
       onCancel();
     } catch (err) {
-      /*alert('Не удалось отредактировать');*/
+    
     } finally {
       setLoading(false);
     }

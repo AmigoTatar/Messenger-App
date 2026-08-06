@@ -1,4 +1,4 @@
-// src/utils/avatarUtils.js
+
 import { API_BASE_URL } from '../config';
 
 /**

@@ -1,4 +1,4 @@
-// middleware/validation.js
+
 
 // Валидация регистрации
 function validateRegister(req, res, next) {

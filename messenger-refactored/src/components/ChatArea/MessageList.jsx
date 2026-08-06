@@ -16,7 +16,7 @@ export default function MessageList({
   onEdit,
   onPin,
   onDelete,
-  socketRef, // новый проп
+  socketRef, 
 }) {
   const containerRef = useRef(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
@@ -53,7 +53,7 @@ export default function MessageList({
         isMarking.current = true;
         if (socketRef && socketRef.connected) {
           socketRef.emit('read_messages', { activeChatId });
-          console.log('📤 Отправлено read_messages для чата:', activeChatId);
+          console.log(' Отправлено read_messages для чата:', activeChatId);
         }
         setTimeout(() => { isMarking.current = false; }, 500);
       }

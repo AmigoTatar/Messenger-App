@@ -1,4 +1,4 @@
-// src/components/ProfilePanel/AudioTab.jsx
+
 import React from 'react';
 
 export default function AudioTab({ messages, onMediaClick }) {

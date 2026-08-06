@@ -4,7 +4,7 @@ const prisma = new PrismaClient();
 const getUnread = async (req, res) => {
     try {
         const userId = req.userId;
-        console.log(`📊 Запрос непрочитанных для пользователя ${userId}`);
+        console.log(` Запрос непрочитанных для пользователя ${userId}`);
 
         // 1. Приватные чаты
         const privateMembers = await prisma.privateChatMember.findMany({

@@ -8,9 +8,8 @@ const generateToken = () => {
     return crypto.randomBytes(32).toString('hex');
 };
 
-// ==============================================
 // ЗАПРОС НА СБРОС ПАРОЛЯ
-// ==============================================
+
 const forgotPassword = async (req, res) => {
     try {
         const { email } = req.body;
@@ -54,17 +53,17 @@ const forgotPassword = async (req, res) => {
             }
         });
 
-        // ✅ ВРЕМЕННО: выводим токен в консоль (пока без email)
+       
         // Отправляем письмо с ссылкой
 
 const emailSent = await sendResetEmail(email, token);
 
 if (!emailSent) {
-    // Если письмо не отправилось, логируем токен (для отладки)
+   
     console.log(`🔐 Токен для сброса пароля (${email}): ${token}`);
 }
 
-        // TODO: Отправка email через Nodemailer (сделаем позже)
+        
 
         res.status(200).json({
             message: 'Если пользователь с таким email существует, мы отправили ссылку для сброса пароля'
@@ -75,9 +74,9 @@ if (!emailSent) {
     }
 };
 
-// ==============================================
+
 // СБРОС ПАРОЛЯ (по токену)
-// ==============================================
+
 const resetPassword = async (req, res) => {
     try {
         const { token, newPassword } = req.body;

@@ -92,7 +92,7 @@ export default function App() {
   setContacts,
   setContactsVersion,
   fetchContacts,
-  // Добавленные
+  // Новые
   joinChat,
   resetUnread,
   channels,
@@ -369,7 +369,7 @@ const showConfirm = useCallback((title, message, confirmText, onConfirm, variant
   // ====== РЕНДЕР ======
   const activeMessages = useMemo(() => {
     const msgs = getMessages(activeChatId);
-    console.log('🔁 activeMessages обновлён:', msgs.length);
+    console.log(' activeMessages обновлён:', msgs.length);
     return msgs;
   }, [activeChatId, getMessages]);
 
@@ -398,7 +398,7 @@ useEffect(() => {
     }
   }
   if (!found) {
-    console.log('🔄 Чат не найден, сбрасываю activeChatId');
+    console.log(' Чат не найден, сбрасываю activeChatId');
     setActiveChatId(null);
     setActiveChatData(null);
   }
@@ -421,13 +421,13 @@ useEffect(() => {
     const chatId = chat.id || `chat_${chat.dbId}`;
     if (chatId) {
       socket.emit('join_chat', chatId);
-      console.log('📡 Подписываюсь на группу:', chatId);
+      console.log(' Подписываюсь на группу:', chatId);
     }
   });
   channels.forEach(channel => {
     const chatId = `channel_${channel.id}`;
     socket.emit('join_chat', chatId);
-    console.log('📡 Подписываюсь на канал:', chatId);
+    console.log(' Подписываюсь на канал:', chatId);
   });
   chats.forEach(chat => {
     if (chat.id && chat.id !== 'chat_general' && !chat.id.startsWith('channel_') && !chat.id.startsWith('chat_')) {
@@ -476,7 +476,7 @@ useEffect(() => {
   socket.on('message_pinned', handleMessagePinned);
   socket.on('kicked_from_channel', handleKickedFromChannel);
   socket.on('contact_added', (userData) => {
-    console.log('📱 Вас добавили в контакты:', userData);
+    showToast('📱 Вас добавили в контакты:', userData);
     setContacts(prev => {
       if (prev.some(c => c.id === userData.id)) return prev;
       return [...prev, userData];
@@ -565,103 +565,118 @@ socket.on('join_request_received', (data) => {
   return (
     <ErrorBoundary>
       <div className="bg-zinc-100 dark:bg-zinc-900 text-zinc-900 dark:text-white h-screen flex justify-center items-center font-sans antialiased transition-colors duration-300">
-        <div className="w-full h-full md:max-w-5xl md:h-[90vh] md:rounded-2xl md:border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex overflow-hidden shadow-2xl transition-colors duration-300">
-          <Sidebar
-            loading={chatsLoading}
-            chats={chats}
-            channels={channels}
-            showToast={showToast}
-            groupChats={groupChats}
-            activeChatId={activeChatId}
-            unreadCounts={unreadCounts}
-            onSelectChat={handleSelectChat}
-            onCreateChannel={handleCreateChannel}
-            onCreateGroupChat={handleCreateGroupChat}
-            chatsVersion={chatsVersion}
-            channelsVersion={channelsVersion}
-            groupChatsVersion={groupChatsVersion}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            isDarkMode={isDarkMode}
-            onToggleTheme={toggleTheme}
-            onLogout={handleLogout}
-            user={user}
-            onUpdateUser={handleUpdateUser}
-            formatMsgTime={(d) => d ? new Date(d).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-            contacts={contacts}
-            contactsLoading={contactsLoading}
-            onAddContact={addContact}
-            onRemoveContact={removeContact}
-            onSearchUsers={searchUsers}
-            contactsVersion={contactsVersion}
-          />
-          <MessageContext.Provider value={{ sendMessage: handleSendMessage }}>
-            <ChatArea
-              key={activeChatId || 'no-chat'}
-              activeChatId={activeChatId}
-              activeChatData={activeChatData}
-              messages={activeMessages}
-              currentUserId={user?.id}
-              socketRef={socket}
-              isSocketConnected={isSocketConnected}
-              setMessages={setMessagesByChat}
-              setActiveChatId={setActiveChatId}
-              onDeleteMessage={handleDeleteMessage}
-              onSelectChat={handleSelectChat}
-              chatsProp={chats}
-              showToast={showToast}
-              groupChatsProp={groupChats}
-              channelsProp={channels}
-              onLoadMoreHistory={() => {
-                const oldest = activeMessages.length > 0 ? activeMessages[0]?.id : null;
-                loadHistory(activeChatId, oldest);
-              }}
-              hasMoreHistory={hasMore(activeChatId)}
-              isHistoryLoading={loading(activeChatId)}
-              onToggleProfile={() => setIsProfileOpen(!isProfileOpen)}
-              onMarkAsRead={debouncedMarkAsRead}
-              onPinMessage={handlePin}
-              showConfirm={showConfirm}
+        
+<div className="w-full h-full md:max-w-5xl md:h-[90vh] md:rounded-2xl md:border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex overflow-hidden shadow-2xl transition-colors duration-300">
 
-            />
-          </MessageContext.Provider>
-          <ProfilePanel
-            activeChat={{ ...activeChatData, id: activeChatId, messages: activeMessages }}
-            isOpen={isProfileOpen}
-            onClose={() => setIsProfileOpen(false)}
-            socketRef={socket}
-            showToast={showToast}
-            onMemberRemoved={() => {}}
-            onChatDeleted={() => {}}
-            onChatUpdate={handleChatUpdate}
-            onMemberAdded={(newMember) => {
-              setActiveChatData(prev => ({ ...prev, members: [...(prev?.members || []), newMember] }));
-            }}
-            onChatUpdate={(updated) => {
-              if (updated.type === 'channel') {
-                setChannels(prev => prev.map(ch => ch.id === updated.id ? updated : ch));
-                if (activeChatId === `channel_${updated.id}`) {
-                  setActiveChatData(prev => ({ ...prev, name: updated.name, avatar: updated.avatar }));
-                }
-              } else if (updated.type === 'group') {
-                setGroupChats(prev => prev.map(ch => ch.dbId === updated.id ? { ...ch, name: updated.name, avatar: updated.avatar } : ch));
-                if (activeChatId === `chat_${updated.id}`) {
-                  setActiveChatData(prev => ({ ...prev, name: updated.name, avatar: updated.avatar }));
-                }
-              }
-            }}
-          />
-          {toast && (
-            <Toast
-              message={toast.message}
-              type={toast.type}
-              duration={toast.duration}
-              onClose={hideToast}
-            />
-          )}
+  {/* Сайдбар — скрыт на мобилках когда чат открыт */}
+  <div className={`${activeChatId ? 'hidden' : 'flex'} md:flex w-full md:w-[380px] flex-shrink-0 flex-col`}>
+    <Sidebar
+      loading={chatsLoading}
+      chats={chats}
+      channels={channels}
+      showToast={showToast}
+      groupChats={groupChats}
+      activeChatId={activeChatId}
+      unreadCounts={unreadCounts}
+      onSelectChat={handleSelectChat}
+      onCreateChannel={handleCreateChannel}
+      onCreateGroupChat={handleCreateGroupChat}
+      chatsVersion={chatsVersion}
+      channelsVersion={channelsVersion}
+      groupChatsVersion={groupChatsVersion}
+      searchQuery={searchQuery}
+      setSearchQuery={setSearchQuery}
+      isDarkMode={isDarkMode}
+      onToggleTheme={toggleTheme}
+      onLogout={handleLogout}
+      user={user}
+      onUpdateUser={handleUpdateUser}
+      formatMsgTime={(d) => d ? new Date(d).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+      contacts={contacts}
+      contactsLoading={contactsLoading}
+      onAddContact={addContact}
+      onRemoveContact={removeContact}
+      onSearchUsers={searchUsers}
+      contactsVersion={contactsVersion}
+    />
+  </div>
 
-          {/* Модалка подтверждения */}
-<ConfirmModal
+  {/* Чат — скрыт на мобилках когда чат не выбран */}
+  <div className={`${!activeChatId ? 'hidden' : 'flex'} md:flex flex-1 flex-col`}>
+    <MessageContext.Provider value={{ sendMessage: handleSendMessage }}>
+      {console.log('📤 [App] contacts перед передачей в ChatArea:', contacts)}
+      <ChatArea
+        key={activeChatId || 'no-chat'}
+        activeChatId={activeChatId}
+        activeChatData={activeChatData}
+        messages={activeMessages}
+        currentUserId={user?.id}
+        socketRef={socket}
+        isSocketConnected={isSocketConnected}
+        setMessages={setMessagesByChat}
+        setActiveChatId={setActiveChatId}
+        onDeleteMessage={handleDeleteMessage}
+        onSelectChat={handleSelectChat}
+        chatsProp={chats}
+        contacts={contacts}
+        showToast={showToast}
+        groupChatsProp={groupChats}
+        channelsProp={channels}
+        onLoadMoreHistory={() => {
+          const oldest = activeMessages.length > 0 ? activeMessages[0]?.id : null;
+          loadHistory(activeChatId, oldest);
+        }}
+        hasMoreHistory={hasMore(activeChatId)}
+        isHistoryLoading={loading(activeChatId)}
+        onToggleProfile={() => setIsProfileOpen(!isProfileOpen)}
+        onMarkAsRead={debouncedMarkAsRead}
+        onPinMessage={handlePin}
+        showConfirm={showConfirm}
+      />
+    </MessageContext.Provider>
+  </div>
+
+  {/* Профиль */}
+  <ProfilePanel
+    activeChat={{ ...activeChatData, id: activeChatId, messages: activeMessages }}
+    isOpen={isProfileOpen}
+    onClose={() => setIsProfileOpen(false)}
+    socketRef={socket}
+    showToast={showToast}
+    onMemberRemoved={() => {}}
+    onChatDeleted={() => {}}
+    onChatUpdate={handleChatUpdate}
+    contacts={contacts}
+    onMemberAdded={(newMember) => {
+      setActiveChatData(prev => ({ ...prev, members: [...(prev?.members || []), newMember] }));
+    }}
+    onChatUpdate={(updated) => {
+      if (updated.type === 'channel') {
+        setChannels(prev => prev.map(ch => ch.id === updated.id ? updated : ch));
+        if (activeChatId === `channel_${updated.id}`) {
+          setActiveChatData(prev => ({ ...prev, name: updated.name, avatar: updated.avatar }));
+        }
+      } else if (updated.type === 'group') {
+        setGroupChats(prev => prev.map(ch => ch.dbId === updated.id ? { ...ch, name: updated.name, avatar: updated.avatar } : ch));
+        if (activeChatId === `chat_${updated.id}`) {
+          setActiveChatData(prev => ({ ...prev, name: updated.name, avatar: updated.avatar }));
+        }
+      }
+    }}
+  />
+
+  {/* Тосты */}
+  {toast && (
+    <Toast
+      message={toast.message}
+      type={toast.type}
+      duration={toast.duration}
+      onClose={hideToast}
+    />
+  )}
+
+  {/* Модалка подтверждения */}
+  <ConfirmModal
     isOpen={confirmModal.isOpen}
     onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
     onConfirm={confirmModal.onConfirm}
@@ -669,8 +684,10 @@ socket.on('join_request_received', (data) => {
     message={confirmModal.message}
     confirmText={confirmModal.confirmText}
     confirmVariant={confirmModal.variant}
-/>
-        </div>
+  />
+</div>
+
+
       </div>
     </ErrorBoundary>
   );

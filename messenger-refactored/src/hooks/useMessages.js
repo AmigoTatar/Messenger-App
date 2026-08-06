@@ -1,4 +1,4 @@
-// hooks/useMessages.js
+
 import { useState, useCallback, useRef } from 'react';
 import { apiClient } from '../services/apiClient';
 import { getChatIdFromMessage } from '../utils/chatUtils';
@@ -19,18 +19,18 @@ export function useMessages(currentUserId) {
     };
 
    const addMessage = useCallback((chatId, message) => {
-    console.log('📊 [addMessage] Вызвана для chatId:', chatId, 'message:', message);
+    console.log(' [addMessage] Вызвана для chatId:', chatId, 'message:', message);
     setMessagesByChat(prev => {
         const current = prev[chatId] || [];
-        console.log('📊 [addMessage] Текущие сообщения в', chatId, ':', current.length);
+        console.log(' [addMessage] Текущие сообщения в', chatId, ':', current.length);
         
         if (current.some(m => m.id === message.id)) {
-            console.log('📊 [addMessage] Сообщение уже есть, пропускаю');
+            console.log(' [addMessage] Сообщение уже есть, пропускаю');
             return prev;
         }
         
         const updated = [...current, message];
-        console.log('📊 [addMessage] Новое количество:', updated.length);
+        console.log(' [addMessage] Новое количество:', updated.length);
         return { ...prev, [chatId]: updated };
     });
 }, []);

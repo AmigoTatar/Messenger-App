@@ -42,9 +42,9 @@ export function useAppHandlers({
   removeChannel,
   removeGroupChat,
   addContact,
-  // Обработчики из messageHandlers
+  
   handleMessageDeleted,
-  // ...
+  
 }) {
   // ====== ПЕРЕКЛЮЧЕНИЕ ЧАТА ======
   const handleSelectChat = useCallback(async (chatId, chatData = null) => {
@@ -284,8 +284,7 @@ export function useAppHandlers({
   }, [setChannels, setGroupChats, activeChatId, setActiveChatData]);
 
   // ====== ОСТАЛЬНЫЕ ОБРАБОТЧИКИ ======
-  // (handleChannelCreated, handleChannelDeleted, handleChatCreated, handleChatDeleted, handleChannelMemberAdded, etc.)
-  // Они пока остаются в App.jsx, потому что их много и они сложные
+  
 
   // ====== ВЫХОД ======
   const handleLogout = useCallback(() => {
@@ -306,6 +305,6 @@ export function useAppHandlers({
     handleCreateGroupChat,
     handleChatUpdate,
     handleLogout,
-    // ... остальные обработчики
+    
   };
 }

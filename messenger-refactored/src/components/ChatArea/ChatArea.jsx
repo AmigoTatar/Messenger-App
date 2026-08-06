@@ -41,9 +41,10 @@ export default function ChatArea({
   showToast,
   onPinMessage, 
   showConfirm,
+  contacts
 }) {
 
-
+console.log('📤 [ChatArea] contacts получены:', contacts);
 const getChatName = (activeChatId, activeChatData, channelsProp, groupChatsProp, chatsProp) => {
     if (!activeChatId) return 'Выберите чат';
     if (activeChatId === 'chat_general') return 'Общий чат';
@@ -63,10 +64,7 @@ const getChatName = (activeChatId, activeChatData, channelsProp, groupChatsProp,
     return 'Чат';
 };
 
-
-  // ==============================================
-  // 🧠 СОСТОЯНИЯ ДЛЯ UI
-  // ==============================================
+  //  СОСТОЯНИЯ ДЛЯ UI
   
   const [contextMenu, setContextMenu] = useState({
     visible: false,
@@ -85,12 +83,7 @@ const getChatName = (activeChatId, activeChatData, channelsProp, groupChatsProp,
   const [localTypingUser, setLocalTypingUser] = useState(null);
 
 
-  
-
-
-  // ==============================================
-  // 🎯 ОБРАБОТЧИКИ ДЛЯ КОНТЕКСТНОГО МЕНЮ
-  // ==============================================
+  //  ОБРАБОТЧИКИ ДЛЯ КОНТЕКСТНОГО МЕНЮ
 
   const handleCopy = (text) => {
     navigator.clipboard.writeText(text);
@@ -109,10 +102,12 @@ const getChatName = (activeChatId, activeChatData, channelsProp, groupChatsProp,
   };
 const handleForwardSend = (targetChatId, msg) => {
   console.log('📤 Пересылка в чат:', targetChatId, 'Сообщение:', msg);
+  const chatId = String(targetChatId)
   // Проверяем, если целевой чат — канал, то проверяем права
   if (targetChatId.startsWith('channel_')) {
     const channelId = parseInt(targetChatId.replace('channel_', ''), 10);
     const channel = channelsProp?.find(c => c.id === channelId);
+
     // Проверяем, что пользователь — админ или создатель
     const isAdmin = channel?.creatorId === currentUserId || 
                     channel?.members?.some(m => m.userId === currentUserId && m.role === 'admin');
@@ -146,7 +141,7 @@ const handleForwardSend = (targetChatId, msg) => {
   console.log('📌 Закрепление:', messageId);
   const id = typeof messageId === 'object' ? messageId.id : messageId;
   
-  // ✅ Проверка прав на клиенте
+  //  Проверка прав на клиенте
   const msg = messages.find(m => m.id === id);
   if (!msg) return;
   
@@ -187,9 +182,9 @@ const handleForwardSend = (targetChatId, msg) => {
     if (onDeleteMessage) onDeleteMessage(messageId);
   };
 
-// ==============================================
-// 📌 ЗАКРЕПЛЁННЫЕ СООБЩЕНИЯ
-// ==============================================
+
+//  ЗАКРЕПЛЁННЫЕ СООБЩЕНИЯ
+
 const [pinnedMessages, setPinnedMessages] = useState([]);
 const [showPinnedList, setShowPinnedList] = useState(false);
 const [pinnedLoading, setPinnedLoading] = useState(false);
@@ -206,7 +201,7 @@ const fetchPinnedMessages = useCallback(async () => {
     } else if (activeChatId.startsWith('chat_')) {
       params.append('chatId', activeChatId.replace('chat_', ''));
     } else if (activeChatId.startsWith('user_')) {
-      // ✅ Для приватных чатов передаём ID собеседника
+      //  Для приватных чатов передаём ID собеседника
       const otherUserId = activeChatId.replace('user_', '');
       params.append('privateUserId', otherUserId);
     } else {
@@ -228,9 +223,8 @@ const fetchPinnedMessages = useCallback(async () => {
     setPinnedLoading(false);
   }
 }, [activeChatId]);
-// ==============================================
-// 📝 СТАТУС "ПЕЧАТАЕТ..."
-// ==============================================
+
+//  СТАТУС ПЕЧАТАЕТ...
 useEffect(() => {
   if (!socketRef) {
     console.log('⚠️ socket отсутствует, подписка на typing не выполнена');
@@ -260,9 +254,8 @@ useEffect(() => {
 }, [socketRef, currentUserId, activeChatId, socketRef?.connected]); 
 
 
-// ==============================================
-// 🎯 ОБРАБОТЧИКИ ДЛЯ КОНТЕКСТНОГО МЕНЮ (исправленные)
-// ==============================================
+
+//  ОБРАБОТЧИКИ ДЛЯ КОНТЕКСТНОГО МЕНЮ 
 
 const handleReaction = async (messageId, emoji) => {
   try {
@@ -340,10 +333,10 @@ const handleEditSave = async (messageId, newText) => {
       });
       setEditingMessage(null);
     }
-    // НЕТ АЛЕРТА ЗДЕСЬ
+  
   } catch (error) {
     console.error('❌ Ошибка редактирования:', error);
-    /* alert('Не удалось отредактировать сообщение: ' + error.message); // если алерт здесь, он сработает только при ошибке */
+   
   }
 };
 
@@ -360,7 +353,6 @@ useEffect(() => {
   const handleMessagePinned = (data) => {
     // Обновляем список закреплённых при событии
     fetchPinnedMessages();
-    // Также обновляем локальные сообщения, чтобы показать иконку 📌
     setMessages(prev => {
   const newState = { ...prev };
   const chatMessages = newState[activeChatId] || [];
@@ -398,7 +390,7 @@ const isReadOnly = activeChatData?.type === 'channel' && (
 );
 const isTypingVisible = localTypingUser !== null && activeChatData?.type !== 'channel';
 
-console.log('🔍 isReadOnly:', isReadOnly, 'activeChatData:', activeChatData);
+console.log(' isReadOnly:', isReadOnly, 'activeChatData:', activeChatData);
 
 
 const canPin = (msg) => {
@@ -413,7 +405,7 @@ const canPin = (msg) => {
   return false;
 };
 
-  // Заглушки для недостающих функций
+ 
   
   const handleMarkAsRead = () => {};
   const handleReactionToggle = () => {};
@@ -421,8 +413,8 @@ const canPin = (msg) => {
   
   
 
-console.log('📊 [ChatArea] received messages:', messages);
-console.log('📊 [ChatArea] messages length:', messages?.length);
+console.log(' [ChatArea] received messages:', messages);
+console.log(' [ChatArea] messages length:', messages?.length);
 if (isHistoryLoading) {
   return (
     <div className="flex-1 flex items-center justify-center">
@@ -434,12 +426,12 @@ const chatName = getChatName(activeChatId, activeChatData, channelsProp, groupCh
   return (
   <div className="flex-col flex-1 h-full bg-zinc-100 dark:bg-zinc-900">
     {!activeChatId ? (
-  <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 p-4 text-center bg-white dark:bg-zinc-900">
-  <span className="text-4xl mb-2">💬</span>
-  <p className="text-sm">Выберите чат, чтобы начать общение</p>
-</div>
+  <div className="hidden md:flex flex-1 flex-col items-center justify-center text-zinc-500 p-4 text-center bg-white dark:bg-zinc-900">
+    <span className="text-4xl mb-2">💬</span>
+    <p className="text-sm">Выберите чат, чтобы начать общение</p>
+  </div>
 ) : (
-      // ✅ Добавляем обёртку flex flex-col h-full
+      //  Добавляем обёртку flex flex-col h-full
       <div className="flex flex-col h-full">
         <ChatHeader
           chatName={chatName}
@@ -568,7 +560,7 @@ const chatName = getChatName(activeChatId, activeChatData, channelsProp, groupCh
             visible={forwardModal.visible}
             onClose={() => setForwardModal({ visible: false, message: null })}
             message={forwardModal.message}
-            chats={chatsProp}
+            chats={contacts}
             groupChats={groupChatsProp}
             channels={channelsProp}
             onForward={handleForwardSend}

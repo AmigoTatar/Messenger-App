@@ -39,7 +39,7 @@ export default function Sidebar({
   onSearchUsers,
   contactsVersion,
 }) {
-  // ✅ Добавь этот лог для проверки
+  
   console.log('🔍 Sidebar: onSelectChat =', onSelectChat);
 
   const [isNewChannelOpen, setIsNewChannelOpen] = useState(false);
@@ -64,13 +64,14 @@ const filteredChannels = channels.filter(c =>
 const filteredGroups = groupChats.filter(c => 
     c.name?.toLowerCase().includes(searchQuery.toLowerCase())
 );
-console.log('📊 Sidebar: filteredContacts:', JSON.stringify(filteredContacts.map(c => ({ 
+console.log(' Sidebar: filteredContacts:', JSON.stringify(filteredContacts.map(c => ({ 
     id: c.id, 
     name: c.username, 
     lastMessage: c.lastMessage 
 })), null, 2));
   return (
-    <div className="w-full md:w-80 h-full max-h-screen overflow-hidden border-r border-zinc-200 dark:border-zinc-800 flex flex-col bg-white dark:bg-zinc-950 transition-colors duration-300">
+   
+    <div className="w-full max-w-full overflow-hidden border-r border-zinc-200 dark:border-zinc-800 flex flex-col bg-white dark:bg-zinc-950 transition-colors duration-300">
       
       {/* Верхняя часть с профилем и кнопками */}
       <div className="p-4 space-y-3">
@@ -152,7 +153,7 @@ console.log('📊 Sidebar: filteredContacts:', JSON.stringify(filteredContacts.m
       {/* Нижняя панель */}
       <div className="p-3 border-t border-zinc-100 dark:border-zinc-900 flex flex-col gap-2 bg-zinc-50/50 dark:bg-zinc-950/20 mt-auto">
         <div className="flex justify-between items-center">
-          <span className="text-[11px] text-zinc-400 font-medium">Mini Messenger v3.1</span>
+          <span className="text-[11px] text-zinc-400 font-medium">Potok </span>
           <div className="flex items-center gap-1">
             <button onClick={() => setIsSearchOpen(true)} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition text-zinc-500 dark:text-zinc-400" title="Поиск (Ctrl+K)">🔍</button>
             <button onClick={onToggleTheme} className="p-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-amber-500 dark:hover:text-amber-400 rounded-xl transition active:scale-95 shadow-sm">
@@ -177,6 +178,7 @@ console.log('📊 Sidebar: filteredContacts:', JSON.stringify(filteredContacts.m
         onClose={() => setIsNewGroupOpen(false)}
         onCreate={onCreateGroupChat}
         showToast={showToast}
+        contacts={contacts}
       />
       <SearchModal
         isOpen={isSearchOpen}
@@ -200,5 +202,6 @@ console.log('📊 Sidebar: filteredContacts:', JSON.stringify(filteredContacts.m
     showToast={showToast}
 />
     </div>
+
   );
 }

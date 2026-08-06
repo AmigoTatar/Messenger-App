@@ -8,8 +8,8 @@ const uploadController = async (req, res) => {
             return res.status(400).json({ error: 'Файл не загружен' });
         }
 
-        console.log('📤 Загрузка файла в S3:', req.file.originalname);
-        console.log('📤 Размер:', req.file.size);
+        console.log(' Загрузка файла в S3:', req.file.originalname);
+        console.log(' Размер:', req.file.size);
 
         const result = await uploadFile(
             req.file.buffer,

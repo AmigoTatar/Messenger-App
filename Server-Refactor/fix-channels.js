@@ -3,8 +3,7 @@ const prisma = new PrismaClient();
 
 async function fixChannels() {
   try {
-    console.log('🔧 Исправляем каналы...');
-    
+   
     // Находим первого пользователя (админа)
     const admin = await prisma.user.findFirst({
       where: {
@@ -16,20 +15,20 @@ async function fixChannels() {
     });
     
     if (!admin) {
-      console.log('❌ Админ не найден, берем первого пользователя');
+      console.log(' Админ не найден, берем первого пользователя');
       const firstUser = await prisma.user.findFirst();
       if (!firstUser) {
-        console.log('❌ Нет пользователей в базе!');
+        console.log(' Нет пользователей в базе!');
         return;
       }
       admin = firstUser;
     }
     
-    console.log(`👤 Используем пользователя: ${admin.username} (id: ${admin.id})`);
+    console.log(` Используем пользователя: ${admin.username} (id: ${admin.id})`);
     
     // Находим все каналы
     const channels = await prisma.channel.findMany();
-    console.log(`📢 Всего каналов: ${channels.length}`);
+    console.log(` Всего каналов: ${channels.length}`);
     
     for (const channel of channels) {
       console.log(`\n📢 Канал: "${channel.name}" (id: ${channel.id})`);
@@ -62,19 +61,19 @@ async function fixChannels() {
             }
           });
         } else {
-          console.log(`   ✅ Админ уже участник канала`);
+          console.log(`    Админ уже участник канала`);
         }
         
-        console.log(`   ✅ Канал исправлен`);
+       
       } else {
-        console.log(`   ✅ creatorId уже есть: ${channel.creatorId}`);
+       ;
       }
     }
     
-    console.log('\n✅ Все каналы проверены и исправлены!');
+    console.log('\n Все каналы проверены и исправлены!');
     
   } catch (error) {
-    console.error('❌ Ошибка:', error);
+    console.error(' Ошибка:', error);
   } finally {
     await prisma.$disconnect();
   }

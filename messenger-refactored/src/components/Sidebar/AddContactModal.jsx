@@ -22,7 +22,7 @@ export default function AddContactModal({ isOpen, onClose, onSearch, onAdd, exis
 
     const handleSearch = async () => {
         if (!query.trim() || query.length < 2) return;
-        setSearched(true); // ← НОВОЕ
+        setSearched(true); 
         setLoading(true);
         try {
             const data = await onSearch(query);

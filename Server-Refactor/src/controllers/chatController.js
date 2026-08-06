@@ -356,10 +356,10 @@ const addChatMember = async (req, res) => {
             }
         }
 
-        console.log(`✅ Участник ${userId} добавлен в группу ${chatId}`);
+        console.log(` Участник ${userId} добавлен в группу ${chatId}`);
         res.status(201).json(member);
     } catch (error) {
-        console.error('❌ Ошибка добавления участника в чат:', error);
+        console.error(' Ошибка добавления участника в чат:', error);
         res.status(500).json({ error: 'Не удалось добавить участника', details: error.message });
     }
 };
@@ -432,10 +432,10 @@ const removeChatMember = async (req, res) => {
             }
         }
 
-        console.log(`🗑️ Участник ${userId} удалён из группы ${chatId}`);
+        console.log(` Участник ${userId} удалён из группы ${chatId}`);
         res.json({ success: true, message: 'Участник удален из чата' });
     } catch (error) {
-        console.error('❌ Ошибка удаления участника из чата:', error);
+        console.error(' Ошибка удаления участника из чата:', error);
         res.status(500).json({ error: 'Не удалось удалить участника' });
     }
 };

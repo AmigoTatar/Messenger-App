@@ -1,4 +1,4 @@
-// src/components/ProfilePanel/MemberList.jsx
+
 import React, { useState } from 'react';
 import MemberItem from './MemberItem';
 

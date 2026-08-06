@@ -1,4 +1,4 @@
-// src/components/Sidebar/ChannelList.jsx
+
 import React from 'react';
 import ChatListItem from './ChatListItem';
 
@@ -36,7 +36,7 @@ export default function ChannelList({
               if (typeof onSelectChat === 'function') {
                 onSelectChat(chatId);
               } else {
-                console.error('❌ ChannelList: onSelectChat не является функцией! Невозможно переключить канал.');
+                console.error(' ChannelList: onSelectChat не является функцией! Невозможно переключить канал.');
               }
             }}
             formatMsgTime={formatMsgTime}

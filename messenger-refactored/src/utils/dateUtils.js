@@ -1,8 +1,6 @@
-// src/utils/dateUtils.js
 
-/**
- * Форматирует дату в локальное время (часы:минуты)
- */
+// Форматирует дату в локальное время (часы:минуты)
+ 
 export const formatTime = (dateString) => {
   if (!dateString) return '';
   try {
@@ -13,9 +11,8 @@ export const formatTime = (dateString) => {
   }
 };
 
-/**
- * Форматирует дату в полный формат (день/месяц/год часы:минуты)
- */
+// Форматирует дату в полный формат (день/месяц/год часы:минуты)
+ 
 export const formatFullDate = (dateString) => {
   if (!dateString) return '';
   try {
