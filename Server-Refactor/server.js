@@ -1,10 +1,11 @@
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
 const fs = require('fs');
-require('dotenv').config();
+
 const rateLimit = require('express-rate-limit');
 const { authenticateToken } = require('./src/middleware/auth');
 const { getMuteStatus } = require('./src/controllers/muteController');

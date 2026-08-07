@@ -95,7 +95,7 @@ const getPinnedMessages = async (req, res) => {
         } else if (chatId) {
             where.chatId = parseInt(chatId);
         } else if (privateUserId) {
-            const otherUserId = parseInt(privateUserId);
+            const otherUserId = parseInt(privateUserId.toString().replace(/\D/g, ''));
             where.OR = [
                 { senderId: userId, receiverId: otherUserId },
                 { senderId: otherUserId, receiverId: userId }

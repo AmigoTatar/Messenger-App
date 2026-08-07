@@ -10,7 +10,8 @@ export default function ForwardModal({
   groupChats,
   channels,
   onForward,
-  currentUserId
+  currentUserId,
+  onSelectChat
 }) {
   const [search, setSearch] = useState('');
 
@@ -26,6 +27,10 @@ export default function ForwardModal({
   const handleForward = (targetChatId) => {
     onForward(targetChatId, message);
     onClose();
+    if (typeof onSelectChat === 'function') {
+        setTimeout(() => onSelectChat(targetChatId), 100);
+    }
+  
   };
 console.log('📤 [ForwardModal] chats (contacts):', chats);
 console.log('📤 [ForwardModal] groupChats:', groupChats);
@@ -115,7 +120,7 @@ const filteredChats = (chats || [])
                     <ChatButton
                       key={chat.id}
                       chat={chat}
-                      onClick={() => handleForward(`user_${chat.id}`)}
+                      onClick={() => handleForward(chat.id)}
                       avatar={chat.avatar}
                       name={chat.username || chat.name || 'Без имени'}  
                       type="группа"

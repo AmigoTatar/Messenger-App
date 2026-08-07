@@ -564,6 +564,7 @@ const chatName = getChatName(activeChatId, activeChatData, channelsProp, groupCh
             groupChats={groupChatsProp}
             channels={channelsProp}
             onForward={handleForwardSend}
+            onSelectChat={onSelectChat} 
             currentUserId={currentUserId}
           />
         )}
