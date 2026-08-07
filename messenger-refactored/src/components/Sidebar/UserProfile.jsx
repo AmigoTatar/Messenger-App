@@ -11,7 +11,7 @@ export default function UserProfile({ user, onUpdateUser, showToast  }) {
     if (!editName.trim() || editName === user?.username) return;
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5001/api/users/profile', {
+      const res = await fetch(`${API_BASE_URL}/api/users/profile`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: editName.trim() }),

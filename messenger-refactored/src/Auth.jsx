@@ -36,7 +36,7 @@ export default function Auth({ onAuthSuccess, apiBaseUrl }) {
     }
 
     const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
-    const currentBaseUrl = apiBaseUrl || 'http://localhost:5001';
+    const currentBaseUrl = apiBaseUrl || 'https://potokmessenger.ru';
 
     const body = isLogin 
       ? { username, password }

@@ -3,7 +3,7 @@
 const isDevelopment = import.meta.env?.MODE === 'development';
 
 // Базовый URL API - только для Vite
-export const API_BASE_URL = import.meta.env?.VITE_API_URL || 'http://localhost:5001';
+export const API_BASE_URL = import.meta.env?.VITE_API_URL || 'https://potokmessenger.ru';
 
 // Константы для чатов
 export const CHAT_IDS = {
