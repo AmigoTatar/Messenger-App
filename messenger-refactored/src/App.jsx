@@ -23,6 +23,7 @@ import Toast from '/src/Toast';
 import { useAppHandlers } from './hooks/useAppHandlers';
 import { extractNumericId } from './utils/chatUtils';
 import ConfirmModal from './components/ConfirmModal';
+import { requestFCMToken, onForegroundMessage } from './firebase';
 
 
 export default function App() {
@@ -138,12 +139,41 @@ export default function App() {
 
   
 
-  // ====== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ======
-  const handleAuthSuccess = (userData, token) => {
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(userData));
-    setUser(userData);
+ // ====== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ======
+const handleAuthSuccess = (userData, token) => {
+  localStorage.setItem('token', token);
+  localStorage.setItem('user', JSON.stringify(userData));
+  setUser(userData);
+
+  // ====== РЕГИСТРАЦИЯ PUSH-ТОКЕНА ======
+  const registerPush = async () => {
+    try {
+      const { requestFCMToken } = await import('./firebase');
+      const fcmToken = await requestFCMToken();
+      if (fcmToken) {
+        const response = await fetch(`${API_BASE_URL}/api/push-token`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ token: fcmToken })
+        });
+        if (response.ok) {
+          console.log('✅ Push-токен сохранён на сервере');
+        } else {
+          console.error('❌ Ошибка сохранения токена:', await response.text());
+        }
+      }
+    } catch (err) {
+      console.error('❌ Ошибка регистрации push:', err);
+    }
   };
+
+  registerPush();
+};
+
+
 
   const handleUpdateUser = useCallback((u) => {
     localStorage.setItem('user', JSON.stringify(u));
