@@ -5,6 +5,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
 const fs = require('fs');
+const pushRoutes = require('./src/routes/pushRoutes');
 
 const rateLimit = require('express-rate-limit');
 const { authenticateToken } = require('./src/middleware/auth');
@@ -141,7 +142,7 @@ app.use('/api/unread', unreadRoutes);
 app.use('/api/mute', muteRoutes);
 app.use('/api/contacts', contactRoutes);
 app.use('/api/auth', passwordRoutes);
-
+app.use('/api/push-token', pushRoutes);
 
 
 // ДОПОЛНИТЕЛЬНЫЕ РОУТЫ (для совместимости с фронтендом)

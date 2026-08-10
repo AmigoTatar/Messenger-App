@@ -106,6 +106,45 @@ const setupSocket = (io, prisma) => {
                 });
 
                 console.log(`[send_message] Сохранено сообщение ${savedMessage.id}`);
+                // ====== PUSH-УВЕДОМЛЕНИЯ ======
+try {
+    const { sendPush } = require('../services/pushService');
+
+    if (receiverId) {
+        const tokens = await prisma.pushToken.findMany({
+            where: { userId: receiverId, isActive: true }
+        });
+        for (const t of tokens) {
+            await sendPush(t.token, 'Новое сообщение', text || '📎 Файл');
+        }
+    }
+
+    if (chatId) {
+        const members = await prisma.chatMember.findMany({
+            where: { chatId, userId: { not: senderId } },
+            include: { user: { include: { pushTokens: true } } }
+        });
+        for (const m of members) {
+            for (const t of m.user.pushTokens) {
+                await sendPush(t.token, `Новое в чате ${m.user.username}`, text || '📎 Файл');
+            }
+        }
+    }
+
+    if (channelId) {
+        const members = await prisma.channelMember.findMany({
+            where: { channelId, userId: { not: senderId } },
+            include: { user: { include: { pushTokens: true } } }
+        });
+        for (const m of members) {
+            for (const t of m.user.pushTokens) {
+                await sendPush(t.token, `Новое в канале`, text || '📎 Файл');
+            }
+        }
+    }
+} catch (pushErr) {
+    console.error('❌ Ошибка отправки push:', pushErr.message);
+}
 
                 const newMessage = {
                     id: savedMessage.id,
