@@ -64,11 +64,12 @@ const filteredChannels = channels.filter(c =>
 const filteredGroups = groupChats.filter(c => 
     c.name?.toLowerCase().includes(searchQuery.toLowerCase())
 );
-console.log(' Sidebar: filteredContacts:', JSON.stringify(filteredContacts.map(c => ({ 
+
+/*console.log(' Sidebar: filteredContacts:', JSON.stringify(filteredContacts.map(c => ({ 
     id: c.id, 
     name: c.username, 
     lastMessage: c.lastMessage 
-})), null, 2));
+})), null, 2));*/
   return (
    
     <div className="w-full max-w-full overflow-hidden border-r border-zinc-200 dark:border-zinc-800 flex flex-col bg-white dark:bg-zinc-950 transition-colors duration-300">

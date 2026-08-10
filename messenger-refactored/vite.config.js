@@ -1,6 +1,6 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
     plugins: [
@@ -11,12 +11,21 @@ export default defineConfig({
         minify: 'esbuild',
         sourcemap: false,
         rollupOptions: {
+            input: {
+                main: './index.html',
+                sw: './public/firebase-messaging-sw.js',
+            },
             output: {
-                manualChunks: undefined,
+                entryFileNames: (chunkInfo) => {
+                    if (chunkInfo.name === 'sw') {
+                        return '[name].js';
+                    }
+                    return 'assets/[name]-[hash].js';
+                },
             },
         },
     },
     esbuild: {
         drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
     },
-})
+});

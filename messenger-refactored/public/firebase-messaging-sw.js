@@ -1,15 +1,15 @@
-// Импорты для Firebase Service Worker
+// Импорты Firebase
 importScripts('https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging-compat.js');
 
-// Конфиг Firebase (из .env)
+// Жёстко задаём конфиг (временно для теста)
 const firebaseConfig = {
-    apiKey: self.__ENV?.VITE_FIREBASE_API_KEY || '',
-    authDomain: self.__ENV?.VITE_FIREBASE_AUTH_DOMAIN || '',
-    projectId: self.__ENV?.VITE_FIREBASE_PROJECT_ID || '',
-    storageBucket: self.__ENV?.VITE_FIREBASE_STORAGE_BUCKET || '',
-    messagingSenderId: self.__ENV?.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
-    appId: self.__ENV?.VITE_FIREBASE_APP_ID || '',
+    apiKey: 'AIzaSyC_iLEXJxlIgcaSlHn3DdL8GENTFkhn6Nc',
+    authDomain: 'potok-messenger.firebaseapp.com',
+    projectId: 'potok-messenger',
+    storageBucket: 'potok-messenger.firebasestorage.app',
+    messagingSenderId: '1001298925555',
+    appId: '1:1001298925555:web:10b169e50fde9719646486'
 };
 
 // Инициализация
@@ -19,13 +19,13 @@ const messaging = firebase.messaging();
 // Обработка фоновых уведомлений
 messaging.onBackgroundMessage((payload) => {
     console.log('📨 [SW] Фоновое уведомление:', payload);
-    const notificationTitle = payload.notification?.title || 'Новое сообщение';
-    const notificationOptions = {
+    const title = payload.notification?.title || 'Новое сообщение';
+    const options = {
         body: payload.notification?.body || 'У вас новое сообщение',
         icon: '/icon-192x192.png',
         data: payload.data,
     };
-    self.registration.showNotification(notificationTitle, notificationOptions);
+    self.registration.showNotification(title, options);
 });
 
 // Обработка клика по уведомлению

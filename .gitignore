@@ -8,3 +8,4 @@ coverage/
 .vscode/
 .idea/
 .env.local
+potok-messenger-firebase-adminsdk-*.json

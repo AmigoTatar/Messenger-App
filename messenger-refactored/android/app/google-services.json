@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1001298925555",
+    "project_id": "potok-messenger",
+    "storage_bucket": "potok-messenger.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1001298925555:android:647d218a910f1d85646486",
+        "android_client_info": {
+          "package_name": "com.potokmessenger.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC_iLEXJxlIgcaSlHn3DdL8GENTFkhn6Nc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

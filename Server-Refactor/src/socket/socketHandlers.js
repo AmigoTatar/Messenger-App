@@ -106,9 +106,14 @@ const setupSocket = (io, prisma) => {
                 });
 
                 console.log(`[send_message] Сохранено сообщение ${savedMessage.id}`);
+
                 // ====== PUSH-УВЕДОМЛЕНИЯ ======
 try {
     const { sendPush } = require('../services/pushService');
+      console.log('🔍 [PUSH] Проверка получателей...');
+    console.log('🔍 receiverId:', receiverId);
+    console.log('🔍 chatId:', chatId);
+    console.log('🔍 channelId:', channelId);
 
     if (receiverId) {
         const tokens = await prisma.pushToken.findMany({

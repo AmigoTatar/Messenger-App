@@ -2,11 +2,11 @@ import React from 'react';
 import ChatListItem from './ChatListItem';
 
 export default function ContactList({ contacts, contactsVersion, activeChatId, unreadCounts, onSelectChat, formatMsgTime }) {
- console.log(' ContactList: contacts for render:', JSON.stringify(contacts.map(c => ({ 
+ /*console.log(' ContactList: contacts for render:', JSON.stringify(contacts.map(c => ({ 
     id: c.id, 
     name: c.username, 
     lastMessage: c.lastMessage 
-})), null, 2));
+})), null, 2));*/
   if (!contacts || contacts.length === 0) {
         return (
             <div className="px-3 py-4 text-center text-xs text-zinc-400 dark:text-zinc-500">
