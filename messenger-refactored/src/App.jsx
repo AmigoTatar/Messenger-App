@@ -147,9 +147,11 @@ const handleAuthSuccess = (userData, token) => {
 
   // ====== РЕГИСТРАЦИЯ PUSH-ТОКЕНА ======
   const registerPush = async () => {
+    console.log('🔍 [App] registerPush вызван');
     try {
       const { requestFCMToken } = await import('./firebase');
       const fcmToken = await requestFCMToken();
+       console.log('🔍 [App] Токен получен:', token);
       if (fcmToken) {
         const response = await fetch(`${API_BASE_URL}/api/push-token`, {
           method: 'POST',

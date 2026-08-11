@@ -2,10 +2,13 @@ const admin = require('firebase-admin');
 const path = require('path');
 const fs = require('fs');
 
+// Кеш для дедупликации (храним последние 10 отправленных пушей)
+const sentCache = new Map();
+const CACHE_TTL = 5000; // 5 секунд
+
 // Инициализация через файл
 let isFirebaseInitialized = false;
 try {
-    // Проверяем разные варианты путей
     const paths = [
         path.join(__dirname, '../potok-messenger-firebase-adminsdk-fbsvc-6933cfa033.json'),
         path.join(__dirname, '../../potok-messenger-firebase-adminsdk-fbsvc-6933cfa033.json'),
@@ -27,10 +30,6 @@ try {
 
     console.log('🔍 Найден файл по пути:', filePath);
     const serviceAccount = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    console.log('🔍 serviceAccount.private_key_id:', serviceAccount.private_key_id?.substring(0, 10));
-console.log('🔍 serviceAccount.private_key:', serviceAccount.private_key?.substring(0, 30));
-console.log('🔍 serviceAccount.client_email:', serviceAccount.client_email);
-console.log('🔍 Все ключи объекта:', Object.keys(serviceAccount));
     admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
     });
@@ -43,6 +42,32 @@ console.log('🔍 Все ключи объекта:', Object.keys(serviceAccount
 
 const sendPush = async (token, title, body, data = {}) => {
     try {
+        // === ДЕДУПЛИКАЦИЯ ===
+        const cacheKey = `${token}:${title}:${body}`;
+        const now = Date.now();
+        
+        // Проверяем, не отправляли ли мы такое же уведомление недавно
+        if (sentCache.has(cacheKey)) {
+            const lastSent = sentCache.get(cacheKey);
+            if (now - lastSent < CACHE_TTL) {
+                console.log(`⏳ [FCM] Пропускаем дубль (${cacheKey.substring(0, 30)}...)`);
+                return { success: true, skipped: true };
+            }
+        }
+        
+        // Сохраняем в кеш
+        sentCache.set(cacheKey, now);
+        
+        // Очищаем старые записи (чтобы кеш не рос бесконечно)
+        if (sentCache.size > 100) {
+            const oldest = now - CACHE_TTL * 2;
+            for (const [key, time] of sentCache) {
+                if (time < oldest) {
+                    sentCache.delete(key);
+                }
+            }
+        }
+
         if (!isFirebaseInitialized) {
             console.log(`📨 [PUSH STUB] ${title}: ${body} → token: ${token?.substring(0, 20)}...`);
             return { success: true, mock: true };
@@ -66,6 +91,21 @@ const sendPush = async (token, title, body, data = {}) => {
         return { success: true, response };
     } catch (error) {
         console.error('❌ [FCM] Ошибка отправки:', error.message);
+
+        if (error.code === 'messaging/invalid-registration-token' ||
+            error.code === 'messaging/registration-token-not-registered') {
+            try {
+                const { PrismaClient } = require('@prisma/client');
+                const prisma = new PrismaClient();
+                await prisma.pushToken.deleteMany({
+                    where: { token: token }
+                });
+                console.log(`🗑️ [FCM] Невалидный токен удалён из БД: ${token.substring(0, 20)}...`);
+            } catch (dbError) {
+                console.error('❌ [FCM] Ошибка удаления токена из БД:', dbError.message);
+            }
+        }
+
         return { success: false, error: error.message };
     }
 };

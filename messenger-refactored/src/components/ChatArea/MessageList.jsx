@@ -96,6 +96,7 @@ export default function MessageList({
           key={msg.id}
           msg={msg}
           currentUserId={currentUserId}
+          isGroup={activeChatId?.startsWith('chat_')}
           onContextMenu={onContextMenu}
           onReactionToggle={onReactionToggle}
           onThreadReply={onThreadReply}

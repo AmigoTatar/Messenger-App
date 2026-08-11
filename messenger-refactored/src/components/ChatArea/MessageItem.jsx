@@ -6,6 +6,7 @@ import DOMPurify from 'dompurify';
 export default function MessageItem({ 
   msg, 
   currentUserId, 
+  isGroup,
   onContextMenu, 
   onReactionToggle, 
   onThreadReply, 
@@ -53,9 +54,18 @@ export default function MessageItem({
   // Проверка, что это изображение
   const isImage = mediaType === 'image' || (mediaUrl && mediaUrl.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i));
 
-  return (
+return (
+  <div className={`flex flex-col w-full mb-2 ${isOwn ? 'items-end' : 'items-start'}`}>
+    {/* Имя отправителя — только для групповых чатов */}
+    {isGroup && !isOwn && (
+      <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-0.5 ml-1">
+        {msg.sender?.username || 'Неизвестный'}
+      </span>
+    )}
+
+    {/* Само сообщение */}
     <div 
-      className={`flex w-full mb-2 ${isOwn ? 'justify-end' : 'justify-start'}`}
+      className={`flex w-full ${isOwn ? 'justify-end' : 'justify-start'}`}
       onContextMenu={handleContext}
       data-message-id={msg.id}
     >
@@ -66,6 +76,7 @@ export default function MessageItem({
             : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-100 rounded-bl-none border border-zinc-200/60 dark:border-transparent'
         } ${isPinned ? 'ring-2 ring-amber-400 dark:ring-amber-500 ring-offset-1 dark:ring-offset-zinc-900' : ''}`}
       >
+
         {isImage && mediaUrl && (
           <div className="mb-2 max-w-full overflow-hidden rounded-lg bg-zinc-900/50">
             <img 
@@ -167,6 +178,7 @@ export default function MessageItem({
             ))}
           </div>
         )}
+      </div>
       </div>
     </div>
   );

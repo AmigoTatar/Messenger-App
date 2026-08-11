@@ -110,40 +110,55 @@ const setupSocket = (io, prisma) => {
                 // ====== PUSH-УВЕДОМЛЕНИЯ ======
 try {
     const { sendPush } = require('../services/pushService');
-      console.log('🔍 [PUSH] Проверка получателей...');
-    console.log('🔍 receiverId:', receiverId);
-    console.log('🔍 chatId:', chatId);
-    console.log('🔍 channelId:', channelId);
+    const senderName = savedMessage.sender?.username || 'Пользователь';
+    const messageText = text || (mediaType === 'image' ? '📷 Фото' : '📎 Файл');
 
+    // Приватный чат
     if (receiverId) {
         const tokens = await prisma.pushToken.findMany({
             where: { userId: receiverId, isActive: true }
         });
         for (const t of tokens) {
-            await sendPush(t.token, 'Новое сообщение', text || '📎 Файл');
+            await sendPush(t.token, `💬 ${senderName}`, messageText);
         }
     }
 
+    // Групповой чат
     if (chatId) {
+        // Получаем название группы
+        const chat = await prisma.chat.findUnique({
+            where: { id: chatId },
+            select: { name: true }
+        });
+        const chatName = chat?.name || 'Группа';
+        
         const members = await prisma.chatMember.findMany({
             where: { chatId, userId: { not: senderId } },
             include: { user: { include: { pushTokens: true } } }
         });
         for (const m of members) {
             for (const t of m.user.pushTokens) {
-                await sendPush(t.token, `Новое в чате ${m.user.username}`, text || '📎 Файл');
+                await sendPush(t.token, `👥 ${chatName}`, `💬 ${senderName}: ${messageText}`);
             }
         }
     }
 
+    // Канал
     if (channelId) {
+        // Получаем название канала
+        const channel = await prisma.channel.findUnique({
+            where: { id: channelId },
+            select: { name: true }
+        });
+        const channelName = channel?.name || 'Канал';
+        
         const members = await prisma.channelMember.findMany({
             where: { channelId, userId: { not: senderId } },
             include: { user: { include: { pushTokens: true } } }
         });
         for (const m of members) {
             for (const t of m.user.pushTokens) {
-                await sendPush(t.token, `Новое в канале`, text || '📎 Файл');
+                await sendPush(t.token, `📢 ${channelName}`, `💬 ${senderName}: ${messageText}`);
             }
         }
     }
