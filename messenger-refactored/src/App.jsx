@@ -23,7 +23,9 @@ import Toast from '/src/Toast';
 import { useAppHandlers } from './hooks/useAppHandlers';
 import { extractNumericId } from './utils/chatUtils';
 import ConfirmModal from './components/ConfirmModal';
-import { requestFCMToken, onForegroundMessage } from './firebase';
+import { registerPush } from './services/pushRegistration';
+import { App as CapApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
 
 
 export default function App() {
@@ -60,13 +62,29 @@ export default function App() {
 
   // ====== ХУКИ ======
   const { isDarkMode, toggleTheme } = useTheme();
-  const { chats, channels, groupChats, addChannel, addGroupChat, removeChannel, removeGroupChat, setChannels, setGroupChats, setChats, reload: reloadChats, loading: chatsLoading } = useChats(user);
-  const { contacts, loading: contactsLoading, addContact, removeContact, searchUsers, setContacts, fetchContacts } = useContacts(user);
-  const { unreadCounts, fetchUnread, updateUnread, resetUnread } = useUnread(user);
-  const { getMessages, addMessage, addMessages, loadHistory, hasMore, loading, markMessageAsRead, deleteMessageLocally, setMessagesByChat } = useMessages(user?.id);
+  const { chats, channels, groupChats, addChannel, addGroupChat, removeChannel, removeGroupChat, setChannels, setGroupChats, setChats, reload: reloadChats, loading: chatsLoading, clearChats } = useChats(user);
+  const { contacts, loading: contactsLoading, addContact, removeContact, searchUsers, setContacts, fetchContacts, clearContacts } = useContacts(user);
+  const { unreadCounts, fetchUnread, updateUnread, resetUnread, clearUnread } = useUnread(user);
+  const { getMessages, addMessage, addMessages, loadHistory, hasMore, loading, markMessageAsRead, deleteMessageLocally, setMessagesByChat, clearMessages } = useMessages(user?.id);
   const { markAsRead, debouncedMarkAsRead } = useMarkAsRead();
-  const { socket, emit, joinChat, sendMessage } = useSocket(user, {});
+  const { socket, emit, joinChat, sendMessage, isConnected } = useSocket(user, {});
   const { toast, showToast, hideToast } = useToast();
+
+  const resetSessionState = useCallback(() => {
+    clearMessages();
+    clearChats();
+    clearContacts();
+    clearUnread();
+    setActiveChatId(null);
+    setActiveChatData(null);
+    setIsProfileOpen(false);
+    activeChatIdRef.current = null;
+    processedEvents.current.clear();
+  }, [clearMessages, clearChats, clearContacts, clearUnread, setActiveChatId, setActiveChatData, setIsProfileOpen, activeChatIdRef, processedEvents]);
+
+  useEffect(() => {
+    setIsSocketConnected(!!isConnected);
+  }, [isConnected, setIsSocketConnected]);
 
 
   
@@ -99,6 +117,7 @@ export default function App() {
   channels,
   groupChats,
   chats,
+  contacts,
   socket,
   sendMessage,
   deleteMessageLocally,
@@ -134,8 +153,13 @@ export default function App() {
   handleCreateChannel,
   handleCreateGroupChat,
   handleChatUpdate,
-  handleLogout,
+  handleLogout: rawHandleLogout,
 } = messageHandlers;
+
+  const handleLogout = useCallback(() => {
+    resetSessionState();
+    rawHandleLogout();
+  }, [resetSessionState, rawHandleLogout]);
 
   
 
@@ -144,37 +168,11 @@ const handleAuthSuccess = (userData, token) => {
   localStorage.setItem('token', token);
   localStorage.setItem('user', JSON.stringify(userData));
   setUser(userData);
-
-  // ====== РЕГИСТРАЦИЯ PUSH-ТОКЕНА ======
-  const registerPush = async () => {
-    console.log('🔍 [App] registerPush вызван');
-    try {
-      const { requestFCMToken } = await import('./firebase');
-      const fcmToken = await requestFCMToken();
-       console.log('🔍 [App] Токен получен:', token);
-      if (fcmToken) {
-        const response = await fetch(`${API_BASE_URL}/api/push-token`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ token: fcmToken })
-        });
-        if (response.ok) {
-          console.log('✅ Push-токен сохранён на сервере');
-        } else {
-          console.error('❌ Ошибка сохранения токена:', await response.text());
-        }
-      }
-    } catch (err) {
-      console.error('❌ Ошибка регистрации push:', err);
-    }
-  };
-
-  registerPush();
+  // JWT уже в localStorage — регистрируем пуш сразу после логина
+  registerPush().catch((err) => {
+    console.error('❌ [PUSH] Ошибка после логина:', err);
+  });
 };
-
 
 
   const handleUpdateUser = useCallback((u) => {
@@ -183,28 +181,110 @@ const handleAuthSuccess = (userData, token) => {
   }, [setUser]);
 
   // ====== МОДАЛКА ПОДТВЕРЖДЕНИЯ ======
-const [confirmModal, setConfirmModal] = useState({
+  const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
     title: '',
     message: '',
     confirmText: '',
     onConfirm: null,
     variant: 'danger'
-});
+  });
 
-const showConfirm = useCallback((title, message, confirmText, onConfirm, variant = 'danger') => {
+  const showConfirm = useCallback((title, message, confirmText, onConfirm, variant = 'danger') => {
     setConfirmModal({
-        isOpen: true,
-        title,
-        message,
-        confirmText,
-        onConfirm: () => {
-            onConfirm();
-            setConfirmModal(prev => ({ ...prev, isOpen: false }));
-        },
-        variant
+      isOpen: true,
+      title,
+      message,
+      confirmText,
+      onConfirm: () => {
+        onConfirm();
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      },
+      variant
     });
-}, []);
+  }, []);
+
+  // ====== НАВИГАЦИЯ НАЗАД (веб-стрелка / Escape / Android back) ======
+  const closeActiveChat = useCallback(() => {
+    setIsProfileOpen(false);
+    setActiveChatId(null);
+    setActiveChatData(null);
+    activeChatIdRef.current = null;
+  }, [setIsProfileOpen, setActiveChatId, setActiveChatData, activeChatIdRef]);
+
+  /** @returns {boolean} true если что-то закрыли */
+  const handleNavigateBack = useCallback(() => {
+    if (confirmModal.isOpen) {
+      setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+      return true;
+    }
+    if (isProfileOpen) {
+      setIsProfileOpen(false);
+      return true;
+    }
+    if (activeChatId) {
+      closeActiveChat();
+      return true;
+    }
+    return false;
+  }, [confirmModal.isOpen, isProfileOpen, activeChatId, closeActiveChat]);
+
+  // Держим ref в синхронизации со state (unread / kick handlers)
+  useEffect(() => {
+    activeChatIdRef.current = activeChatId;
+  }, [activeChatId, activeChatIdRef]);
+
+  // Browser Back: закрываем профиль/чат, если открыты
+  useEffect(() => {
+    if (activeChatId && window.history.state?.potokChat !== activeChatId) {
+      window.history.pushState({ potokChat: activeChatId }, '');
+    }
+  }, [activeChatId]);
+
+  useEffect(() => {
+    const onPopState = () => {
+      if (isProfileOpen) {
+        setIsProfileOpen(false);
+        if (activeChatId) {
+          window.history.pushState({ potokChat: activeChatId }, '');
+        }
+        return;
+      }
+      if (activeChatId) {
+        setActiveChatId(null);
+        setActiveChatData(null);
+        activeChatIdRef.current = null;
+      }
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [activeChatId, isProfileOpen, setActiveChatId, setActiveChatData, activeChatIdRef]);
+
+  // Android system Back через @capacitor/app
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return undefined;
+
+    let cancelled = false;
+    let handle = null;
+
+    CapApp.addListener('backButton', () => {
+      const handled = handleNavigateBack();
+      if (!handled) {
+        CapApp.exitApp();
+      }
+    }).then((h) => {
+      if (cancelled) {
+        h.remove();
+        return;
+      }
+      handle = h;
+    });
+
+    return () => {
+      cancelled = true;
+      if (handle) handle.remove();
+    };
+  }, [handleNavigateBack]);
 
 
   const handleChannelCreated = useCallback(async (newChannel) => {
@@ -405,6 +485,24 @@ const showConfirm = useCallback((title, message, confirmText, onConfirm, variant
     return msgs;
   }, [activeChatId, getMessages]);
 
+  // Стабильный объект для ProfilePanel — без refetch на каждое новое сообщение
+  const profileActiveChat = useMemo(() => {
+    if (!activeChatId) return null;
+    return {
+      ...activeChatData,
+      id: activeChatId,
+      messages: activeMessages,
+    };
+  }, [
+    activeChatId,
+    activeChatData?.name,
+    activeChatData?.avatar,
+    activeChatData?.type,
+    activeChatData?.creatorId,
+    activeChatData?.members,
+    activeMessages,
+  ]);
+
 
 
 useEffect(() => {
@@ -423,72 +521,106 @@ useEffect(() => {
       found = true;
     }
   } else if (activeChatId.startsWith('user_')) {
-    const user = chats.find(c => c.id === activeChatId);
-    if (user) {
-      setActiveChatData({ name: user.name, avatar: user.avatar, type: 'private', dbId: user.dbId });
+    const userId = parseInt(activeChatId.replace('user_', ''), 10);
+    const fromChats = chats.find(c => c.id === activeChatId || c.dbId === userId);
+    const fromContacts = contacts.find(c => c.id === userId);
+    if (fromChats) {
+      setActiveChatData({ name: fromChats.name, avatar: fromChats.avatar, type: 'private', dbId: fromChats.dbId || userId });
+      found = true;
+    } else if (fromContacts) {
+      setActiveChatData({
+        name: fromContacts.username || fromContacts.name,
+        avatar: fromContacts.avatar,
+        type: 'private',
+        dbId: fromContacts.id,
+      });
       found = true;
     }
   }
-  if (!found) {
+  if (!found && activeChatId !== 'chat_general') {
     console.log(' Чат не найден, сбрасываю activeChatId');
     setActiveChatId(null);
     setActiveChatData(null);
   }
-}, [activeChatId, channels, groupChats, chats]);
+}, [activeChatId, channels, groupChats, chats, contacts]);
 
 useEffect(() => {
-  if (socket) {
-    socket.on('connect', () => setIsSocketConnected(true));
-    socket.on('disconnect', () => setIsSocketConnected(false));
-    return () => {
-      socket.off('connect');
-      socket.off('disconnect');
-    };
-  }
-}, [socket]);
-
-useEffect(() => {
-  if (!socket || !socket.connected) return;
+  if (!socket || !isConnected) return;
+  // Только реальные комнаты пользователя — НЕ весь каталог /api/users
   groupChats.forEach(chat => {
     const chatId = chat.id || `chat_${chat.dbId}`;
-    if (chatId) {
-      socket.emit('join_chat', chatId);
-      console.log(' Подписываюсь на группу:', chatId);
-    }
+    if (chatId) joinChat(chatId);
   });
   channels.forEach(channel => {
-    const chatId = `channel_${channel.id}`;
-    socket.emit('join_chat', chatId);
-    console.log(' Подписываюсь на канал:', chatId);
+    joinChat(`channel_${channel.id}`);
   });
-  chats.forEach(chat => {
-    if (chat.id && chat.id !== 'chat_general' && !chat.id.startsWith('channel_') && !chat.id.startsWith('chat_')) {
-      socket.emit('join_chat', chat.id);
-    }
+  contacts.forEach(contact => {
+    if (contact?.id) joinChat(`user_${contact.id}`);
   });
-}, [socket, groupChats, channels, chats]);
+}, [socket, isConnected, groupChats, channels, contacts, joinChat]);
 
 useEffect(() => {
   const handleEsc = (e) => {
     if (e.key === 'Escape') {
-      if (isProfileOpen) {
-        setIsProfileOpen(false);
-        return;
-      }
-      if (activeChatId) {
-        setActiveChatId(null);
-        setActiveChatData(null);
-        activeChatIdRef.current = null;
-      }
+      handleNavigateBack();
     }
   };
   window.addEventListener('keydown', handleEsc);
   return () => window.removeEventListener('keydown', handleEsc);
-}, [activeChatId, isProfileOpen]);
+}, [handleNavigateBack]);
+
+useEffect(() => {
+  if (!user) return;
+  if (!localStorage.getItem('token')) return;
+
+  registerPush().catch((err) => {
+    console.error('❌ [PUSH] Ошибка при session restore:', err);
+  });
+}, [user?.id]);
+
+  const onContactAdded = useCallback((userData) => {
+    showToast('📱 Вас добавили в контакты');
+    setContacts((prev) => {
+      if (prev.some((c) => c.id === userData.id)) return prev;
+      return [...prev, userData];
+    });
+    setContactsVersion((v) => v + 1);
+  }, [showToast, setContacts, setContactsVersion]);
+
+  const onChannelUpdated = useCallback((data) => {
+    setChannels((prev) => prev.map((ch) => (ch.id === data.id ? data : ch)));
+    setChannelsVersion((v) => v + 1);
+    if (activeChatIdRef.current === `channel_${data.id}`) {
+      setActiveChatData((prev) => ({ ...prev, name: data.name, avatar: data.avatar }));
+    }
+  }, [setChannels, setChannelsVersion, activeChatIdRef, setActiveChatData]);
+
+  const onChatUpdated = useCallback((data) => {
+    setGroupChats((prev) =>
+      prev.map((ch) => (ch.dbId === data.id ? { ...ch, name: data.name, avatar: data.avatar } : ch))
+    );
+    setGroupChatsVersion((v) => v + 1);
+    if (activeChatIdRef.current === `chat_${data.id}`) {
+      setActiveChatData((prev) => ({ ...prev, name: data.name, avatar: data.avatar }));
+    }
+  }, [setGroupChats, setGroupChatsVersion, activeChatIdRef, setActiveChatData]);
+
+  const onJoinRequestApproved = useCallback((data) => {
+    showToast(`🎉 Вас приняли в канал "${data.channelName}"!`, 'success');
+    reloadChats({ silent: true });
+  }, [showToast, reloadChats]);
+
+  const onJoinRequestRejected = useCallback((data) => {
+    showToast(`😔 Ваша заявка в канал "${data.channelName}" отклонена`, 'info');
+  }, [showToast]);
+
+  const onJoinRequestReceived = useCallback((data) => {
+    showToast(`📩 Новая заявка в канал "${data.channelName}"`, 'info');
+  }, [showToast]);
 
 useEffect(() => {
   if (!socket) return;
-  
+
   socket.on('channel_created', handleChannelCreated);
   socket.on('channel_deleted', handleChannelDeleted);
   socket.on('chat_created', handleChatCreated);
@@ -507,41 +639,12 @@ useEffect(() => {
   socket.on('messages_read_update', handleMessagesReadUpdate);
   socket.on('message_pinned', handleMessagePinned);
   socket.on('kicked_from_channel', handleKickedFromChannel);
-  socket.on('contact_added', (userData) => {
-    showToast('📱 Вас добавили в контакты:', userData);
-    setContacts(prev => {
-      if (prev.some(c => c.id === userData.id)) return prev;
-      return [...prev, userData];
-    });
-  });
-  socket.on('channel_updated', (data) => {
-    setChannels(prev => prev.map(ch => ch.id === data.id ? data : ch));
-    if (activeChatId === `channel_${data.id}`) {
-      setActiveChatData(prev => ({ ...prev, name: data.name, avatar: data.avatar }));
-    }
-  });
-  socket.on('chat_updated', (data) => {
-    setGroupChats(prev => prev.map(ch => ch.dbId === data.id ? { ...ch, name: data.name, avatar: data.avatar } : ch));
-    if (activeChatId === `chat_${data.id}`) {
-      setActiveChatData(prev => ({ ...prev, name: data.name, avatar: data.avatar }));
-    }
-  });
-
-// обарботчики для админа 
-socket.on('join_request_approved', (data) => {
-    showToast(`🎉 Вас приняли в канал "${data.channelName}"!`, 'success');
-    // Обновляем список каналов
-    reloadChats();
-});
-
-socket.on('join_request_rejected', (data) => {
-    showToast(`😔 Ваша заявка в канал "${data.channelName}" отклонена`, 'info');
-});
-
-socket.on('join_request_received', (data) => {
-    showToast(`📩 Новая заявка в канал "${data.channelName}"`, 'info');
-});
-
+  socket.on('contact_added', onContactAdded);
+  socket.on('channel_updated', onChannelUpdated);
+  socket.on('chat_updated', onChatUpdated);
+  socket.on('join_request_approved', onJoinRequestApproved);
+  socket.on('join_request_rejected', onJoinRequestRejected);
+  socket.on('join_request_received', onJoinRequestReceived);
 
   return () => {
     socket.off('channel_created', handleChannelCreated);
@@ -562,8 +665,12 @@ socket.on('join_request_received', (data) => {
     socket.off('messages_read_update', handleMessagesReadUpdate);
     socket.off('message_pinned', handleMessagePinned);
     socket.off('kicked_from_channel', handleKickedFromChannel);
-    socket.off('channel_updated');
-    socket.off('chat_updated');
+    socket.off('contact_added', onContactAdded);
+    socket.off('channel_updated', onChannelUpdated);
+    socket.off('chat_updated', onChatUpdated);
+    socket.off('join_request_approved', onJoinRequestApproved);
+    socket.off('join_request_rejected', onJoinRequestRejected);
+    socket.off('join_request_received', onJoinRequestReceived);
   };
 }, [
   socket,
@@ -585,12 +692,14 @@ socket.on('join_request_received', (data) => {
   handleMessagesReadUpdate,
   handleMessagePinned,
   handleKickedFromChannel,
-  setContacts,
-  setChannels,
-  setGroupChats,
-  activeChatId,
-  setActiveChatData
+  onContactAdded,
+  onChannelUpdated,
+  onChatUpdated,
+  onJoinRequestApproved,
+  onJoinRequestRejected,
+  onJoinRequestReceived,
 ]);
+
  if (!user) {
     return <Auth onAuthSuccess={handleAuthSuccess} apiBaseUrl={API_BASE_URL} />;
   }
@@ -626,8 +735,15 @@ socket.on('join_request_received', (data) => {
       formatMsgTime={(d) => d ? new Date(d).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
       contacts={contacts}
       contactsLoading={contactsLoading}
-      onAddContact={addContact}
-      onRemoveContact={removeContact}
+      onAddContact={async (id) => {
+        const result = await addContact(id);
+        setContactsVersion((v) => v + 1);
+        return result;
+      }}
+      onRemoveContact={async (id) => {
+        await removeContact(id);
+        setContactsVersion((v) => v + 1);
+      }}
       onSearchUsers={searchUsers}
       contactsVersion={contactsVersion}
     />
@@ -647,6 +763,7 @@ socket.on('join_request_received', (data) => {
         isSocketConnected={isSocketConnected}
         setMessages={setMessagesByChat}
         setActiveChatId={setActiveChatId}
+        onBack={handleNavigateBack}
         onDeleteMessage={handleDeleteMessage}
         onSelectChat={handleSelectChat}
         chatsProp={chats}
@@ -670,7 +787,7 @@ socket.on('join_request_received', (data) => {
 
   {/* Профиль */}
   <ProfilePanel
-    activeChat={{ ...activeChatData, id: activeChatId, messages: activeMessages }}
+    activeChat={profileActiveChat}
     isOpen={isProfileOpen}
     onClose={() => setIsProfileOpen(false)}
     socketRef={socket}

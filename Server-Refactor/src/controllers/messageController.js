@@ -1,6 +1,6 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
-const { onlineUsers } = require('../socket/socketHandlers');
+const prisma = require('../lib/prisma');
+const { emitToUser } = require('../utils/onlineUsers');
+const { assertChatAccess } = require('../utils/chatAccess');
 
 
 // ПОЛУЧЕНИЕ СООБЩЕНИЙ (с пагинацией)
@@ -14,30 +14,28 @@ const getMessages = async (req, res) => {
             return res.status(400).json({ error: "Параметр activeChatId обязателен" });
         }
 
+        const access = await assertChatAccess(currentUserId, activeChatId);
+        if (!access.ok) {
+            return res.status(access.status || 403).json({ error: access.error });
+        }
+
         const limit = 30;
         let whereClause = {};
 
-        if (activeChatId === 'chat_general') {
-            whereClause = { receiverId: null, channelId: null };
-        } else if (activeChatId.startsWith('channel_')) {
-            const channelDbId = parseInt(activeChatId.replace('channel_', ''), 10);
-            if (isNaN(channelDbId)) return res.status(400).json({ error: "Невалидный ID канала" });
-            whereClause = { channelId: channelDbId };
+        if (activeChatId.startsWith('channel_')) {
+            whereClause = { channelId: access.channelId };
         } else if (activeChatId.startsWith('user_')) {
-            const targetUserId = parseInt(activeChatId.replace('user_', ''), 10);
-            if (isNaN(targetUserId)) return res.status(400).json({ error: "Невалидный ID собеседника" });
             whereClause = {
                 channelId: null,
+                chatId: null,
                 OR: [
-                    { senderId: currentUserId, receiverId: targetUserId },
-                    { senderId: targetUserId, receiverId: currentUserId }
+                    { senderId: currentUserId, receiverId: access.peerId },
+                    { senderId: access.peerId, receiverId: currentUserId }
                 ]
             };
         } else if (activeChatId.startsWith('chat_')) {
-            const chatDbId = parseInt(activeChatId.replace('chat_', ''), 10);
-            if (isNaN(chatDbId)) return res.status(400).json({ error: "Невалидный ID группового чата" });
             whereClause = {
-                chatId: chatDbId
+                chatId: access.chatId
             };
         } else {
             return res.status(400).json({ error: "Неизвестный формат чата" });
@@ -89,13 +87,17 @@ const getPinnedMessages = async (req, res) => {
         const userId = req.userId;
 
         let where = { isPinned: true, isDeleted: false };
+        let activeChatId = null;
 
         if (channelId) {
+            activeChatId = `channel_${channelId}`;
             where.channelId = parseInt(channelId);
         } else if (chatId) {
+            activeChatId = `chat_${chatId}`;
             where.chatId = parseInt(chatId);
         } else if (privateUserId) {
             const otherUserId = parseInt(privateUserId.toString().replace(/\D/g, ''));
+            activeChatId = `user_${otherUserId}`;
             where.OR = [
                 { senderId: userId, receiverId: otherUserId },
                 { senderId: otherUserId, receiverId: userId }
@@ -104,6 +106,11 @@ const getPinnedMessages = async (req, res) => {
             where.chatId = null;
         } else {
             return res.status(400).json({ error: 'Не указан channelId, chatId или privateUserId' });
+        }
+
+        const access = await assertChatAccess(userId, activeChatId);
+        if (!access.ok) {
+            return res.status(access.status || 403).json({ error: access.error });
         }
 
         const pinnedMessages = await prisma.message.findMany({
@@ -183,23 +190,14 @@ const togglePin = async (req, res) => {
         } else if (message.chatId) {
             roomName = `chat_${message.chatId}`;
         } else if (message.receiverId) {
-            // Приватный чат: отправляем обоим
-            const senderSocket = onlineUsers.get(message.senderId);
-            const receiverSocket = onlineUsers.get(message.receiverId);
-            if (senderSocket) {
-                io.to(senderSocket).emit('message_pinned', {
-                    messageId: updatedMessage.id,
-                    isPinned: updatedMessage.isPinned,
-                    message: updatedMessage
-                });
-            }
-            if (receiverSocket) {
-                io.to(receiverSocket).emit('message_pinned', {
-                    messageId: updatedMessage.id,
-                    isPinned: updatedMessage.isPinned,
-                    message: updatedMessage
-                });
-            }
+            // Приватный чат: отправляем обоим на все устройства
+            const pinPayload = {
+                messageId: updatedMessage.id,
+                isPinned: updatedMessage.isPinned,
+                message: updatedMessage
+            };
+            emitToUser(io, message.senderId, 'message_pinned', pinPayload);
+            emitToUser(io, message.receiverId, 'message_pinned', pinPayload);
             // Для приватных чатов также отправляем в комнату user_... (если есть)
             roomName = `user_${message.receiverId}`;
         }
@@ -420,9 +418,14 @@ const searchMessages = async (req, res) => {
 
         if (chatType === 'private') {
             whereClause.AND = [
-                { receiverId: { in: privateUserIds } },
                 { channelId: null },
-                { chatId: null }
+                { chatId: null },
+                {
+                    OR: [
+                        { senderId: userId, receiverId: { in: privateUserIds } },
+                        { senderId: { in: privateUserIds }, receiverId: userId },
+                    ],
+                },
             ];
         } else if (chatType === 'group') {
             whereClause.AND = [
@@ -436,7 +439,18 @@ const searchMessages = async (req, res) => {
         } else {
             whereClause.AND = [{
                 OR: [
-                    { receiverId: { in: privateUserIds } },
+                    {
+                        AND: [
+                            { channelId: null },
+                            { chatId: null },
+                            {
+                                OR: [
+                                    { senderId: userId, receiverId: { in: privateUserIds } },
+                                    { senderId: { in: privateUserIds }, receiverId: userId },
+                                ],
+                            },
+                        ],
+                    },
                     { chatId: { in: chatIds } },
                     { channelId: { in: channelIds } }
                 ]

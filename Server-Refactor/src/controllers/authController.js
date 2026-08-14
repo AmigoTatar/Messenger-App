@@ -1,7 +1,6 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma');
 
 
 // РЕГИСТРАЦИЯ
@@ -156,4 +155,16 @@ const login = async (req, res) => {
     }
 };
 
-module.exports = { register, login };
+const logout = async (req, res) => {
+    try {
+        const { revokeToken } = require('../utils/tokenRevoke');
+        const token = req.authToken || (req.headers.authorization || '').split(' ')[1];
+        revokeToken(token);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Ошибка logout:', error);
+        res.status(500).json({ error: 'Ошибка сервера при выходе' });
+    }
+};
+
+module.exports = { register, login, logout };

@@ -12,7 +12,8 @@ import LoadingSpinner from '../LoadingSpinner';
 export default function ChatArea({ 
   activeChatId, 
   activeChat, 
-  setActiveChatId, 
+  setActiveChatId,
+  onBack,
   inputValue, 
   setInputValue, 
   onSendMessage, 
@@ -415,10 +416,35 @@ const canPin = (msg) => {
 
 console.log(' [ChatArea] received messages:', messages);
 console.log(' [ChatArea] messages length:', messages?.length);
+
+const handleBack = useCallback(() => {
+  if (typeof onBack === 'function') {
+    onBack();
+    return;
+  }
+  // fallback: минимальный close
+  setActiveChatId?.(null);
+}, [onBack, setActiveChatId]);
+
 if (isHistoryLoading) {
   return (
-    <div className="flex-1 flex items-center justify-center">
-      <LoadingSpinner size="lg" />
+    <div className="flex flex-col flex-1 h-full bg-zinc-100 dark:bg-zinc-900">
+      <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center bg-zinc-50 dark:bg-zinc-950/40">
+        <button
+          type="button"
+          onClick={handleBack}
+          className="md:hidden mr-3 p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition text-zinc-500 dark:text-zinc-400"
+          aria-label="Назад"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+        </button>
+        <span className="text-sm text-zinc-500 dark:text-zinc-400">Загрузка чата...</span>
+      </div>
+      <div className="flex-1 flex items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
     </div>
   );
 }
@@ -443,7 +469,7 @@ const chatName = getChatName(activeChatId, activeChatData, channelsProp, groupCh
           pinnedCount={pinnedMessages?.length || 0}
           onTogglePinned={() => setShowPinnedList(!showPinnedList)}
           onToggleProfile={onToggleProfile}
-          onBack={() => setActiveChatId(null)}
+          onBack={handleBack}
         />
 
         <MessageList
@@ -531,6 +557,7 @@ const chatName = getChatName(activeChatId, activeChatData, channelsProp, groupCh
   apiBaseUrl={apiBaseUrl}
   replyingTo={replyingTo}
   setReplyingTo={setReplyingTo}
+  showToast={showToast}
 />
 
         {/* Контекстное меню */}

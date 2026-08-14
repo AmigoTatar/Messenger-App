@@ -47,7 +47,7 @@ export default function Sidebar({
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isAddContactOpen, setIsAddContactOpen] = useState(false);
   const [isChannelSearchOpen, setIsChannelSearchOpen] = useState(false);
-  if (loading) {
+  if (loading && (!channels?.length && !groupChats?.length && !contacts?.length)) {
   return (
     <div className="w-full md:w-80 h-full flex items-center justify-center">
       <LoadingSpinner size="lg" />

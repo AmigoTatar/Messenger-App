@@ -1,5 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma');
 const path = require('path');
 const fs = require('fs');
 
@@ -120,36 +119,51 @@ const updateAvatar = async (req, res) => {
             return res.status(400).json({ error: 'Файл не загружен' });
         }
 
-        const avatarUrl = `/uploads/${req.file.filename}`;
+        const { uploadFile, deleteAvatarIfExists } = require('../services/s3Service');
+
+        const current = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { avatar: true },
+        });
+
+        const result = await uploadFile(
+            req.file.buffer,
+            req.file.originalname,
+            req.file.mimetype,
+            'avatars'
+        );
+        const avatarUrl = result.url;
+
+        await deleteAvatarIfExists(current?.avatar);
 
         const updatedUser = await prisma.user.update({
             where: { id: userId },
             data: {
-                avatar: avatarUrl
+                avatar: avatarUrl,
             },
             select: {
                 id: true,
                 username: true,
-                avatar: true
-            }
+                avatar: true,
+            },
         });
 
-        //  Отправляем событие всем подключённым клиентам
         const io = req.app.get('io');
         io.emit('user_updated', {
             userId: updatedUser.id,
             username: updatedUser.username,
-            avatar: updatedUser.avatar
+            avatar: updatedUser.avatar,
         });
 
         res.json({
             success: true,
-            user: updatedUser
+            user: updatedUser,
         });
     } catch (error) {
         console.error('❌ Ошибка загрузки аватарки:', error);
         res.status(500).json({
-            error: 'Не удалось загрузить аватарку'
+            error: 'Не удалось загрузить аватарку',
+            details: error.message,
         });
     }
 };

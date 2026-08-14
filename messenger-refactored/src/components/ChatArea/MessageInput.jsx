@@ -12,6 +12,7 @@ export default function MessageInput({
   apiBaseUrl = API_BASE_URL,
   replyingTo,
   setReplyingTo,
+  showToast = () => {},
 }) {
   const { sendMessage } = useMessage();
   const [inputValue, setInputValue] = useState('');
@@ -91,18 +92,25 @@ export default function MessageInput({
     formData.append('file', file);
     try {
       const token = localStorage.getItem('token');
-const response = await fetch(`${API_BASE_URL}/api/upload`, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${token}` },
-    body: formData,
-});
-      if (!response.ok) throw new Error('Ошибка загрузки');
+      const response = await fetch(`${API_BASE_URL}/api/upload`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData,
+      });
+      if (!response.ok) {
+        let details = '';
+        try {
+          const errBody = await response.json();
+          details = errBody.details || errBody.error || '';
+        } catch (_) {}
+        throw new Error(details || `Ошибка загрузки (${response.status})`);
+      }
       const data = await response.json();
       const fileUrl = data.fileUrl.startsWith('http') ? data.fileUrl : `${apiBaseUrl}${data.fileUrl}`;
       sendMessage(null, fileUrl, 'image');
     } catch (err) {
       console.error(err);
-      showToast('Не удалось отправить изображение');
+      showToast(err.message || 'Не удалось отправить изображение');
     }
     e.target.value = '';
   };

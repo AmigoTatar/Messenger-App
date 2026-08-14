@@ -1,6 +1,5 @@
 
 import React, { useRef, useEffect } from 'react';
-import { getAvatarUrl } from '../../utils/avatarUtils';
 
 export default function ContextMenu({
   message,

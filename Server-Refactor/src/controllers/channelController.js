@@ -1,17 +1,6 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
-const path = require('path');
-const fs = require('fs');
-const { onlineUsers } = require('../socket/socketHandlers');
-
-const deleteFile = (filePath) => {
-    if (filePath && filePath.startsWith('/uploads/')) {
-        const fullPath = path.join(__dirname, '../../public', filePath);
-        if (fs.existsSync(fullPath)) {
-            fs.unlinkSync(fullPath);
-        }
-    }
-};
+const prisma = require('../lib/prisma');
+const { emitToUser, joinUserToRoom, leaveUserFromRoom } = require('../utils/onlineUsers');
+const { uploadFile, deleteAvatarIfExists } = require('../services/s3Service');
 
 // --- GET /api/channels ---
 const getChannels = async (req, res) => {
@@ -151,11 +140,14 @@ const updateChannel = async (req, res) => {
 
         let avatar = channel.avatar;
         if (req.file) {
-            if (avatar && avatar.startsWith('/uploads/')) {
-                const oldPath = path.join(__dirname, '../../public', avatar);
-                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-            }
-            avatar = '/uploads/' + req.file.filename;
+            const result = await uploadFile(
+                req.file.buffer,
+                req.file.originalname,
+                req.file.mimetype,
+                'avatars'
+            );
+            await deleteAvatarIfExists(avatar);
+            avatar = result.url;
         }
 
         const updatedChannel = await prisma.channel.update({
@@ -206,6 +198,11 @@ const deleteChannel = async (req, res) => {
             return res.status(403).json({ error: 'Только создатель может удалить канал' });
         }
 
+        const members = await prisma.channelMember.findMany({
+            where: { channelId },
+            select: { userId: true },
+        });
+
         await prisma.channelMember.deleteMany({
             where: { channelId }
         });
@@ -215,9 +212,11 @@ const deleteChannel = async (req, res) => {
         });
 
         const io = req.app.get('io');
-        io.emit('channel_deleted', { channelId });
+        for (const m of members) {
+            emitToUser(io, m.userId, 'channel_deleted', { channelId });
+        }
 
-        console.log(` Канал ${channelId} удалён, событие разослано`);
+        console.log(` Канал ${channelId} удалён, уведомлены участники`);
         res.json({ success: true, message: 'Канал удален' });
     } catch (error) {
         console.error('Ошибка удаления канала:', error);
@@ -229,6 +228,15 @@ const deleteChannel = async (req, res) => {
 const getChannelMembers = async (req, res) => {
     try {
         const channelId = parseInt(req.params.channelId);
+        const currentUserId = req.userId;
+
+        const me = await prisma.channelMember.findFirst({
+            where: { channelId, userId: currentUserId },
+        });
+        if (!me) {
+            return res.status(403).json({ error: 'Вы не участник этого канала' });
+        }
+
         const members = await prisma.channelMember.findMany({
             where: { channelId },
             include: {
@@ -284,28 +292,24 @@ const addChannelMember = async (req, res) => {
                 channelName: channel.name
             });
 
-            const newUserSocketId = onlineUsers.get(userId);
-            if (newUserSocketId) {
-                const fullChannel = await prisma.channel.findUnique({
-                    where: { id: channelId },
-                    include: {
-                        messages: {
-                            orderBy: { createdAt: 'desc' },
-                            take: 1,
-                            include: { sender: { select: { id: true, username: true } } }
-                        }
+            const fullChannel = await prisma.channel.findUnique({
+                where: { id: channelId },
+                include: {
+                    messages: {
+                        orderBy: { createdAt: 'desc' },
+                        take: 1,
+                        include: { sender: { select: { id: true, username: true } } }
                     }
-                });
-                const lastMessage = fullChannel.messages[0] || null;
-                const { messages, ...channelData } = fullChannel;
-                io.to(newUserSocketId).emit('channel_created', {
-                    ...channelData,
-                    lastMessage,
-                    members: [member]
-                });
-                const socket = io.sockets.sockets.get(newUserSocketId);
-                if (socket) socket.join(roomName);
-            }
+                }
+            });
+            const lastMessage = fullChannel.messages[0] || null;
+            const { messages, ...channelData } = fullChannel;
+            emitToUser(io, userId, 'channel_created', {
+                ...channelData,
+                lastMessage,
+                members: [member]
+            });
+            joinUserToRoom(io, userId, roomName);
         } catch (socketError) {
             console.error('❌ Ошибка отправки сокет-события при добавлении участника в канал:', socketError);
         }
@@ -352,18 +356,12 @@ const removeChannelMember = async (req, res) => {
                 userId,
                 channelName: channel.name
             });
-            const removedSocketId = onlineUsers.get(userId);
-            if (removedSocketId) {
-                io.to(removedSocketId).emit('kicked_from_channel', {
-                    channelId,
-                    channelName: channel.name
-                });
-                const socket = io.sockets.sockets.get(removedSocketId);
-                if (socket) {
-                    socket.leave(`channel_${channelId}`);
-                    console.log(`🚪 Пользователь ${userId} покинул канал ${channelId}`);
-                }
-            }
+            emitToUser(io, userId, 'kicked_from_channel', {
+                channelId,
+                channelName: channel.name
+            });
+            leaveUserFromRoom(io, userId, `channel_${channelId}`);
+            console.log(`🚪 Пользователь ${userId} покинул канал ${channelId}`);
             return res.json({ success: true, message: 'Вы покинули канал' });
         }
 
@@ -551,14 +549,11 @@ const createJoinRequest = async (req, res) => {
         });
 
         for (const admin of admins) {
-            const socketId = onlineUsers.get(admin.userId);
-            if (socketId) {
-                io.to(socketId).emit('join_request_received', {
+            emitToUser(io, admin.userId, 'join_request_received', {
                     channelId,
                     channelName: channel.name,
                     request: joinRequest
                 });
-            }
         }
 
         res.status(201).json(joinRequest);
@@ -574,10 +569,19 @@ const getJoinRequests = async (req, res) => {
         const channelId = parseInt(req.params.channelId);
         const userId = req.userId;
 
+        const channel = await prisma.channel.findUnique({
+            where: { id: channelId },
+            select: { creatorId: true },
+        });
+        if (!channel) {
+            return res.status(404).json({ error: 'Канал не найден' });
+        }
+
         const isAdmin = await prisma.channelMember.findFirst({
             where: { channelId, userId, role: 'admin' }
         });
-        if (!isAdmin) {
+        const canManage = channel.creatorId === userId || !!isAdmin;
+        if (!canManage) {
             return res.status(403).json({ error: 'Только администраторы могут просматривать заявки' });
         }
 
@@ -618,7 +622,8 @@ const approveJoinRequest = async (req, res) => {
         const isAdmin = await prisma.channelMember.findFirst({
             where: { channelId: request.channelId, userId, role: 'admin' }
         });
-        if (!isAdmin) {
+        const canManage = request.channel.creatorId === userId || !!isAdmin;
+        if (!canManage) {
             return res.status(403).json({ error: 'Только администраторы могут одобрять заявки' });
         }
 
@@ -636,13 +641,10 @@ const approveJoinRequest = async (req, res) => {
         });
 
         const io = req.app.get('io');
-        const socketId = onlineUsers.get(request.userId);
-        if (socketId) {
-            io.to(socketId).emit('join_request_approved', {
+        emitToUser(io, request.userId, 'join_request_approved', {
                 channelId: request.channelId,
                 channelName: request.channel.name
             });
-        }
 
         res.json({ success: true, request: updatedRequest });
     } catch (error) {
@@ -668,7 +670,8 @@ const rejectJoinRequest = async (req, res) => {
         const isAdmin = await prisma.channelMember.findFirst({
             where: { channelId: request.channelId, userId, role: 'admin' }
         });
-        if (!isAdmin) {
+        const canManage = request.channel.creatorId === userId || !!isAdmin;
+        if (!canManage) {
             return res.status(403).json({ error: 'Только администраторы могут отклонять заявки' });
         }
 
@@ -678,13 +681,10 @@ const rejectJoinRequest = async (req, res) => {
         });
 
         const io = req.app.get('io');
-        const socketId = onlineUsers.get(request.userId);
-        if (socketId) {
-            io.to(socketId).emit('join_request_rejected', {
+        emitToUser(io, request.userId, 'join_request_rejected', {
                 channelId: request.channelId,
                 channelName: request.channel.name
             });
-        }
 
         res.json({ success: true, request: updatedRequest });
     } catch (error) {

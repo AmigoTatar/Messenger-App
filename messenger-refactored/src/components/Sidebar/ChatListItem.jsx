@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { getAvatarUrl } from '../../utils/avatarUtils';
+import Avatar from '../Avatar';
 
 export default function ChatListItem({
   id,
@@ -15,14 +14,6 @@ export default function ChatListItem({
   formatMsgTime,
   type, // 'private', 'channel', 'group'
 }) {
-  const isImageAvatar = avatar && typeof avatar === 'string' && avatar.startsWith('/uploads/');
-console.log(' [ChatListItem] Рендер:', {
-    id,
-    name,
-    lastMessage,
-    isDeleted: lastMessage?.isDeleted,
-    text: lastMessage?.text
-});
   return (
     <button
       onClick={onClick}
@@ -33,13 +24,7 @@ console.log(' [ChatListItem] Рендер:', {
       }`}
     >
       <div className="relative mr-3 shrink-0">
-        <div className="w-11 h-11 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-xl shadow-sm overflow-hidden">
-          {isImageAvatar ? (
-            <img src={getAvatarUrl(avatar)} alt={name} className="w-full h-full object-cover" />
-          ) : (
-            <span>{avatar || (type === 'channel' ? '📢' : type === 'group' ? '💬' : '👤')}</span>
-          )}
-        </div>
+        <Avatar avatar={avatar} name={name} type={type} size="lg" />
         {isOnline && type === 'private' && (
           <span className="absolute bottom-0 right-0 block h-3 w-3 rounded-full bg-emerald-500 border-2 border-white dark:border-zinc-950 ring-1 ring-emerald-500/20 animate-pulse" />
         )}

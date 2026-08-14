@@ -4,6 +4,7 @@ import { getChatIdFromMessage } from '../utils/chatUtils';
 import { playNotificationSound } from '../utils/soundUtils';
 import { API_BASE_URL } from '../config';
 import { apiClient } from '../services/apiClient';
+import { unregisterPush } from '../services/pushRegistration';
 
 export function useAppHandlers({
   // Состояния
@@ -164,7 +165,9 @@ export function useAppHandlers({
     }
 
     if (String(newMessage.senderId) !== String(user?.id)) {
-      playNotificationSound();
+      if (typeof document === 'undefined' || !document.hidden) {
+        playNotificationSound();
+      }
     }
   }, [user, joinChat, addMessage, setGroupChats, setChannels, setChats, setGroupChatsVersion, setChannelsVersion, setChatsVersion, setContacts]);
 
@@ -288,12 +291,24 @@ export function useAppHandlers({
 
   // ====== ВЫХОД ======
   const handleLogout = useCallback(() => {
-    if (socket) socket.disconnect();
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setUser(null);
-    setActiveChatId(null);
-  }, [socket]);
+    const token = localStorage.getItem('token');
+    const revoke = token
+      ? fetch(`${API_BASE_URL}/api/auth/logout`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        }).catch(() => {})
+      : Promise.resolve();
+
+    Promise.all([unregisterPush().catch((err) => {
+      console.warn('⚠️ [PUSH] Ошибка при logout:', err);
+    }), revoke]).finally(() => {
+      if (socket) socket.disconnect();
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setUser(null);
+      setActiveChatId(null);
+    });
+  }, [socket, setUser, setActiveChatId]);
 
   return {
     handleSelectChat,

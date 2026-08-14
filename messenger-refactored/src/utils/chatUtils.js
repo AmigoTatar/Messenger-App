@@ -54,39 +54,49 @@ export const extractNumericId = (id) => {
 };
 
 // Получает данные активного чата по ID
-export const getActiveChatData = (chatId, channels, groupChats, chats) => {
+export const getActiveChatData = (chatId, channels, groupChats, chats, contacts = []) => {
     if (!chatId) return null;
-    
+
     if (chatId.startsWith('channel_')) {
         const ch = channels?.find(c => `channel_${c.id}` === chatId);
         if (ch) {
-            return { 
-                name: ch.name, 
-                avatar: ch.avatar, 
-                type: 'channel', 
-                creatorId: ch.creatorId, 
-                members: ch.members || [] 
+            return {
+                name: ch.name,
+                avatar: ch.avatar,
+                type: 'channel',
+                creatorId: ch.creatorId,
+                members: ch.members || []
             };
         }
     } else if (chatId.startsWith('chat_')) {
         const gr = groupChats?.find(c => c.id === chatId || `chat_${c.dbId}` === chatId);
         if (gr) {
-            return { 
-                name: gr.name, 
-                avatar: gr.avatar, 
-                type: 'group', 
-                creatorId: gr.creatorId, 
-                members: gr.members || [] 
+            return {
+                name: gr.name,
+                avatar: gr.avatar,
+                type: 'group',
+                creatorId: gr.creatorId,
+                members: gr.members || []
             };
         }
     } else if (chatId.startsWith('user_')) {
-        const pr = chats?.find(c => c.id === chatId);
+        const userId = parseInt(chatId.replace('user_', ''), 10);
+        const pr = chats?.find(c => c.id === chatId || c.dbId === userId);
         if (pr) {
-            return { 
-                name: pr.name, 
-                avatar: pr.avatar, 
-                type: 'private', 
-                dbId: pr.dbId 
+            return {
+                name: pr.name,
+                avatar: pr.avatar,
+                type: 'private',
+                dbId: pr.dbId || userId
+            };
+        }
+        const contact = contacts?.find(c => c.id === userId);
+        if (contact) {
+            return {
+                name: contact.username || contact.name,
+                avatar: contact.avatar,
+                type: 'private',
+                dbId: contact.id
             };
         }
     }

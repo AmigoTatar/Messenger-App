@@ -1,5 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma');
 const { uploadFile } = require('../services/s3Service');
 
 const uploadController = async (req, res) => {
@@ -24,7 +23,10 @@ const uploadController = async (req, res) => {
         });
     } catch (error) {
         console.error('❌ Ошибка загрузки в S3:', error);
-        res.status(500).json({ error: 'Не удалось загрузить файл' });
+        res.status(500).json({
+            error: 'Не удалось загрузить файл',
+            details: error.message,
+        });
     }
 };
 

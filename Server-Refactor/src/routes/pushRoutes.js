@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma');
 const { authenticateToken } = require('../middleware/auth');
 
 // Сохранение push-токена
@@ -43,22 +42,30 @@ router.post('/', authenticateToken, async (req, res) => {
     }
 });
 
-// Удаление push-токена
+// Удаление / деактивация push-токена (только свой токен)
 router.delete('/', authenticateToken, async (req, res) => {
     try {
         const { token } = req.body;
         const userId = req.user?.id || req.userId || req.user?.userId;
-        
+
         if (!userId) {
             return res.status(401).json({ error: 'Пользователь не авторизован' });
         }
 
-        await prisma.pushToken.update({
-            where: { token },
-            data: { isActive: false }
+        if (!token) {
+            return res.status(400).json({ error: 'token обязателен' });
+        }
+
+        const result = await prisma.pushToken.updateMany({
+            where: { token, userId },
+            data: { isActive: false },
         });
 
-        res.json({ success: true, message: 'Push-токен удалён' });
+        res.json({
+            success: true,
+            message: 'Push-токен удалён',
+            deactivated: result.count,
+        });
     } catch (err) {
         console.error('❌ Ошибка удаления push-токена:', err);
         res.status(500).json({ error: err.message });

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import LoadingSpinner from '../LoadingSpinner';
+import Avatar from '../Avatar';
 
 export default function AddContactModal({ isOpen, onClose, onSearch, onAdd, existingContacts }) {
     const [query, setQuery] = useState('');
@@ -112,13 +113,11 @@ export default function AddContactModal({ isOpen, onClose, onSearch, onAdd, exis
                                     className="flex items-center justify-between p-3 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition"
                                 >
                                     <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center text-sm overflow-hidden">
-                                            {user.avatar?.startsWith('/uploads/') ? (
-                                                <img src={user.avatar} alt={user.username} className="w-full h-full object-cover" />
-                                            ) : (
-                                                <span>{user.avatar || '👤'}</span>
-                                            )}
-                                        </div>
+                                        <Avatar
+                                          avatar={user.avatar}
+                                          name={user.username}
+                                          size="sm"
+                                        />
                                         <div>
                                             <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
                                                 {user.username}

@@ -5,6 +5,7 @@ import { getChatIdFromMessage } from '../utils/chatUtils';
 import { playNotificationSound } from '../utils/soundUtils';
 import { API_BASE_URL } from '../config';
 import { apiClient } from '../services/apiClient';
+import { unregisterPush } from '../services/pushRegistration';
 
 export function useMessageHandlers({
   // Основные
@@ -35,6 +36,7 @@ export function useMessageHandlers({
   channels,
   groupChats,
   chats,
+  contacts,
   socket,
   sendMessage,
   deleteMessageLocally,
@@ -60,7 +62,7 @@ export function useMessageHandlers({
     joinChat(normalizedChatId);
     resetUnread(normalizedChatId);
     await loadHistory(normalizedChatId);
-    let activeData = chatData || getActiveChatData(normalizedChatId, channels, groupChats, chats);
+    let activeData = chatData || getActiveChatData(normalizedChatId, channels, groupChats, chats, contacts);
     setActiveChatData(activeData || { name: 'Чат', avatar: '💬', type: 'general' });
     setIsProfileOpen(false);
     if (socket) {
@@ -76,7 +78,7 @@ export function useMessageHandlers({
         return newState;
       });
     }
-  }, [activeChatId, joinChat, resetUnread, loadHistory, channels, groupChats, chats, socket, user]);
+  }, [activeChatId, joinChat, resetUnread, loadHistory, channels, groupChats, chats, contacts, socket, user, setActiveChatId, activeChatIdRef, setActiveChatData, setIsProfileOpen, setMessagesByChat]);
 
   // ====== 2. СОЗДАНИЕ КАНАЛА ======
   const handleCreateChannel = useCallback(async (channelData) => {
@@ -220,12 +222,16 @@ export function useMessageHandlers({
         return contact;
       }));
       setChatsVersion(prev => prev + 1);
+      setContactsVersion(prev => prev + 1);
     }
 
     if (String(newMessage.senderId) !== String(user?.id)) {
-      playNotificationSound();
+      // Звук только на активной вкладке; в фоне отвечает FCM-баннер (без второго звука)
+      if (typeof document === 'undefined' || !document.hidden) {
+        playNotificationSound();
+      }
     }
-  }, [user, joinChat, addMessage, setGroupChats, setChannels, setChats, setGroupChatsVersion, setChannelsVersion, setChatsVersion, setContacts]);
+  }, [user, joinChat, addMessage, setGroupChats, setChannels, setChats, setGroupChatsVersion, setChannelsVersion, setChatsVersion, setContacts, setContactsVersion]);
 
   // ====== 7. ЗАКРЕПЛЕНИЕ ======
   const handlePin = useCallback(async (messageId) => {
@@ -275,6 +281,7 @@ export function useMessageHandlers({
   const handleChatUpdate = useCallback((updated) => {
     if (updated.type === 'channel') {
       setChannels(prev => prev.map(ch => ch.id === updated.id ? updated : ch));
+      setChannelsVersion(prev => prev + 1);
       if (activeChatId === `channel_${updated.id}`) {
         setActiveChatData(prev => ({ ...prev, name: updated.name, avatar: updated.avatar }));
       }
@@ -285,16 +292,32 @@ export function useMessageHandlers({
         setActiveChatData(prev => ({ ...prev, name: updated.name, avatar: updated.avatar }));
       }
     }
-  }, [setChannels, setGroupChats, activeChatId, setActiveChatData]);
+  }, [setChannels, setGroupChats, setChannelsVersion, setGroupChatsVersion, activeChatId, setActiveChatData]);
 
   // ====== 9. ВЫХОД ======
   const handleLogout = useCallback(() => {
-    if (socket) socket.disconnect();
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setUser(null);
-    setActiveChatId(null);
-  }, [socket]);
+    const token = localStorage.getItem('token');
+    const revoke = token
+      ? fetch(`${API_BASE_URL}/api/auth/logout`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        }).catch(() => {})
+      : Promise.resolve();
+
+    // Сначала деактивируем пуш (пока JWT ещё в localStorage)
+    Promise.all([
+      unregisterPush().catch((err) => {
+        console.warn('⚠️ [PUSH] Ошибка при logout:', err);
+      }),
+      revoke,
+    ]).finally(() => {
+      if (socket) socket.disconnect();
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setUser(null);
+      setActiveChatId(null);
+    });
+  }, [socket, setUser, setActiveChatId]);
 
   // ====== 10. ОСТАЛЬНЫЕ (из messageHandlers) ======
   const handleReactionUpdated = useCallback(({ messageId, reactions }) => {
@@ -481,6 +504,7 @@ const handleMessageDeleted = useCallback(({ messageId, activeChatId, otherUserId
         }
         return contact;
       }));
+      if (setContactsVersion) setContactsVersion(prev => prev + 1);
     }
 
     if (activeChatData && activeChatData.type === 'private' && activeChatData.dbId === userId) {
@@ -494,7 +518,7 @@ const handleMessageDeleted = useCallback(({ messageId, activeChatId, otherUserId
     setChatsVersion(prev => prev + 1);
     setGroupChatsVersion(prev => prev + 1);
     setChannelsVersion(prev => prev + 1);
-  }, [user, setUser, setChats, setGroupChats, setChannels, activeChatData, setActiveChatData, setChatsVersion, setGroupChatsVersion, setChannelsVersion, setContacts]);
+  }, [user, setUser, setChats, setGroupChats, setChannels, activeChatData, setActiveChatData, setChatsVersion, setGroupChatsVersion, setChannelsVersion, setContacts, setContactsVersion]);
 
   const handleKickedFromChannel = useCallback(({ channelId }) => {
     showToast(` Вас удалили из канала ${channelId}`);

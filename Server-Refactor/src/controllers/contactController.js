@@ -1,6 +1,5 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
-const { onlineUsers } = require('../socket/socketHandlers'); 
+const prisma = require('../lib/prisma');
+const { emitToUser } = require('../utils/onlineUsers');
 
 
 // ПОЛУЧИТЬ СПИСОК КОНТАКТОВ
@@ -135,13 +134,12 @@ const addContact = async (req, res) => {
         // 3. Отправляем событие через сокет
         try {
             const io = req.app.get('io');
-            const targetSocketId = onlineUsers.get(contactIdNum);
-            if (targetSocketId && io) {
+            if (io) {
                 const userData = await prisma.user.findUnique({
                     where: { id: userId },
                     select: { id: true, username: true, avatar: true }
                 });
-                io.to(targetSocketId).emit('contact_added', userData);
+                emitToUser(io, contactIdNum, 'contact_added', userData);
                 console.log(`📤 Событие contact_added отправлено пользователю ${contactIdNum}`);
             }
         } catch (socketError) {

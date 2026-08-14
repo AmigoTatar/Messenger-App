@@ -1,5 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma');
 
 const markRead = async (req, res) => {
     try {
@@ -13,138 +12,85 @@ const markRead = async (req, res) => {
         console.log(`📖 Отметка о прочтении: type=${type}, id=${id}, userId=${userId}`);
 
         if (type === 'chat') {
-            const chatExists = await prisma.chat.findUnique({
-                where: { id: parseInt(id) }
-            });
+            const chatId = parseInt(id);
+            const chatExists = await prisma.chat.findUnique({ where: { id: chatId } });
             if (!chatExists) {
                 return res.status(404).json({ error: 'Чат не найден' });
             }
 
+            // Нельзя «вступить» через mark-read — только если уже участник
             const existingMember = await prisma.chatMember.findUnique({
-                where: {
-                    chatId_userId: {
-                        chatId: parseInt(id),
-                        userId
-                    }
-                }
+                where: { chatId_userId: { chatId, userId } },
             });
-
             if (!existingMember) {
-                await prisma.chatMember.create({
-                    data: {
-                        chatId: parseInt(id),
-                        userId: userId,
-                        lastReadAt: new Date()
-                    }
-                });
-            } else {
-                await prisma.chatMember.update({
-                    where: {
-                        chatId_userId: {
-                            chatId: parseInt(id),
-                            userId
-                        }
-                    },
-                    data: { lastReadAt: new Date() }
-                });
+                return res.status(403).json({ error: 'Вы не участник этой группы' });
             }
 
-            // Помечаем сообщения как прочитанные
-            await prisma.message.updateMany({
-                where: {
-                    chatId: parseInt(id),
-                    senderId: { not: userId },
-                    status: 'unread'
-                },
-                data: { status: 'read' }
+            await prisma.chatMember.update({
+                where: { chatId_userId: { chatId, userId } },
+                data: { lastReadAt: new Date() },
             });
 
+            await prisma.message.updateMany({
+                where: {
+                    chatId,
+                    senderId: { not: userId },
+                    status: 'unread',
+                },
+                data: { status: 'read' },
+            });
         } else if (type === 'channel') {
             const channelId = parseInt(id);
-            const channelExists = await prisma.channel.findUnique({
-                where: { id: channelId }
-            });
+            const channelExists = await prisma.channel.findUnique({ where: { id: channelId } });
             if (!channelExists) {
                 return res.status(404).json({ error: 'Канал не найден' });
             }
 
             const member = await prisma.channelMember.findFirst({
-                where: {
-                    channelId: channelId,
-                    userId: userId
-                }
+                where: { channelId, userId },
             });
-
             if (!member) {
-                await prisma.channelMember.create({
-                    data: {
-                        channelId: channelId,
-                        userId: userId,
-                        role: 'member',
-                        lastReadAt: new Date()
-                    }
-                });
-            } else {
-                await prisma.channelMember.update({
-                    where: { id: member.id },
-                    data: { lastReadAt: new Date() }
-                });
+                return res.status(403).json({ error: 'Вы не участник этого канала' });
             }
+
+            await prisma.channelMember.update({
+                where: { id: member.id },
+                data: { lastReadAt: new Date() },
+            });
 
             await prisma.message.updateMany({
                 where: {
-                    channelId: channelId,
+                    channelId,
                     senderId: { not: userId },
-                    status: 'unread'
+                    status: 'unread',
                 },
-                data: { status: 'read' }
+                data: { status: 'read' },
             });
-
         } else if (type === 'private') {
             const otherUserId = parseInt(id);
-
-            const privateMember = await prisma.privateChatMember.findUnique({
-                where: {
-                    userId_otherUserId: {
-                        userId: userId,
-                        otherUserId: otherUserId
-                    }
-                }
-            });
-
-            if (!privateMember) {
-                await prisma.privateChatMember.create({
-                    data: {
-                        userId: userId,
-                        otherUserId: otherUserId,
-                        lastReadAt: new Date()
-                    }
-                });
-            } else {
-                await prisma.privateChatMember.update({
-                    where: { id: privateMember.id },
-                    data: { lastReadAt: new Date() }
-                });
-            }
-
             await prisma.message.updateMany({
                 where: {
-                    senderId: otherUserId,
-                    receiverId: userId,
+                    OR: [
+                        { senderId: otherUserId, receiverId: userId },
+                        { senderId: userId, receiverId: otherUserId },
+                    ],
                     channelId: null,
                     chatId: null,
-                    status: { not: 'read' }
+                    status: 'unread',
+                    senderId: { not: userId },
                 },
-                data: { status: 'read' }
+                data: { status: 'read' },
             });
+        } else {
+            return res.status(400).json({ error: 'Неизвестный type' });
         }
 
         res.json({ success: true });
     } catch (error) {
         console.error('❌ Ошибка в markRead:', error);
         res.status(500).json({
-            error: 'Failed to mark as read',
-            details: error.message
+            error: 'Ошибка отметки прочтения',
+            details: error.message,
         });
     }
 };

@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { getAvatarUrl } from '../../utils/avatarUtils';
+import Avatar from '../Avatar';
 import { API_BASE_URL } from '../../config';
 
 export default function UserProfile({ user, onUpdateUser, showToast  }) {
@@ -34,11 +34,11 @@ export default function UserProfile({ user, onUpdateUser, showToast  }) {
     formData.append('avatar', file);
     try {
       const token = localStorage.getItem('token');
-const res = await fetch(`${API_BASE_URL}/api/users/avatar`, {
-    method: 'PUT',
-    headers: { 'Authorization': `Bearer ${token}` },
-    body: formData,
-});
+      const res = await fetch(`${API_BASE_URL}/api/users/avatar`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData,
+      });
       if (!res.ok) throw new Error('Ошибка');
       const data = await res.json();
       const updated = { ...user, avatar: data.user.avatar };
@@ -57,6 +57,7 @@ const res = await fetch(`${API_BASE_URL}/api/users/avatar`, {
         src="/logo.png" 
         alt="Поток" 
         className="w-8 h-8 rounded-lg object-cover shadow-sm"
+        onError={(e) => { e.target.style.display = 'none'; }}
       />
       <div>
         <h1 className="text-sm font-bold text-zinc-800 dark:text-white leading-tight">Поток</h1>
@@ -67,12 +68,8 @@ const res = await fetch(`${API_BASE_URL}/api/users/avatar`, {
     {/* Блок пользователя */}
     <div className="flex items-center gap-3 p-2 rounded-xl bg-zinc-100 dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-zinc-800/50">
       {/* Аватар с возможностью загрузки */}
-      <div className="relative w-10 h-10 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-xl flex-shrink-0 overflow-hidden group">
-        {user?.avatar?.startsWith('/uploads/') ? (
-          <img src={getAvatarUrl(user.avatar)} alt="avatar" className="w-full h-full object-cover" />
-        ) : (
-          <span>{user?.avatar || '👤'}</span>
-        )}
+      <div className="relative flex-shrink-0 group">
+        <Avatar avatar={user?.avatar} name={user?.username} size="md" />
         <label htmlFor="avatar-upload" className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer rounded-full">
           <span className="text-white text-xs font-medium">📷</span>
         </label>

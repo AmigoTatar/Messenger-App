@@ -24,7 +24,10 @@ const addContact = useCallback(async (contactId) => {
             method: 'POST',
             body: JSON.stringify({ contactId }),
         });
-        setContacts(prev => [...prev, newContact]);
+        setContacts(prev => {
+            if (prev.some(c => c.id === newContact.id)) return prev;
+            return [...prev, newContact];
+        });
         return newContact;
     } catch (err) {
         console.error('Ошибка добавления контакта:', err);
@@ -55,9 +58,14 @@ const addContact = useCallback(async (contactId) => {
         }
     }, []);
 
+    const clearContacts = useCallback(() => {
+        setContacts([]);
+        setLoading(true);
+    }, []);
+
     useEffect(() => {
         fetchContacts();
     }, [fetchContacts]);
 
-    return { contacts, loading, fetchContacts, addContact, removeContact, searchUsers,setContacts  };
+    return { contacts, loading, fetchContacts, addContact, removeContact, searchUsers, setContacts, clearContacts };
 }

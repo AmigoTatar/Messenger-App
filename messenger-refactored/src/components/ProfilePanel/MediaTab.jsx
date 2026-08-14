@@ -1,5 +1,5 @@
-
 import React from 'react';
+import { SafeImage } from '../Avatar';
 
 export default function MediaTab({ messages, onMediaClick }) {
   const mediaImages = messages.filter(msg => msg && msg.mediaType === 'image' && !msg.isDeleted);
@@ -20,7 +20,12 @@ export default function MediaTab({ messages, onMediaClick }) {
           onClick={() => onMediaClick(msg.id)}
           className="aspect-square rounded-lg overflow-hidden border group relative cursor-pointer bg-zinc-100 dark:bg-zinc-900 border-zinc-300 dark:border-zinc-800"
         >
-          <img src={msg.mediaUrl} alt="Shared" className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+          <SafeImage
+            src={msg.mediaUrl}
+            alt="Shared"
+            className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+            fallback="🖼️"
+          />
           <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
       ))}

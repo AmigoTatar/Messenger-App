@@ -93,6 +93,13 @@ export function useMessages(currentUserId) {
         });
     }, []);
 
+    const clearMessages = useCallback(() => {
+        setMessagesByChat({});
+        setHasMore({});
+        setLoading({});
+        loadingRef.current = {};
+    }, []);
+
     return {
         getMessages,
         addMessage,
@@ -103,5 +110,6 @@ export function useMessages(currentUserId) {
         markMessageAsRead,
         setMessagesByChat,
         deleteMessageLocally,
+        clearMessages,
     };
 }

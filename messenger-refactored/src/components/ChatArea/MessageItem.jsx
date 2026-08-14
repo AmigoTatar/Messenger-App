@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { getAvatarUrl } from '../../utils/avatarUtils';
+import { SafeImage } from '../Avatar';
 import DOMPurify from 'dompurify';
 
 export default function MessageItem({ 
@@ -78,13 +78,13 @@ return (
       >
 
         {isImage && mediaUrl && (
-          <div className="mb-2 max-w-full overflow-hidden rounded-lg bg-zinc-900/50">
-            <img 
-              src={msg.mediaUrl} 
-              alt="Вложение" 
+          <div className="mb-2 max-w-full overflow-hidden rounded-lg bg-zinc-900/50 min-h-[80px]">
+            <SafeImage
+              src={msg.mediaUrl}
+              alt="Вложение"
               className="max-h-60 w-full object-cover cursor-pointer hover:opacity-90 transition"
               onClick={() => window.open(mediaUrl, '_blank')}
-              onError={(e) => { e.target.style.display = 'none'; }}
+              fallback="🖼️"
             />
           </div>
         )}

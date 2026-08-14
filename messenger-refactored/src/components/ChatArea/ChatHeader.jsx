@@ -1,5 +1,5 @@
 import React from 'react';
-import { getAvatarUrl } from '../../utils/avatarUtils';
+import Avatar from '../Avatar';
 
 export default function ChatHeader({ 
   chatName, 
@@ -13,15 +13,12 @@ export default function ChatHeader({
   onToggleProfile,
   onBack 
 }) {
-  const avatarUrl = chatAvatar && typeof chatAvatar === 'string' && chatAvatar.startsWith('/uploads/')
-    ? getAvatarUrl(chatAvatar)
-    : null;
-
   return (
     <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between bg-zinc-50 dark:bg-zinc-950/40">
       <div className="flex items-center flex-1 cursor-pointer select-none group" onClick={onToggleProfile}>
         {onBack && (
           <button 
+            type="button"
             onClick={(e) => { e.stopPropagation(); onBack(); }} 
             className="md:hidden mr-3 p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition text-zinc-500 dark:text-zinc-400"
           >
@@ -31,12 +28,13 @@ export default function ChatHeader({
           </button>
         )}
         
-        <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-lg mr-3 shadow-inner group-hover:scale-105 transition-transform duration-200 overflow-hidden">
-          {avatarUrl ? (
-            <img src={avatarUrl} alt={chatName} className="w-full h-full object-cover" />
-          ) : (
-            <span>{chatAvatar || '💬'}</span>
-          )}
+        <div className="mr-3 group-hover:scale-105 transition-transform duration-200">
+          <Avatar
+            avatar={chatAvatar}
+            name={chatName}
+            type={chatType === 'channel' ? 'channel' : chatType === 'group' ? 'group' : 'private'}
+            size="md"
+          />
         </div>
         
         <div>
@@ -61,18 +59,20 @@ export default function ChatHeader({
           </span>
 
           {pinnedCount > 0 && (
-  <button
-    onClick={onTogglePinned}
-    className="ml-2 text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full hover:bg-amber-200 dark:hover:bg-amber-900/50 transition flex items-center gap-1"
-  >
-    <span>📌</span>
-    <span>{pinnedCount}</span>
-  </button>
-)}
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onTogglePinned?.(); }}
+              className="ml-2 text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full hover:bg-amber-200 dark:hover:bg-amber-900/50 transition inline-flex items-center gap-1"
+            >
+              <span>📌</span>
+              <span>{pinnedCount}</span>
+            </button>
+          )}
         </div>
       </div>
       
       <button 
+        type="button"
         onClick={onToggleProfile} 
         className="p-2 text-zinc-400 dark:text-zinc-500 hover:text-zinc-800 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition"
       >

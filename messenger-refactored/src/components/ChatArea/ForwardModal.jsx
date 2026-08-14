@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { getAvatarUrl } from '../../utils/avatarUtils';
+import Avatar from '../Avatar';
 
 export default function ForwardModal({
   visible,
@@ -167,23 +167,12 @@ const filteredChats = (chats || [])
 
 // Вспомогательный компонент для кнопки чата
 function ChatButton({ chat, onClick, avatar, name, type }) {
-    console.log('🖼️ [ChatButton] chat:', chat);
-    console.log('🖼️ [ChatButton] name:', name);
-  const isImageAvatar = avatar && typeof avatar === 'string' && avatar.startsWith('/uploads/');
-  const avatarUrl = isImageAvatar ? getAvatarUrl(avatar) : null;
-
   return (
     <button
       onClick={onClick}
       className="w-full text-left px-3 py-2.5 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded-xl transition flex items-center gap-3 text-sm border border-transparent hover:border-emerald-200 dark:hover:border-emerald-800/30"
     >
-      <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden flex-shrink-0">
-        {isImageAvatar ? (
-          <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
-        ) : (
-          <span className="text-lg">{avatar || '👤'}</span>
-        )}
-      </div>
+      <Avatar avatar={avatar} name={name} type={type === 'Канал' ? 'channel' : type === 'Группа' ? 'group' : 'private'} size="sm" />
       <span className="font-medium text-zinc-700 dark:text-zinc-300">{name}</span>
       <span className="ml-auto text-[10px] text-zinc-400 dark:text-zinc-500">{type}</span>
     </button>

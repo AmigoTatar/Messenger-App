@@ -36,5 +36,9 @@ const updateUnread = useCallback((chatKey, count) => {
   });
 }, []);
 
-  return { unreadCounts, fetchUnread, updateUnread, resetUnread };
+  const clearUnread = useCallback(() => {
+    setUnreadCounts({});
+  }, []);
+
+  return { unreadCounts, fetchUnread, updateUnread, resetUnread, clearUnread };
 }

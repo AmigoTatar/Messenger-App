@@ -1,17 +1,6 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
-const path = require('path');
-const fs = require('fs');
-const { onlineUsers } = require('../socket/socketHandlers');
-
-const deleteFileIfExists = (filePath) => {
-    if (filePath && filePath.startsWith('/uploads/')) {
-        const fullPath = path.join(__dirname, '../../public', filePath);
-        if (fs.existsSync(fullPath)) {
-            fs.unlinkSync(fullPath);
-        }
-    }
-};
+const prisma = require('../lib/prisma');
+const { emitToUser, joinUserToRoom, leaveUserFromRoom } = require('../utils/onlineUsers');
+const { uploadFile, deleteAvatarIfExists } = require('../services/s3Service');
 
 // 1. Получить все групповые чаты пользователя
 const getChats = async (req, res) => {
@@ -110,7 +99,7 @@ const createChat = async (req, res) => {
             }
         });
 
-        // Отправляем событие всем клиентам (или только участникам)
+        // Только участникам группы (не io.emit всем онлайн)
         const io = req.app.get('io');
         const chatData = {
             id: `chat_${newChat.id}`,
@@ -121,9 +110,11 @@ const createChat = async (req, res) => {
             members: newChat.members,
             type: 'group'
         };
-        io.emit('chat_created', chatData);
+        for (const m of newChat.members || []) {
+            emitToUser(io, m.userId, 'chat_created', chatData);
+        }
 
-        console.log(`👥 Создан новый групповой чат ${chat.id}, событие разослано`);
+        console.log(`👥 Создан групповой чат ${chat.id}, разослано ${newChat.members?.length || 0} участникам`);
 
         res.status(201).json(chatData);
     } catch (error) {
@@ -153,11 +144,14 @@ const updateChat = async (req, res) => {
 
         let avatar = chat.avatar;
         if (req.file) {
-            if (avatar && avatar.startsWith('/uploads/')) {
-                const oldPath = path.join(__dirname, '../../public', avatar);
-                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-            }
-            avatar = '/uploads/' + req.file.filename;
+            const result = await uploadFile(
+                req.file.buffer,
+                req.file.originalname,
+                req.file.mimetype,
+                'avatars'
+            );
+            await deleteAvatarIfExists(avatar);
+            avatar = result.url;
         }
 
         const updatedChat = await prisma.chat.update({
@@ -209,7 +203,11 @@ const deleteChat = async (req, res) => {
             return res.status(403).json({ error: 'Только создатель может удалить чат' });
         }
 
-        // Удаляем всех участников чата (связи)
+        const members = await prisma.chatMember.findMany({
+            where: { chatId },
+            select: { userId: true },
+        });
+
         await prisma.chatMember.deleteMany({
             where: { chatId }
         });
@@ -219,9 +217,11 @@ const deleteChat = async (req, res) => {
         });
 
         const io = req.app.get('io');
-        io.emit('chat_deleted', { chatId });
+        for (const m of members) {
+            emitToUser(io, m.userId, 'chat_deleted', { chatId });
+        }
 
-        console.log(`🗑️ Групповой чат ${chatId} удалён, событие разослано`);
+        console.log(`🗑️ Групповой чат ${chatId} удалён, уведомлены участники`);
         res.json({ success: true, message: 'Чат удален' });
     } catch (error) {
         console.error('Ошибка удаления группового чата:', error);
@@ -233,8 +233,16 @@ const deleteChat = async (req, res) => {
 const getChatMembers = async (req, res) => {
     try {
         const chatId = parseInt(req.params.chatId);
+        const currentUserId = req.userId;
         if (isNaN(chatId)) {
             return res.status(400).json({ error: 'Неверный ID чата' });
+        }
+
+        const me = await prisma.chatMember.findUnique({
+            where: { chatId_userId: { chatId, userId: currentUserId } },
+        });
+        if (!me) {
+            return res.status(403).json({ error: 'Вы не участник этой группы' });
         }
 
         const members = await prisma.chatMember.findMany({
@@ -266,6 +274,15 @@ const addChatMember = async (req, res) => {
 
         if (!chat) {
             return res.status(404).json({ error: 'Чат не найден' });
+        }
+
+        if (chat.creatorId !== currentUserId) {
+            const me = await prisma.chatMember.findUnique({
+                where: { chatId_userId: { chatId, userId: currentUserId } },
+            });
+            if (!me) {
+                return res.status(403).json({ error: 'Нет прав добавлять участников' });
+            }
         }
 
         const existingMember = await prisma.chatMember.findUnique({
@@ -338,23 +355,16 @@ const addChatMember = async (req, res) => {
         });
 
         // Отправляем новому участнику отдельно и подписываем его
-        const newUserSocketId = onlineUsers.get(userId);
-        if (newUserSocketId) {
-            io.to(newUserSocketId).emit('chat_member_added', {
-                chatId: chatId,
-                member: member,
-                chatName: fullChat.name,
-                chatAvatar: fullChat.avatar,
-                lastMessage: lastMessage,
-                chatData: chatData
-            });
-            // Подписываем нового участника на комнату
-            const socket = io.sockets.sockets.get(newUserSocketId);
-            if (socket) {
-                socket.join(roomName);
-                console.log(`🚪 Новый участник ${userId} подписан на ${roomName}`);
-            }
-        }
+        emitToUser(io, userId, 'chat_member_added', {
+            chatId: chatId,
+            member: member,
+            chatName: fullChat.name,
+            chatAvatar: fullChat.avatar,
+            lastMessage: lastMessage,
+            chatData: chatData
+        });
+        joinUserToRoom(io, userId, roomName);
+        console.log(`🚪 Новый участник ${userId} подписан на ${roomName}`);
 
         console.log(` Участник ${userId} добавлен в группу ${chatId}`);
         res.status(201).json(member);
@@ -381,6 +391,11 @@ const removeChatMember = async (req, res) => {
 
         if (userId === chat.creatorId) {
             return res.status(400).json({ error: 'Нельзя удалить создателя чата' });
+        }
+
+        // Только создатель может кикать (или сам пользователь выходит)
+        if (chat.creatorId !== currentUserId && userId !== currentUserId) {
+            return res.status(403).json({ error: 'Нет прав удалять участников' });
         }
 
         // Проверяем, существует ли участник
@@ -417,20 +432,13 @@ const removeChatMember = async (req, res) => {
         });
 
         // Лично удалённому пользователю
-        const removedSocketId = onlineUsers.get(userId);
-        if (removedSocketId) {
-            io.to(removedSocketId).emit('chat_member_removed', {
-                chatId: chatId,
-                userId: userId,
-                chatName: chat.name
-            });
-            // Отписываем от комнаты
-            const socket = io.sockets.sockets.get(removedSocketId);
-            if (socket) {
-                socket.leave(roomName);
-                console.log(`🚪 Пользователь ${userId} отписан от ${roomName}`);
-            }
-        }
+        emitToUser(io, userId, 'chat_member_removed', {
+            chatId: chatId,
+            userId: userId,
+            chatName: chat.name
+        });
+        leaveUserFromRoom(io, userId, roomName);
+        console.log(`🚪 Пользователь ${userId} отписан от ${roomName}`);
 
         console.log(` Участник ${userId} удалён из группы ${chatId}`);
         res.json({ success: true, message: 'Участник удален из чата' });

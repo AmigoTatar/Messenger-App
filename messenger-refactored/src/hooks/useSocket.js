@@ -1,122 +1,139 @@
-
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import io from 'socket.io-client';
 import { API_BASE_URL } from '../config';
 
 export function useSocket(user, eventHandlers) {
     const socketRef = useRef(null);
     const handlersRef = useRef(eventHandlers);
-    const roomsRef = useRef(new Set()); // храним комнаты, в которые подписались
+    const roomsRef = useRef(new Set());
+    // React-state: иначе socketRef.current при первом рендере = null
+    // и подписки в App useEffect не перевешиваются после connect
+    const [socket, setSocket] = useState(null);
+    const [isConnected, setIsConnected] = useState(false);
 
     useEffect(() => {
         handlersRef.current = eventHandlers;
     }, [eventHandlers]);
 
     useEffect(() => {
-        if (!user) return;
+        if (!user) {
+            setSocket(null);
+            setIsConnected(false);
+            return undefined;
+        }
         const token = localStorage.getItem('token');
-        if (!token) return;
+        if (!token) return undefined;
 
-        const socket = io(API_BASE_URL, {
-            transports: ['websocket'],
+        const s = io(API_BASE_URL, {
+            // websocket + polling: на Android WebView WS часто падает без fallback
+            transports: ['websocket', 'polling'],
+            upgrade: true,
             auth: { token },
             reconnection: true,
-            reconnectionAttempts: 10,
+            reconnectionAttempts: Infinity,
             reconnectionDelay: 1000,
-            reconnectionDelayMax: 5000,
+            reconnectionDelayMax: 8000,
             timeout: 20000,
+            forceNew: false,
         });
-        socketRef.current = socket;
 
-        // Подписываемся на события из handlersRef
+        socketRef.current = s;
+        setSocket(s);
+
         const handlers = handlersRef.current;
         if (handlers) {
             Object.entries(handlers).forEach(([event, handler]) => {
-                socket.on(event, handler);
+                s.on(event, handler);
             });
         }
 
-        // Базовые события
-        socket.on('connect', () => {
-            console.log('✅ Socket connected');
-            //  После переподключения заново подписываемся на все комнаты
-            roomsRef.current.forEach(room => {
-                socket.emit('join_chat', room);
-                console.log(' Повторная подписка на комнату:', room);
+        s.on('connect', () => {
+            console.log('✅ Socket connected via', s.io.engine?.transport?.name);
+            setIsConnected(true);
+            roomsRef.current.forEach((room) => {
+                s.emit('join_chat', room);
+                console.log('🔁 Повторная подписка на комнату:', room);
             });
-            // Подписываемся на свой приватный чат
             if (user?.id) {
-                socket.emit('join_chat', `user_${user.id}`);
+                s.emit('join_chat', `user_${user.id}`);
             }
         });
 
-        socket.on('disconnect', (reason) => {
-            console.log(' Socket disconnected:', reason);
+        s.on('disconnect', (reason) => {
+            console.log('❌ Socket disconnected:', reason);
+            setIsConnected(false);
         });
 
-        socket.on('reconnect_attempt', (attempt) => {
-            console.log(` Попытка переподключения #${attempt}`);
+        s.on('reconnect_attempt', (attempt) => {
+            console.log(`🔄 Попытка переподключения #${attempt}`);
         });
 
-        socket.on('reconnect', () => {
+        s.on('reconnect', () => {
             console.log('✅ Socket переподключился');
+            setIsConnected(true);
         });
 
-        // Функция для добавления комнаты
+        s.on('connect_error', (err) => {
+            console.warn('⚠️ Socket connect_error:', err?.message || err);
+        });
+
         const addRoom = (room) => {
             if (room && !roomsRef.current.has(room)) {
                 roomsRef.current.add(room);
-                if (socketRef.current) {
+                if (socketRef.current?.connected) {
                     socketRef.current.emit('join_chat', room);
                 }
             }
         };
-
-        // Сохраняем функцию в ref, чтобы использовать в других хуках
-        socketRef.current.addRoom = addRoom;
+        s.addRoom = addRoom;
 
         return () => {
             if (handlers) {
                 Object.keys(handlers).forEach((event) => {
-                    socket.off(event);
+                    s.off(event);
                 });
             }
-            socket.off('connect');
-            socket.off('disconnect');
-            socket.off('reconnect_attempt');
-            socket.off('reconnect');
-            socket.offAny();
-            socket.disconnect();
+            s.off('connect');
+            s.off('disconnect');
+            s.off('reconnect_attempt');
+            s.off('reconnect');
+            s.off('connect_error');
+            s.disconnect();
             socketRef.current = null;
             roomsRef.current.clear();
+            setSocket(null);
+            setIsConnected(false);
         };
-    }, [user]);
+    }, [user?.id]);
 
     const emit = useCallback((event, data) => {
-        if (socketRef.current) {
+        if (socketRef.current?.connected) {
             socketRef.current.emit(event, data);
+        } else {
+            console.warn('⚠️ emit: сокет не подключён', event);
         }
     }, []);
 
     const joinChat = useCallback((chatId) => {
-        console.log(' [joinChat] Вызвана для', chatId);
-        if (!socketRef.current) {
-            console.warn('⚠️ joinChat: сокет отсутствует');
-            return;
-        }
-        // Добавляем комнату в ref и подписываемся
-        if (chatId && !roomsRef.current.has(chatId)) {
-            roomsRef.current.add(chatId);
+        if (!chatId) return;
+        // Уже в комнате — не шлём join_chat повторно (анти-шторм при обновлении сайдбара)
+        if (roomsRef.current.has(chatId)) return;
+        roomsRef.current.add(chatId);
+        if (socketRef.current?.connected) {
             socketRef.current.emit('join_chat', chatId);
-            console.log('📡 joinChat: подписка на', chatId);
+            console.log('📡 joinChat:', chatId);
+        } else {
+            console.log('⏳ joinChat отложен до connect:', chatId);
         }
     }, []);
 
     const sendMessage = useCallback((messageData) => {
-        if (socketRef.current) {
+        if (socketRef.current?.connected) {
             socketRef.current.emit('send_message', messageData);
+        } else {
+            console.warn('⚠️ sendMessage: сокет не подключён');
         }
     }, []);
 
-    return { socket: socketRef.current, emit, joinChat, sendMessage };
+    return { socket, emit, joinChat, sendMessage, isConnected };
 }

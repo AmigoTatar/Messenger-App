@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { getAvatarUrl } from '../../utils/avatarUtils';
+import Avatar from '../Avatar';
 import { apiClient } from '../../services/apiClient';
 import { API_BASE_URL } from '../../config';
 import LoadingSpinner from '../LoadingSpinner';
@@ -71,7 +71,7 @@ useEffect(() => {
     setNewName(activeChat.name || '');
     setNewAvatar(activeChat.avatar || '');
   }
-}, [activeChat]);
+}, [activeChat?.id, activeChat?.name, activeChat?.avatar]);
 
 
 const fetchMembers = async () => {
@@ -141,9 +141,11 @@ const fetchMembers = async () => {
       return;
     }
 
+    // Сброс, чтобы не тащить админ-роль с предыдущего канала
+    setMembers([]);
     fetchMembers();
     fetchMuteStatus();
-  }, [isOpen, activeChat]);
+  }, [isOpen, activeChat?.id]);
 
   
   // Загрузка всех пользователей для добавления
@@ -443,10 +445,13 @@ const handleDeleteChat = async () => {
   const audioFiles = messages.filter(m => m.mediaType === 'audio' && !m.isDeleted);
 
  const isAdmin = activeChat.type === 'channel'
-  ? members.some(m => m.userId === currentUserId && m.role === 'admin')
-  : activeChat.creatorId === currentUserId; // ← для групп создатель = админ
+  ? (
+      Number(activeChat.creatorId) === Number(currentUserId) ||
+      members.some(m => Number(m.userId) === Number(currentUserId) && m.role === 'admin')
+    )
+  : Number(activeChat.creatorId) === Number(currentUserId);
 
-  const isCreator = activeChat.creatorId === currentUserId;
+  const isCreator = Number(activeChat.creatorId) === Number(currentUserId);
 
   console.log(' ProfilePanel: activeChat.creatorId=', activeChat?.creatorId, 'currentUserId=', currentUserId, 'isCreator=', isCreator)
 
@@ -473,13 +478,13 @@ const openEditModal = () => {
       <div className="flex-1 overflow-y-auto p-5 space-y-6 no-scrollbar text-zinc-800 dark:text-zinc-200">
         
         <div className="flex flex-col items-center text-center space-y-3">
-  <div className="w-24 h-24 rounded-full flex items-center justify-center text-5xl shadow-lg border-2 overflow-hidden bg-zinc-100 dark:bg-zinc-800 border-zinc-300/50 dark:border-zinc-700/50">
-    {activeChat.avatar?.startsWith('/uploads/') ? (
-      <img src={getAvatarUrl(activeChat.avatar)} alt={activeChat.name} className="w-full h-full object-cover" />
-    ) : (
-      <span>{activeChat.avatar || '💬'}</span>
-    )}
-  </div>
+  <Avatar
+    avatar={activeChat.avatar}
+    name={activeChat.name}
+    type={activeChat.type === 'channel' ? 'channel' : activeChat.type === 'group' ? 'group' : 'private'}
+    size="2xl"
+    className="shadow-lg border-2 border-zinc-300/50 dark:border-zinc-700/50 text-5xl"
+  />
   <div className="flex items-center gap-2">
     <h2 className="font-bold text-lg text-zinc-900 dark:text-white">
         {activeChat.name}
@@ -574,13 +579,7 @@ const openEditModal = () => {
                 return (
                   <div key={member.id} className="flex items-center justify-between p-2 rounded-lg bg-zinc-100/50 dark:bg-zinc-900/50 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-sm overflow-hidden">
-                        {user.avatar?.startsWith('/uploads/') ? (
-                          <img src={getAvatarUrl(user.avatar)} alt={user.username} className="w-full h-full object-cover" />
-                        ) : (
-                          <span>{user.avatar || '👤'}</span>
-                        )}
-                      </div>
+                      <Avatar avatar={user.avatar} name={user.username} size="sm" />
                       <div>
                         <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
                           {user.username || 'Неизвестный'}

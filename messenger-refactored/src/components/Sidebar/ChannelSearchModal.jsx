@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../../config';
 import LoadingSpinner from '../LoadingSpinner';
-import { getAvatarUrl } from '../../utils/avatarUtils';
+import Avatar from '../Avatar';
 
 export default function ChannelSearchModal({ 
     isOpen, 
@@ -210,13 +210,12 @@ export default function ChannelSearchModal({
                                         className="p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200/50 dark:border-zinc-700/50 hover:border-emerald-500/30 transition"
                                     >
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center text-lg overflow-hidden">
-                                                {channel.avatar?.startsWith('/uploads/') ? (
-                                                    <img src={getAvatarUrl(channel.avatar)} alt={channel.name} className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <span>{channel.avatar || '📢'}</span>
-                                                )}
-                                            </div>
+                                            <Avatar
+                                              avatar={channel.avatar}
+                                              name={channel.name}
+                                              type="channel"
+                                              size="md"
+                                            />
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
                                                     {channel.name}

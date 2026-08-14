@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const { isTokenRevoked } = require('../utils/tokenRevoke');
 
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
@@ -16,12 +17,17 @@ const authenticateToken = (req, res, next) => {
 
     const token = parts[1];
 
+    if (isTokenRevoked(token)) {
+        return res.status(403).json({ error: 'Токен отозван. Войдите снова.' });
+    }
+
     jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
         if (err) {
             console.error('❌ [JWT Ошибка]', err.message);
             return res.status(403).json({ error: 'Невалидный или просроченный токен' });
         }
         req.userId = Number(decoded.userId);
+        req.authToken = token;
         next();
     });
 };

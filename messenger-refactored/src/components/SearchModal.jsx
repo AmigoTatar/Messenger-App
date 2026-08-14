@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { API_BASE_URL } from '../config';
-import { getAvatarUrl } from '../utils/avatarUtils';
+import Avatar from './Avatar';
 
 const SearchModal = ({ isOpen, onClose, onMessageClick }) => {
   const [query, setQuery] = useState('');
@@ -194,17 +194,12 @@ const SearchModal = ({ isOpen, onClose, onMessageClick }) => {
                 className="p-3 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800/80 cursor-pointer transition border border-zinc-200/50 dark:border-zinc-700/50"
               >
                 <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center overflow-hidden flex-shrink-0">
-                    {msg.sender?.avatar && msg.sender.avatar.startsWith('/uploads/') ? (
-                      <img 
-                        src={getAvatarUrl(msg.sender.avatar)} 
-                        alt={msg.sender?.username} 
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-sm">{msg.sender?.username?.[0]?.toUpperCase() || '?'}</span>
-                    )}
-                  </div>
+                  <Avatar
+                    avatar={msg.sender?.avatar}
+                    name={msg.sender?.username}
+                    size="md"
+                    className="w-9 h-9"
+                  />
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">

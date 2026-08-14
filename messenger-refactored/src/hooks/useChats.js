@@ -8,9 +8,11 @@ export function useChats(user) {
   const [groupChats, setGroupChats] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const loadAll = useCallback(async () => {
+  const loadAll = useCallback(async (options = {}) => {
     if (!user) return;
-    setLoading(true);
+    const silent = options.silent === true;
+    // silent: не прячем весь сайдбар за спиннер (reload после join_request и т.п.)
+    if (!silent) setLoading(true);
     try {
       const [usersData, channelsData, groupsData] = await Promise.all([
         apiClient('/api/users'),
@@ -18,7 +20,6 @@ export function useChats(user) {
         apiClient('/api/chats'),
       ]);
       setChats(Array.isArray(usersData) ? usersData : []);
-      // Для каналов загружаем участников
       if (Array.isArray(channelsData)) {
         const channelsWithMembers = await Promise.all(
           channelsData.map(async (channel) => {
@@ -38,7 +39,7 @@ export function useChats(user) {
     } catch (err) {
       console.error('Error loading chats:', err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [user]);
 
@@ -72,6 +73,13 @@ export function useChats(user) {
     setGroupChats(prev => prev.filter(ch => ch.dbId !== chatId && ch.id !== `chat_${chatId}`));
   }, []);
 
+  const clearChats = useCallback(() => {
+    setChats([]);
+    setChannels([]);
+    setGroupChats([]);
+    setLoading(true);
+  }, []);
+
   return {
     chats,
     channels,
@@ -84,6 +92,7 @@ export function useChats(user) {
     setChannels,
     setGroupChats,
     removeGroupChat, 
-    setChats, 
+    setChats,
+    clearChats,
   };
 }
