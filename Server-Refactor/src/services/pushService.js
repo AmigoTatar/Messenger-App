@@ -64,7 +64,7 @@ try {
     console.error('❌ Пуши не будут доставляться, пока не настроены credentials');
 }
 
-const sendPush = async (token, title, body, data = {}) => {
+const sendFcmPush = async (token, title, body, data = {}) => {
     try {
         const tag = data.tag || data.chatId || 'potok_message';
         const cacheKey = `${token}:${tag}:${title}:${body}`;
@@ -145,19 +145,96 @@ const sendPush = async (token, title, body, data = {}) => {
             error.code === 'messaging/invalid-registration-token' ||
             error.code === 'messaging/registration-token-not-registered'
         ) {
-            try {
-                const prisma = require('../lib/prisma');
-                await prisma.pushToken.deleteMany({
-                    where: { token: token },
-                });
-                console.log(`🗑️ [FCM] Невалидный токен удалён из БД: ${token.substring(0, 20)}...`);
-            } catch (dbError) {
-                console.error('❌ [FCM] Ошибка удаления токена из БД:', dbError.message);
-            }
+            await deleteInvalidToken(token, 'FCM');
         }
 
         return { success: false, error: error.message };
     }
+};
+
+async function deleteInvalidToken(token, label) {
+    try {
+        const prisma = require('../lib/prisma');
+        await prisma.pushToken.deleteMany({ where: { token } });
+        console.log(`🗑️ [${label}] Невалидный токен удалён из БД: ${token.substring(0, 20)}...`);
+    } catch (dbError) {
+        console.error(`❌ [${label}] Ошибка удаления токена из БД:`, dbError.message);
+    }
+}
+
+const sendRuStorePush = async (token, title, body, data = {}) => {
+    const projectId = process.env.RUSTORE_PROJECT_ID;
+    const serviceToken = process.env.RUSTORE_SERVICE_TOKEN;
+    if (!projectId || !serviceToken || projectId === 'REPLACE_ME') {
+        console.warn('⚠️ [RuStore] Пропуск: задайте RUSTORE_PROJECT_ID и RUSTORE_SERVICE_TOKEN');
+        return { success: false, error: 'RuStore credentials missing' };
+    }
+
+    const tag = data.tag || data.chatId || 'potok_message';
+    const cacheKey = `rustore:${token}:${tag}:${title}:${body}`;
+    const now = Date.now();
+    if (sentCache.has(cacheKey) && now - sentCache.get(cacheKey) < CACHE_TTL) {
+        console.log(`⏳ [RuStore] Пропускаем дубль`);
+        return { success: true, skipped: true };
+    }
+    sentCache.set(cacheKey, now);
+
+    const stringData = Object.fromEntries(
+        Object.entries({
+            title,
+            body,
+            tag,
+            ...data,
+        }).map(([k, v]) => [k, v == null ? '' : String(v)])
+    );
+
+    try {
+        const url = `https://vkpns.rustore.ru/v1/projects/${encodeURIComponent(projectId)}/messages:send`;
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${serviceToken}`,
+            },
+            body: JSON.stringify({
+                message: {
+                    token,
+                    notification: { title, body },
+                    android: {
+                        notification: {
+                            title,
+                            body,
+                            channel_id: 'potok_messages',
+                        },
+                    },
+                    data: stringData,
+                },
+            }),
+        });
+
+        if (!res.ok) {
+            const errBody = await res.json().catch(() => ({}));
+            const status = errBody?.error?.status || res.status;
+            console.error('❌ [RuStore] Ошибка отправки:', res.status, errBody);
+            if (status === 'NOT_FOUND' || status === 'UNREGISTERED' || res.status === 404) {
+                await deleteInvalidToken(token, 'RuStore');
+            }
+            return { success: false, error: errBody?.error?.message || `HTTP ${res.status}` };
+        }
+
+        console.log(`✅ [RuStore] Push отправлен: ${title}`);
+        return { success: true };
+    } catch (error) {
+        console.error('❌ [RuStore] Ошибка сети:', error.message);
+        return { success: false, error: error.message };
+    }
+};
+
+const sendPush = async (token, title, body, data = {}, platform = 'fcm') => {
+    if (platform === 'rustore') {
+        return sendRuStorePush(token, title, body, data);
+    }
+    return sendFcmPush(token, title, body, data);
 };
 
 module.exports = { sendPush, isFirebaseInitialized: () => isFirebaseInitialized };

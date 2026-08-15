@@ -9,3 +9,4 @@ coverage/
 .idea/
 .env.local
 potok-messenger-firebase-adminsdk-*.json
+Server-Refactor/prisma/dev.db

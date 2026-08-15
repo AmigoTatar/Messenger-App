@@ -1,23 +1,34 @@
-// 1. Проверяем режим разработки (Vite автоматически прописывает import.meta.env.DEV)
+/**
+ * Единственный конфиг фронта (импортируй из `src/config` / `../config`).
+ *
+ * Live APK (Vite на ПК):
+ *   - capacitor.config.json → server.url = http://<ПК-IP>:5173
+ *   - .env.local → VITE_API_URL=http://<ПК-IP>:5001
+ *
+ * Release APK:
+ *   - убери блок "server" из capacitor.config.json
+ *   - убери VITE_API_URL (останется https://potokmessenger.ru)
+ *   - npm run build && npx cap sync android
+ */
 const isDevelopment = import.meta.env.DEV;
 
-// 2. Нативный APK (не веб с подключённым Capacitor bridge)
 const isNativeApp =
     typeof window !== 'undefined' &&
     !!window.Capacitor?.isNativePlatform?.();
 
-// 3. Базовый URL API — APK и прод-веб ходят на один хост (без split-brain с push-token)
+// Прод по умолчанию; локальная отладка — только через VITE_API_URL
 let API_BASE_URL = 'https://potokmessenger.ru';
 
 if (import.meta.env?.VITE_API_URL) {
-    // Явный override (локальная отладка): VITE_API_URL=http://192.168.0.12:5001
-    API_BASE_URL = import.meta.env.VITE_API_URL;
+    API_BASE_URL = String(import.meta.env.VITE_API_URL).replace(/\/$/, '');
 }
 
-export { API_BASE_URL, isDevelopment, isNativeApp }; 
+if (typeof window !== 'undefined') {
+    console.log('🔧 [config] API_BASE_URL =', API_BASE_URL, '| native =', isNativeApp, '| dev =', isDevelopment);
+}
 
+export { API_BASE_URL, isDevelopment, isNativeApp };
 
-// Остальные константы
 export const CHAT_IDS = {
   GENERAL: 'chat_general',
   GENERAL_ALT: 'general',

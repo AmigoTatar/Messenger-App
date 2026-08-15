@@ -4,4 +4,7 @@
     <string name="title_activity_main">PotokMessenger</string>
     <string name="package_name">com.potokmessenger.app</string>
     <string name="custom_url_scheme">com.potokmessenger.app</string>
+    <!-- RuStore Console → Push-уведомления → Проекты → ID проекта -->
+    <string name="rustore_project_id">NULAeUuXL-XvN8Cra2jXlyBv00sRRUD7</string>
+    <string name="pushes_notification_channel_id">potok_messages</string>
 </resources>

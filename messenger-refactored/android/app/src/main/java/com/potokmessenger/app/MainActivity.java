@@ -13,6 +13,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
      public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(RuStorePushPlugin.class);
         super.onCreate(savedInstanceState);
 
         // Включаем веб-отладку (без этого Chrome не увидит приложение)

@@ -1,9 +1,11 @@
 import { PushNotifications } from '@capacitor/push-notifications';
 import { API_BASE_URL, isNativeApp } from '../config';
 import { requestFCMToken } from '../firebase';
+import { RuStorePush } from '../plugins/rustorePush';
 
 const PUSH_CHANNEL_ID = 'potok_messages';
 const PUSH_TOKEN_STORAGE_KEY = 'pushToken';
+const RUSTORE_TOKEN_STORAGE_KEY = 'rustorePushToken';
 
 let registrationInFlight = null;
 let listenersAttached = false;
@@ -25,7 +27,7 @@ async function ensurePushChannel() {
   }
 }
 
-export async function savePushTokenToServer(tokenValue) {
+export async function savePushTokenToServer(tokenValue, platform = 'fcm') {
   const jwt = localStorage.getItem('token');
   if (!jwt) {
     console.warn('🔇 [PUSH] Нет JWT — токен не сохранён');
@@ -42,7 +44,7 @@ export async function savePushTokenToServer(tokenValue) {
       Authorization: `Bearer ${jwt}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ token: tokenValue }),
+    body: JSON.stringify({ token: tokenValue, platform }),
   });
 
   if (!response.ok) {
@@ -50,8 +52,12 @@ export async function savePushTokenToServer(tokenValue) {
     return false;
   }
 
-  localStorage.setItem(PUSH_TOKEN_STORAGE_KEY, tokenValue);
-  console.log('✅ [PUSH] Токен сохранён на', API_BASE_URL);
+  if (platform === 'rustore') {
+    localStorage.setItem(RUSTORE_TOKEN_STORAGE_KEY, tokenValue);
+  } else {
+    localStorage.setItem(PUSH_TOKEN_STORAGE_KEY, tokenValue);
+  }
+  console.log('✅ [PUSH] Токен сохранён', platform, '→', API_BASE_URL);
   return true;
 }
 
@@ -82,37 +88,70 @@ async function deactivatePushTokenOnServer(tokenValue) {
   }
 }
 
+async function registerRuStorePush() {
+  try {
+    const cfg = await RuStorePush.isConfigured();
+    if (!cfg?.configured) {
+      console.log('ℹ️ [PUSH][RuStore] projectId не задан — пропуск');
+      return false;
+    }
+
+    const avail = await RuStorePush.checkAvailability();
+    console.log('🔍 [PUSH][RuStore] availability:', avail);
+    if (!avail?.available) {
+      console.warn('🔇 [PUSH][RuStore] недоступен:', avail?.reason || 'unknown');
+      return false;
+    }
+
+    const { token } = await RuStorePush.getToken();
+    if (!token) {
+      console.warn('🔇 [PUSH][RuStore] пустой токен');
+      return false;
+    }
+    console.log('📱 [PUSH][RuStore] токен:', String(token).slice(0, 12) + '…');
+    return savePushTokenToServer(token, 'rustore');
+  } catch (err) {
+    console.warn('⚠️ [PUSH][RuStore]', err?.message || err);
+    return false;
+  }
+}
+
 async function registerNativePush() {
   const perm = await PushNotifications.requestPermissions();
   console.log('🔍 [PUSH][APK] Разрешение:', perm);
 
   if (perm.receive !== 'granted') {
     console.warn('🔇 [PUSH][APK] Разрешение не получено');
-    return false;
+    // RuStore всё равно пробуем — на устройствах без GMS FCM может не быть
+  } else {
+    await ensurePushChannel();
+
+    if (!listenersAttached) {
+      await PushNotifications.addListener('registration', async (token) => {
+        console.log('📱 [PUSH][APK] FCM-токен:', token.value);
+        try {
+          await savePushTokenToServer(token.value, 'fcm');
+        } catch (err) {
+          console.error('❌ [PUSH][APK] Ошибка сохранения токена:', err);
+        }
+      });
+
+      await PushNotifications.addListener('registrationError', (err) => {
+        console.error('❌ [PUSH][APK] registrationError:', err);
+      });
+
+      listenersAttached = true;
+    }
+
+    try {
+      await PushNotifications.register();
+      console.log('✅ [PUSH][APK] FCM register() вызван');
+    } catch (err) {
+      console.warn('⚠️ [PUSH][APK] FCM register:', err?.message || err);
+    }
   }
 
-  await ensurePushChannel();
-
-  if (!listenersAttached) {
-    await PushNotifications.addListener('registration', async (token) => {
-      console.log('📱 [PUSH][APK] FCM-токен:', token.value);
-      try {
-        await savePushTokenToServer(token.value);
-      } catch (err) {
-        console.error('❌ [PUSH][APK] Ошибка сохранения токена:', err);
-      }
-    });
-
-    await PushNotifications.addListener('registrationError', (err) => {
-      console.error('❌ [PUSH][APK] registrationError:', err);
-    });
-
-    listenersAttached = true;
-  }
-
-  // listener уже висит — теперь register()
-  await PushNotifications.register();
-  console.log('✅ [PUSH][APK] register() вызван');
+  await registerRuStorePush();
   return true;
 }
 
@@ -123,7 +162,7 @@ async function registerWebPush() {
     console.warn('🔇 [PUSH][WEB] Токен не получен');
     return false;
   }
-  return savePushTokenToServer(token);
+  return savePushTokenToServer(token, 'fcm');
 }
 
 /**
@@ -136,7 +175,6 @@ export async function registerPush() {
     return false;
   }
 
-  // Дедуп параллельных вызовов (логин + session restore / StrictMode)
   if (registrationInFlight) {
     return registrationInFlight;
   }
@@ -159,28 +197,36 @@ export async function registerPush() {
 }
 
 /**
- * Деактивирует текущий токен на сервере и снимает регистрацию на устройстве.
+ * Деактивирует текущие токены на сервере.
  * Вызывать ДО очистки JWT из localStorage.
  */
 export async function unregisterPush() {
-  const tokenValue = localStorage.getItem(PUSH_TOKEN_STORAGE_KEY);
+  const fcmToken = localStorage.getItem(PUSH_TOKEN_STORAGE_KEY);
+  const rustoreToken = localStorage.getItem(RUSTORE_TOKEN_STORAGE_KEY);
 
   try {
-    if (tokenValue) {
-      await deactivatePushTokenOnServer(tokenValue);
-    }
+    await Promise.all([
+      fcmToken ? deactivatePushTokenOnServer(fcmToken) : Promise.resolve(),
+      rustoreToken ? deactivatePushTokenOnServer(rustoreToken) : Promise.resolve(),
+    ]);
 
     if (isNativeApp) {
       try {
         await PushNotifications.removeAllListeners();
         listenersAttached = false;
         await PushNotifications.unregister();
-        console.log('✅ [PUSH][APK] unregister() выполнен');
+        console.log('✅ [PUSH][APK] FCM unregister() выполнен');
       } catch (err) {
         console.warn('⚠️ [PUSH][APK] unregister:', err?.message || err);
+      }
+      try {
+        await RuStorePush.deleteToken();
+      } catch (err) {
+        console.warn('⚠️ [PUSH][RuStore] deleteToken:', err?.message || err);
       }
     }
   } finally {
     localStorage.removeItem(PUSH_TOKEN_STORAGE_KEY);
+    localStorage.removeItem(RUSTORE_TOKEN_STORAGE_KEY);
   }
 }

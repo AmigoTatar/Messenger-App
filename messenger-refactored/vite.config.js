@@ -7,6 +7,11 @@ export default defineConfig({
         react(),
         tailwindcss(),
     ],
+    server: {
+        // Чтобы телефон в Wi‑Fi видел Vite (capacitor server.url)
+        host: true,
+        port: 5173,
+    },
     build: {
         minify: 'esbuild',
         sourcemap: false,

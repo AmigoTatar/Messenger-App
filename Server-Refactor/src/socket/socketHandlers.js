@@ -150,7 +150,7 @@ try {
         });
         console.log(`📤 [PUSH] private → user=${receiverId} activeTokens=${tokens.length}`);
         for (const t of tokens) {
-            await sendPush(t.token, `💬 ${senderName}`, messageText, pushMeta);
+            await sendPush(t.token, `💬 ${senderName}`, messageText, pushMeta, t.platform);
         }
     }
 
@@ -178,7 +178,7 @@ try {
                 console.log(`📤 [PUSH] group chat=${chatId} user=${m.userId} activeTokens=${n}`);
             }
             for (const t of m.user.pushTokens) {
-                await sendPush(t.token, `👥 ${chatName}`, `💬 ${senderName}: ${messageText}`, pushMeta);
+                await sendPush(t.token, `👥 ${chatName}`, `💬 ${senderName}: ${messageText}`, pushMeta, t.platform);
             }
         }
     }
@@ -207,7 +207,7 @@ try {
                 console.log(`📤 [PUSH] channel=${channelId} user=${m.userId} activeTokens=${n}`);
             }
             for (const t of m.user.pushTokens) {
-                await sendPush(t.token, `📢 ${channelName}`, `💬 ${senderName}: ${messageText}`, pushMeta);
+                await sendPush(t.token, `📢 ${channelName}`, `💬 ${senderName}: ${messageText}`, pushMeta, t.platform);
             }
         }
     }

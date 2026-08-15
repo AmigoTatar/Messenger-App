@@ -9,7 +9,8 @@ router.post('/', authenticateToken, async (req, res) => {
         console.log('🔍 [pushRoutes] req.user:', req.user);
         console.log('🔍 [pushRoutes] req.userId:', req.userId);
         
-        const { token } = req.body;
+        const { token, platform } = req.body;
+        const safePlatform = platform === 'rustore' ? 'rustore' : 'fcm';
         
         // Пытаемся найти userId в разных местах
         const userId = req.user?.id || req.userId || req.user?.userId;
@@ -19,18 +20,20 @@ router.post('/', authenticateToken, async (req, res) => {
             return res.status(401).json({ error: 'Пользователь не авторизован' });
         }
 
-        console.log(`✅ [pushRoutes] Сохраняем токен для userId: ${userId}`);
+        console.log(`✅ [pushRoutes] Сохраняем токен для userId: ${userId} platform=${safePlatform}`);
 
         await prisma.pushToken.upsert({
             where: { token },
             update: { 
                 userId, 
+                platform: safePlatform,
                 isActive: true,
                 updatedAt: new Date()
             },
             create: { 
                 userId, 
                 token,
+                platform: safePlatform,
                 isActive: true
             }
         });

@@ -21,6 +21,7 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        maven { url = uri("https://nexus-external.vkteam.ru/repository/maven/") }
     }
 }
 

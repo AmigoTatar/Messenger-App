@@ -44,7 +44,7 @@ app.use(helmet({
 }));
 
 app.use(cors({
-    origin: ["http://localhost:5173", "http://localhost:5001", "https://potokmessenger.ru","http://192.168.0.12:5173", "http://192.168.0.12:5001"],
+    origin: ["http://localhost:5173", "http://localhost:5001", "https://potokmessenger.ru","http://192.168.0.11:5173", "http://192.168.0.11:5001"],
     credentials: true
 }));
 
@@ -157,7 +157,7 @@ const { setupSocket } = require('./src/socket/socketHandlers');
 
 const io = new Server(server, {
     cors: {
-        origin: ["http://localhost:5173", "http://localhost:5001", "https://potokmessenger.ru","http://192.168.0.12:5173", "http://192.168.0.12:5001"],
+        origin: ["http://localhost:5173", "http://localhost:5001", "https://potokmessenger.ru","http://192.168.0.11:5173", "http://192.168.0.11:5001"],
         methods: ["GET", "POST"]
     },
     transports: ['websocket', 'polling']

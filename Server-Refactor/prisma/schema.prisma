@@ -53,6 +53,7 @@ model PushToken {
   userId    Int
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   token     String   @unique
+  platform  String   @default("fcm") // fcm | rustore
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -60,6 +61,7 @@ model PushToken {
   @@index([userId])
   @@index([token])
   @@index([isActive])
+  @@index([platform])
 }
 model Contact {
   id        Int      @id @default(autoincrement())
