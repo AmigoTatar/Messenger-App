@@ -68,12 +68,11 @@ public class RuStorePushPlugin extends Plugin {
                         ret.put("token", token);
                         call.resolve(ret);
                     })
-                    .addOnFailureListener(err -> call.reject(
-                            err != null ? err.getMessage() : "getToken failed",
-                            err
-                    ));
+                    .addOnFailureListener(err ->
+                            call.reject(err != null ? String.valueOf(err.getMessage()) : "getToken failed")
+                    );
         } catch (Throwable t) {
-            call.reject(t.getMessage(), t);
+            call.reject(t.getMessage() != null ? t.getMessage() : "getToken failed");
         }
     }
 
@@ -87,12 +86,11 @@ public class RuStorePushPlugin extends Plugin {
         try {
             RuStorePushClient.INSTANCE.deleteToken()
                     .addOnSuccessListener(ignored -> call.resolve())
-                    .addOnFailureListener(err -> call.reject(
-                            err != null ? err.getMessage() : "deleteToken failed",
-                            err
-                    ));
+                    .addOnFailureListener(err ->
+                            call.reject(err != null ? String.valueOf(err.getMessage()) : "deleteToken failed")
+                    );
         } catch (Throwable t) {
-            call.reject(t.getMessage(), t);
+            call.reject(t.getMessage() != null ? t.getMessage() : "deleteToken failed");
         }
     }
 

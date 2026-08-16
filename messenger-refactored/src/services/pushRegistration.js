@@ -1,6 +1,6 @@
 import { PushNotifications } from '@capacitor/push-notifications';
 import { API_BASE_URL, isNativeApp } from '../config';
-import { requestFCMToken } from '../firebase';
+import { requestFCMToken, deleteWebFCMToken } from '../firebase';
 import { RuStorePush } from '../plugins/rustorePush';
 
 const PUSH_CHANNEL_ID = 'potok_messages';
@@ -162,7 +162,7 @@ async function registerWebPush() {
     console.warn('🔇 [PUSH][WEB] Токен не получен');
     return false;
   }
-  return savePushTokenToServer(token, 'fcm');
+  return savePushTokenToServer(token, 'web');
 }
 
 /**
@@ -197,17 +197,26 @@ export async function registerPush() {
 }
 
 /**
- * Деактивирует текущие токены на сервере.
+ * Деактивирует текущие токены на сервере и снимает FCM в этом браузере.
  * Вызывать ДО очистки JWT из localStorage.
  */
 export async function unregisterPush() {
-  const fcmToken = localStorage.getItem(PUSH_TOKEN_STORAGE_KEY);
+  let fcmToken = localStorage.getItem(PUSH_TOKEN_STORAGE_KEY);
   const rustoreToken = localStorage.getItem(RUSTORE_TOKEN_STORAGE_KEY);
+
+  if (!isNativeApp && !fcmToken) {
+    try {
+      fcmToken = await requestFCMToken();
+    } catch {
+      fcmToken = null;
+    }
+  }
 
   try {
     await Promise.all([
       fcmToken ? deactivatePushTokenOnServer(fcmToken) : Promise.resolve(),
       rustoreToken ? deactivatePushTokenOnServer(rustoreToken) : Promise.resolve(),
+      !isNativeApp ? deactivateWebTokensOnServer() : Promise.resolve(),
     ]);
 
     if (isNativeApp) {
@@ -224,9 +233,43 @@ export async function unregisterPush() {
       } catch (err) {
         console.warn('⚠️ [PUSH][RuStore] deleteToken:', err?.message || err);
       }
+    } else {
+      await deleteWebFCMToken();
     }
   } finally {
     localStorage.removeItem(PUSH_TOKEN_STORAGE_KEY);
     localStorage.removeItem(RUSTORE_TOKEN_STORAGE_KEY);
   }
+}
+
+async function deactivateWebTokensOnServer() {
+  const jwt = localStorage.getItem('token');
+  if (!jwt) return false;
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/push-token`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ allWeb: true }),
+    });
+    if (!response.ok) {
+      console.warn('⚠️ [PUSH] Не удалось снять веб-токены:', await response.text());
+      return false;
+    }
+    console.log('✅ [PUSH] Веб-токены деактивированы на сервере');
+    return true;
+  } catch (err) {
+    console.warn('⚠️ [PUSH] Ошибка сети при allWeb:', err);
+    return false;
+  }
+}
+
+/** Если JWT нет — браузер не должен получать пуши (после logout / чистый визит). */
+export async function dropStaleWebPush() {
+  if (isNativeApp) return;
+  if (localStorage.getItem('token')) return;
+  await deleteWebFCMToken();
+  localStorage.removeItem(PUSH_TOKEN_STORAGE_KEY);
 }

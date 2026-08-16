@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
-import { getMessaging, getToken, onMessage } from 'firebase/messaging';
+import { getMessaging, getToken, onMessage, deleteToken } from 'firebase/messaging';
+import { isNativeApp } from './config';
 
 const firebaseConfig = {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -16,51 +17,41 @@ const app = initializeApp(firebaseConfig);
 let messaging = null;
 let lastNotificationTime = 0;
 
-// === ВСЯ ЛОГИКА FIREBASE ТОЛЬКО ДЛЯ ВЕБА ===
-const isNativeApp =
-    typeof window !== 'undefined' &&
-    !!window.Capacitor?.isNativePlatform?.();
-
 if (!isNativeApp) {
     try {
         messaging = getMessaging(app);
         console.log('🌐 [Web] Firebase Messaging инициализирован');
 
-        // === FOREGROUND ===
-        // Баннер рисуем сами только для data-only.
-        // Если есть payload.notification — система/FCM уже могла показать баннер
-        // (вкладка в фоне, но страница ещё «alive») — второй new Notification = дубль.
+        // FCM считает страницу foreground, пока открыта любая вкладка сайта.
+        // Тогда браузер сам баннер НЕ рисует — только onMessage.
+        // Видимая вкладка: хватает сокета. Скрытая: рисуем баннер сами.
         onMessage(messaging, (payload) => {
+            const title = payload.notification?.title || payload.data?.title || 'Новое сообщение';
+            const body = payload.notification?.body || payload.data?.body || '';
+            const tag = payload.data?.tag || 'potok_message';
+            const hidden = typeof document !== 'undefined' ? document.hidden : true;
+
             console.log('📨 [Web] foreground FCM:', {
                 hasNotification: !!payload.notification,
-                title: payload.notification?.title || payload.data?.title,
-                tag: payload.data?.tag,
-                hidden: typeof document !== 'undefined' ? document.hidden : null,
+                title,
+                tag,
+                hidden,
             });
+
+            if (!hidden) {
+                console.log('⏳ [FCM] Вкладка на экране — баннер не показываем (сокет)');
+                return;
+            }
 
             const now = Date.now();
             if (now - lastNotificationTime < 3000) {
                 console.log('⏳ [FCM] Пропускаем дубль (debounce 3s)');
                 return;
             }
-
-            if (payload.notification) {
-                console.log('⏳ [FCM] Пропуск new Notification — уже есть notification-payload');
-                return;
-            }
-
-            if (typeof document !== 'undefined' && !document.hidden) {
-                console.log('⏳ [FCM] Вкладка активна — баннер не показываем (сокет + звук)');
-                return;
-            }
-
             lastNotificationTime = now;
-            const title = payload.data?.title || 'Новое сообщение';
-            const body = payload.data?.body || '';
-            const tag = payload.data?.tag || 'potok_message';
 
             if (Notification.permission === 'granted') {
-                console.log('🔔 [FCM] data-only → new Notification', { title, tag });
+                console.log('🔔 [FCM] вкладка скрыта → Notification', { title, tag });
                 new Notification(title, {
                     body,
                     icon: '/logo.png',
@@ -112,6 +103,42 @@ export const requestFCMToken = async () => {
     }
 };
 
+/** Снимает FCM-подписку этого браузера и firebase service worker. */
+export const deleteWebFCMToken = async () => {
+    if (isNativeApp) return false;
+    let ok = false;
+    try {
+        if (messaging) {
+            await deleteToken(messaging);
+            console.log('🗑️ [Web] FCM-подписка браузера снята');
+            ok = true;
+        }
+    } catch (error) {
+        console.warn('⚠️ [Web] deleteToken:', error?.message || error);
+    }
+    try {
+        await unregisterMessagingServiceWorkers();
+    } catch (error) {
+        console.warn('⚠️ [Web] unregister SW:', error?.message || error);
+    }
+    return ok;
+};
+
+async function unregisterMessagingServiceWorkers() {
+    if (typeof navigator === 'undefined' || !navigator.serviceWorker) return;
+    const regs = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(regs.map(async (reg) => {
+        const url = [reg.active, reg.waiting, reg.installing]
+            .map((worker) => worker?.scriptURL || '')
+            .join(' ');
+        if (!url) return;
+        const isFcmSw = /firebase-messaging/i.test(url) || /\/sw\.js(?:\?|$)/i.test(url);
+        if (!isFcmSw) return;
+        await reg.unregister();
+        console.log('🗑️ [Web] Service worker снят:', url);
+    }));
+}
+
 // === onForegroundMessage (заглушка для Capacitor) ===
 export const onForegroundMessage = (callback) => {
     if (!messaging) {
@@ -120,3 +147,7 @@ export const onForegroundMessage = (callback) => {
     }
     // В вебе onMessage уже вызывается выше, так что здесь просто заглушка
 };
+
+if (!isNativeApp && typeof window !== 'undefined' && !localStorage.getItem('token')) {
+    deleteWebFCMToken().catch(() => {});
+}

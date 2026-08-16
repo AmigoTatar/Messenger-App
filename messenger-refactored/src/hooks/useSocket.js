@@ -25,8 +25,8 @@ export function useSocket(user, eventHandlers) {
         if (!token) return undefined;
 
         const s = io(API_BASE_URL, {
-            // websocket + polling: на Android WebView WS часто падает без fallback
-            transports: ['websocket', 'polling'],
+            // polling первым: Android WebView часто рвёт wss (ERR_CONNECTION_ABORTED)
+            transports: ['polling', 'websocket'],
             upgrade: true,
             auth: { token },
             reconnection: true,

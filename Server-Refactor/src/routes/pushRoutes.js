@@ -10,7 +10,7 @@ router.post('/', authenticateToken, async (req, res) => {
         console.log('🔍 [pushRoutes] req.userId:', req.userId);
         
         const { token, platform } = req.body;
-        const safePlatform = platform === 'rustore' ? 'rustore' : 'fcm';
+        const safePlatform = platform === 'rustore' ? 'rustore' : platform === 'web' ? 'web' : 'fcm';
         
         // Пытаемся найти userId в разных местах
         const userId = req.user?.id || req.userId || req.user?.userId;
@@ -48,11 +48,23 @@ router.post('/', authenticateToken, async (req, res) => {
 // Удаление / деактивация push-токена (только свой токен)
 router.delete('/', authenticateToken, async (req, res) => {
     try {
-        const { token } = req.body;
+        const { token, allWeb } = req.body || {};
         const userId = req.user?.id || req.userId || req.user?.userId;
 
         if (!userId) {
             return res.status(401).json({ error: 'Пользователь не авторизован' });
+        }
+
+        if (allWeb) {
+            const result = await prisma.pushToken.updateMany({
+                where: { userId, platform: 'web' },
+                data: { isActive: false },
+            });
+            return res.json({
+                success: true,
+                message: 'Веб push-токены деактивированы',
+                deactivated: result.count,
+            });
         }
 
         if (!token) {

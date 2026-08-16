@@ -43,8 +43,31 @@ app.use(helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
+const corsOrigins = (process.env.CORS_ORIGINS || 'https://potokmessenger.ru,http://localhost:5173')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+// Capacitor Android WebView origin is https://localhost (не potokmessenger.ru)
+const nativeAppOrigins = [
+    'https://localhost',
+    'http://localhost',
+    'capacitor://localhost',
+    'ionic://localhost',
+];
+
+const allowedOrigins = new Set([...corsOrigins, ...nativeAppOrigins]);
+
+const corsOrigin = (origin, callback) => {
+    if (!origin || allowedOrigins.has(origin)) {
+        callback(null, true);
+        return;
+    }
+    callback(null, false);
+};
+
 app.use(cors({
-    origin: ["http://localhost:5173", "http://localhost:5001", "https://potokmessenger.ru","http://192.168.0.11:5173", "http://192.168.0.11:5001"],
+    origin: corsOrigin,
     credentials: true
 }));
 
@@ -157,18 +180,22 @@ const { setupSocket } = require('./src/socket/socketHandlers');
 
 const io = new Server(server, {
     cors: {
-        origin: ["http://localhost:5173", "http://localhost:5001", "https://potokmessenger.ru","http://192.168.0.11:5173", "http://192.168.0.11:5001"],
-        methods: ["GET", "POST"]
+        origin: corsOrigin,
+        methods: ['GET', 'POST'],
+        credentials: true
     },
-    transports: ['websocket', 'polling']
+    transports: ['polling', 'websocket'],
+    pingTimeout: 30000,
+    pingInterval: 25000
 });
 app.set('io', io);
 setupSocket(io, prisma);
 
 // ЗАПУСК СЕРВЕРА
 const PORT = process.env.PORT || 5001;
-server.listen(PORT, () => {
-    console.log(`🚀 Сервер успешно запущен на http://localhost:${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Сервер запущен на 0.0.0.0:${PORT}`);
+    console.log('🔐 CORS origins:', [...allowedOrigins].join(', '));
 });
 
 // GRACEFUL SHUTDOWN

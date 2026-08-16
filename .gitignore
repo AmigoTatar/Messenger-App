@@ -1,12 +1,37 @@
+# deps & build
 node_modules/
-.env
-.DS_Store
-*.log
 dist/
 build/
 coverage/
+
+# env & secrets (шаблоны .env*.example — в репо)
+.env
+.env.*
+!.env.example
+!.env.production.example
+.env.local
+*.pem
+*.p12
+*firebase-adminsdk*.json
+potok-messenger-firebase-adminsdk-*.json
+
+# sqlite leftovers
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# logs / OS / IDE
+*.log
+.DS_Store
 .vscode/
 .idea/
-.env.local
-potok-messenger-firebase-adminsdk-*.json
-Server-Refactor/prisma/dev.db
+
+# user media (локальный fallback S3)
+Server-Refactor/public/uploads/*
+!Server-Refactor/public/uploads/.gitkeep
+
+# signing / Android release artifacts
+*.jks
+*.keystore
+messenger-refactored/android/app/release/

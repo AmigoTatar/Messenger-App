@@ -1,5 +1,13 @@
-echo "node_modules/
+node_modules/
 .env
+.env.*
+!.env.example
+!.env.production.example
 .DS_Store
 *.log
-" > Server-Refactor/.gitignore
+*.db
+*.db-journal
+prisma/dev.db
+public/uploads/*
+!public/uploads/.gitkeep
+*firebase-adminsdk*.json

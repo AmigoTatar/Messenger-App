@@ -2,11 +2,7 @@
   "appId": "com.potokmessenger.app",
   "appName": "Potok Messenger",
   "webDir": "dist",
-  "loggingBehavior": "debug",
-  "server": {
-    "url": "http://192.168.0.11:5173",
-    "cleartext": true
-  },
+  "loggingBehavior": "none",
   "plugins": {
     "CapacitorHttp": {
       "enabled": false

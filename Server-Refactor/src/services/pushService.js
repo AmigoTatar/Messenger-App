@@ -139,11 +139,14 @@ const sendFcmPush = async (token, title, body, data = {}) => {
         console.log(`✅ [FCM] Push отправлен: ${title} → ${response}`);
         return { success: true, response };
     } catch (error) {
-        console.error('❌ [FCM] Ошибка отправки:', error.message);
+        console.error('❌ [FCM] Ошибка отправки:', error.code || '', error.message);
 
+        const code = String(error.code || '');
+        const msg = String(error.message || '');
         if (
-            error.code === 'messaging/invalid-registration-token' ||
-            error.code === 'messaging/registration-token-not-registered'
+            code.includes('registration-token-not-registered') ||
+            code.includes('invalid-registration-token') ||
+            /notregistered|unregistered|invalid-registration/i.test(msg)
         ) {
             await deleteInvalidToken(token, 'FCM');
         }

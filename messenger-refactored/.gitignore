@@ -1,7 +1,8 @@
-echo "node_modules/
+node_modules/
 .env
-.DS_Store
-*.log
+.env.local
+.env.*.local
 dist/
 build/
-" > messenger-refactored/.gitignore
+.DS_Store
+*.log

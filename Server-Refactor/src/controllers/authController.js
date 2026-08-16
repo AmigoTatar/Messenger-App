@@ -158,8 +158,17 @@ const login = async (req, res) => {
 const logout = async (req, res) => {
     try {
         const { revokeToken } = require('../utils/tokenRevoke');
+        const prisma = require('../lib/prisma');
         const token = req.authToken || (req.headers.authorization || '').split(' ')[1];
         revokeToken(token);
+
+        if (req.userId) {
+            await prisma.pushToken.updateMany({
+                where: { userId: req.userId, platform: 'web' },
+                data: { isActive: false },
+            });
+        }
+
         res.json({ success: true });
     } catch (error) {
         console.error('Ошибка logout:', error);

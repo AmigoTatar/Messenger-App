@@ -23,7 +23,7 @@ import Toast from '/src/Toast';
 import { useAppHandlers } from './hooks/useAppHandlers';
 import { extractNumericId } from './utils/chatUtils';
 import ConfirmModal from './components/ConfirmModal';
-import { registerPush } from './services/pushRegistration';
+import { registerPush, dropStaleWebPush } from './services/pushRegistration';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 
@@ -577,6 +577,11 @@ useEffect(() => {
     console.error('❌ [PUSH] Ошибка при session restore:', err);
   });
 }, [user?.id]);
+
+useEffect(() => {
+  if (user || localStorage.getItem('token')) return;
+  dropStaleWebPush().catch(() => {});
+}, [user]);
 
   const onContactAdded = useCallback((userData) => {
     showToast('📱 Вас добавили в контакты');
