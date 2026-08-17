@@ -491,7 +491,7 @@ const chatAvatar = getChatAvatar(activeChatId, activeChatData, channelsProp, gro
   </div>
 ) : (
       //  Добавляем обёртку flex flex-col h-full
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full min-h-0">
         <ChatHeader
           chatName={chatName}
           chatAvatar={chatAvatar}

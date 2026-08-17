@@ -282,7 +282,7 @@ export default function MessageInput({
 
       <form
         onSubmit={handleSubmit}
-        className="p-4 bg-zinc-50 dark:bg-zinc-950/40 border-t border-zinc-200 dark:border-zinc-800 flex gap-2 items-center"
+        className="p-4 bg-zinc-50 dark:bg-zinc-950/40 border-t border-zinc-200 dark:border-zinc-800 flex gap-2 items-center shrink-0"
       >
         <input
           type="file"

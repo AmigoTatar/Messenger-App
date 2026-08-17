@@ -763,12 +763,12 @@ useEffect(() => {
   }
   return (
     <ErrorBoundary>
-      <div className="bg-zinc-100 dark:bg-zinc-900 text-zinc-900 dark:text-white h-dvh flex justify-center items-center font-sans antialiased transition-colors duration-300 overflow-hidden">
+      <div className="bg-zinc-100 dark:bg-zinc-900 text-zinc-900 dark:text-white h-full min-h-0 flex justify-center items-stretch md:items-center font-sans antialiased transition-colors duration-300 overflow-hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
         
 <div className="w-full h-full min-h-0 md:max-w-5xl md:h-[90vh] md:rounded-2xl md:border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex overflow-hidden shadow-2xl transition-colors duration-300">
 
   {/* Сайдбар — скрыт на мобилках когда чат открыт */}
-  <div className={`${activeChatId ? 'hidden' : 'flex'} md:flex w-full md:w-[380px] flex-shrink-0 flex-col`}>
+  <div className={`${activeChatId ? 'hidden' : 'flex'} md:flex w-full md:w-[380px] flex-shrink-0 flex-col min-h-0`}>
     <Sidebar
       loading={chatsLoading}
       chats={chats}
@@ -809,7 +809,7 @@ useEffect(() => {
   </div>
 
   {/* Чат — скрыт на мобилках когда чат не выбран */}
-  <div className={`${!activeChatId ? 'hidden' : 'flex'} md:flex flex-1 flex-col`}>
+  <div className={`${!activeChatId ? 'hidden' : 'flex'} md:flex flex-1 flex-col min-h-0 min-w-0`}>
     <MessageContext.Provider value={{ sendMessage: handleSendMessage }}>
       <ChatArea
         key={activeChatId || 'no-chat'}
