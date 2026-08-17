@@ -52,8 +52,8 @@ async function assertChatAccess(userId, activeChatId, { requireAdmin = false } =
     if (activeChatId.startsWith('user_')) {
         const peerId = parseInt(activeChatId.replace('user_', ''), 10);
         if (isNaN(peerId)) return { ok: false, status: 400, error: 'Невалидный ID пользователя' };
-        if (peerId === userId) return { ok: false, status: 400, error: 'Нельзя открыть чат с собой' };
-        // Приватные: достаточно auth; контакт не обязателен (можно ужесточить позже)
+        // Своя комната user_{id} — для пушей/онлайна, не для чата с собой
+        if (peerId === userId) return { ok: true, peerId, selfRoom: true };
         return { ok: true, peerId };
     }
 

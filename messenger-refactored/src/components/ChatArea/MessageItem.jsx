@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { SafeImage } from '../Avatar';
+import React, { useRef, useState } from 'react';
+import Avatar, { SafeImage } from '../Avatar';
 import DOMPurify from 'dompurify';
 
 export default function MessageItem({ 
@@ -8,16 +8,10 @@ export default function MessageItem({
   currentUserId, 
   isGroup,
   onContextMenu, 
-  onReactionToggle, 
-  onThreadReply, 
-  onForward, 
-  onEdit, 
-  onPin, 
-  onDelete 
 }) {
-  
-  //  ЗАЩИТА: если msg нет или это не объект
-  
+  const longPressTimer = useRef(null);
+  const [previewSrc, setPreviewSrc] = useState(null);
+
   if (!msg || typeof msg !== 'object') {
     return (
       <div className="text-xs text-zinc-400 p-2 border border-dashed border-zinc-300 rounded-lg my-1">
@@ -26,7 +20,6 @@ export default function MessageItem({
     );
   }
 
-  // Если сообщение удалено
   if (msg.isDeleted) {
     return (
       <div className="flex w-full mb-2 justify-center">
@@ -48,27 +41,57 @@ export default function MessageItem({
   const threads = msg.threads || [];
 
   const handleContext = (e) => {
-    if (onContextMenu) onContextMenu(e, msg);
+    e.preventDefault?.();
+    e.stopPropagation?.();
+    onContextMenu?.(e, msg);
   };
 
-  // Проверка, что это изображение
+  const clearLongPress = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  const onTouchStart = (e) => {
+    const touch = e.touches?.[0];
+    if (!touch) return;
+    longPressTimer.current = setTimeout(() => {
+      onContextMenu?.(
+        { preventDefault() {}, clientX: touch.clientX, clientY: touch.clientY },
+        msg
+      );
+    }, 480);
+  };
+
   const isImage = mediaType === 'image' || (mediaUrl && mediaUrl.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i));
 
 return (
   <div className={`flex flex-col w-full mb-2 ${isOwn ? 'items-end' : 'items-start'}`}>
-    {/* Имя отправителя — только для групповых чатов */}
     {isGroup && !isOwn && (
       <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-0.5 ml-1">
         {msg.sender?.username || 'Неизвестный'}
       </span>
     )}
 
-    {/* Само сообщение */}
     <div 
-      className={`flex w-full ${isOwn ? 'justify-end' : 'justify-start'}`}
+      className={`flex w-full items-end gap-1.5 ${isOwn ? 'justify-end' : 'justify-start'}`}
       onContextMenu={handleContext}
+      onTouchStart={onTouchStart}
+      onTouchEnd={clearLongPress}
+      onTouchMove={clearLongPress}
+      onTouchCancel={clearLongPress}
       data-message-id={msg.id}
+      style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
     >
+      {!isOwn && (
+        <Avatar
+          avatar={msg.sender?.avatar}
+          name={msg.sender?.username}
+          size="xs"
+          className="mb-0.5"
+        />
+      )}
       <div 
         className={`max-w-[70%] rounded-2xl px-4 py-2 shadow-sm relative group text-sm ${
           isOwn
@@ -83,7 +106,7 @@ return (
               src={msg.mediaUrl}
               alt="Вложение"
               className="max-h-60 w-full object-cover cursor-pointer hover:opacity-90 transition"
-              onClick={() => window.open(mediaUrl, '_blank')}
+              onClick={() => setPreviewSrc(mediaUrl)}
               fallback="🖼️"
             />
           </div>
@@ -180,6 +203,16 @@ return (
         )}
       </div>
       </div>
+      {previewSrc && (
+        <div
+          className="fixed inset-0 z-[80] bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setPreviewSrc(null)}
+          role="button"
+          tabIndex={0}
+        >
+          <img src={previewSrc} alt="" className="max-w-full max-h-full object-contain" />
+        </div>
+      )}
     </div>
   );
 }

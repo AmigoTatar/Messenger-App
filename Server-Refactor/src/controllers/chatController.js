@@ -38,7 +38,8 @@ const getChats = async (req, res) => {
             members: chat.members,
             lastMessage: chat.messages[0] || null,
             unreadCount: 0,
-            type: 'group'
+            type: 'group',
+            muted: chat.members.find((m) => m.userId === userId)?.muted || false,
         }));
 
         res.json(formattedChats);

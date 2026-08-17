@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import UserProfile from './UserProfile';
 import ChannelList from './ChannelList';
 import GroupList from './GroupList';
@@ -38,10 +38,8 @@ export default function Sidebar({
   onRemoveContact,
   onSearchUsers,
   contactsVersion,
+  onlineUserIds,
 }) {
-  
-  console.log('🔍 Sidebar: onSelectChat =', onSelectChat);
-
   const [isNewChannelOpen, setIsNewChannelOpen] = useState(false);
   const [isNewGroupOpen, setIsNewGroupOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -55,15 +53,32 @@ export default function Sidebar({
   );
 }
 
-const filteredContacts = contacts.filter(c => 
-    c.username?.toLowerCase().includes(searchQuery.toLowerCase())
-);
-const filteredChannels = channels.filter(c => 
-    c.name?.toLowerCase().includes(searchQuery.toLowerCase())
-);
-const filteredGroups = groupChats.filter(c => 
-    c.name?.toLowerCase().includes(searchQuery.toLowerCase())
-);
+const byLastMessage = (a, b) => {
+    const ta = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
+    const tb = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
+    return tb - ta;
+};
+const filteredContacts = contacts
+    .filter(c => c.username?.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort(byLastMessage);
+const filteredChannels = channels
+    .filter(c => c.name?.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort(byLastMessage);
+const filteredGroups = groupChats
+    .filter(c => c.name?.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort(byLastMessage);
+
+  useEffect(() => {
+    const onHwBack = (e) => {
+      if (isNewChannelOpen) { e.preventDefault(); setIsNewChannelOpen(false); return; }
+      if (isNewGroupOpen) { e.preventDefault(); setIsNewGroupOpen(false); return; }
+      if (isSearchOpen) { e.preventDefault(); setIsSearchOpen(false); return; }
+      if (isAddContactOpen) { e.preventDefault(); setIsAddContactOpen(false); return; }
+      if (isChannelSearchOpen) { e.preventDefault(); setIsChannelSearchOpen(false); return; }
+    };
+    window.addEventListener('potok-hardware-back', onHwBack);
+    return () => window.removeEventListener('potok-hardware-back', onHwBack);
+  }, [isNewChannelOpen, isNewGroupOpen, isSearchOpen, isAddContactOpen, isChannelSearchOpen]);
 
 /*console.log(' Sidebar: filteredContacts:', JSON.stringify(filteredContacts.map(c => ({ 
     id: c.id, 
@@ -76,7 +91,7 @@ const filteredGroups = groupChats.filter(c =>
       
       {/* Верхняя часть с профилем и кнопками */}
       <div className="p-4 space-y-3">
-        <UserProfile user={user} onUpdateUser={onUpdateUser} />
+        <UserProfile user={user} onUpdateUser={onUpdateUser} showToast={showToast} />
 
         <div className="flex justify-between items-center">
     <h1 className="text-xl font-bold text-zinc-800 dark:text-white">Чаты</h1>
@@ -116,7 +131,7 @@ const filteredGroups = groupChats.filter(c =>
 </div>
 
         <div className="relative">
-          <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Поиск..." className="w-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800 rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:border-emerald-500 transition text-zinc-800 dark:text-white placeholder-zinc-400" />
+          <input id="sidebar-search" name="search" type="text" autoComplete="off" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Поиск..." className="w-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800 rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:border-emerald-500 transition text-zinc-800 dark:text-white placeholder-zinc-400" />
           <span className="absolute left-3 top-2.5 text-xs text-zinc-400">🔍</span>
         </div>
       </div>
@@ -125,13 +140,13 @@ const filteredGroups = groupChats.filter(c =>
       <div className="flex-1 overflow-y-auto no-scrollbar px-2 py-2 space-y-1">
         
         <ContactList
-        
     contacts={filteredContacts}
     contactsVersion={contactsVersion}
     activeChatId={activeChatId}
     unreadCounts={unreadCounts}
     onSelectChat={onSelectChat}
     formatMsgTime={formatMsgTime}
+    onlineUserIds={onlineUserIds}
           />
         <ChannelList
           channels={filteredChannels}

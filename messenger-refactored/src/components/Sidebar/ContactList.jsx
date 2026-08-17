@@ -1,7 +1,7 @@
 import React from 'react';
 import ChatListItem from './ChatListItem';
 
-export default function ContactList({ contacts, contactsVersion, activeChatId, unreadCounts, onSelectChat, formatMsgTime }) {
+export default function ContactList({ contacts, contactsVersion, activeChatId, unreadCounts, onSelectChat, formatMsgTime, onlineUserIds }) {
  /*console.log(' ContactList: contacts for render:', JSON.stringify(contacts.map(c => ({ 
     id: c.id, 
     name: c.username, 
@@ -33,6 +33,8 @@ export default function ContactList({ contacts, contactsVersion, activeChatId, u
                         lastMessage={contact.lastMessage || null}
                         unreadCount={unreadCount}
                         isActive={chatId === activeChatId}
+                        isOnline={onlineUserIds instanceof Set ? onlineUserIds.has(Number(contact.id)) : false}
+                        isMuted={contact.muted}
                         onClick={() => onSelectChat(chatId)}
                         formatMsgTime={formatMsgTime}
                         type="private"

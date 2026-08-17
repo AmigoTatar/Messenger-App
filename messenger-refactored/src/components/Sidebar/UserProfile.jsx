@@ -16,36 +16,49 @@ export default function UserProfile({ user, onUpdateUser, showToast  }) {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: editName.trim() }),
       });
-      if (!res.ok) throw new Error('Ошибка');
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error || 'Ошибка');
+      }
       const data = await res.json();
-      const updated = { ...user, username: data.user.username };
+      const updated = { ...user, username: data.user.username, avatar: data.user.avatar ?? user.avatar, email: data.user.email ?? user.email };
       localStorage.setItem('user', JSON.stringify(updated));
       if (onUpdateUser) onUpdateUser(updated);
       setIsEditing(false);
+      showToast?.('Имя успешно изменено', 'success');
     } catch (err) {
-      showToast('Не удалось изменить имя');
+      showToast?.(err.message || 'Не удалось изменить имя', 'error');
     }
   };
 
   const handleAvatarUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > 20 * 1024 * 1024) {
+      showToast?.('Файл слишком большой. Максимум 20 МБ', 'error');
+      e.target.value = '';
+      return;
+    }
     const formData = new FormData();
     formData.append('avatar', file);
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_BASE_URL}/api/users/avatar`, {
         method: 'PUT',
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
-      if (!res.ok) throw new Error('Ошибка');
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error || 'Ошибка');
+      }
       const data = await res.json();
       const updated = { ...user, avatar: data.user.avatar };
       localStorage.setItem('user', JSON.stringify(updated));
       if (onUpdateUser) onUpdateUser(updated);
+      showToast?.('Аватар обновлён', 'success');
     } catch (err) {
-      showToast('Не удалось загрузить аватарку');
+      showToast?.(err.message || 'Не удалось загрузить аватарку', 'error');
     }
   };
 
@@ -81,7 +94,10 @@ export default function UserProfile({ user, onUpdateUser, showToast  }) {
         {isEditing ? (
           <div className="flex items-center gap-1">
             <input
+              id="profile-username"
+              name="username"
               type="text"
+              autoComplete="username"
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
               className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-emerald-500 text-zinc-800 dark:text-white"

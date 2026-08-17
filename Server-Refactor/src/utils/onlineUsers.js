@@ -34,6 +34,10 @@ function isUserOnline(userId) {
     return getOnlineSockets(userId).length > 0;
 }
 
+function getOnlineUserIds() {
+    return [...onlineUsers.keys()].map(Number);
+}
+
 /** Отправить событие на все устройства пользователя */
 function emitToUser(io, userId, event, data) {
     for (const sid of getOnlineSockets(userId)) {
@@ -63,6 +67,7 @@ module.exports = {
     removeOnlineUser,
     getOnlineSockets,
     isUserOnline,
+    getOnlineUserIds,
     emitToUser,
     joinUserToRoom,
     leaveUserFromRoom,

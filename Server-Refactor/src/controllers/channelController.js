@@ -27,7 +27,7 @@ const getChannels = async (req, res) => {
             const channel = member.channel;
             const lastMessage = channel.messages[0] || null;
             const { messages, ...channelData } = channel;
-            return { ...channelData, lastMessage };
+            return { ...channelData, lastMessage, muted: member.muted || false };
         });
 
         res.json(channels);

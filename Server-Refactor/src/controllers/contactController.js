@@ -39,12 +39,18 @@ const getContacts = async (req, res) => {
                     },
                     orderBy: { createdAt: 'desc' },
                     include: {
-                        sender: { select: { id: true, username: true } }
+                        sender: { select: { id: true, username: true, avatar: true } }
                     }
+                });
+                const muteRow = await prisma.privateChatMember.findUnique({
+                    where: {
+                        userId_otherUserId: { userId, otherUserId: c.contact.id },
+                    },
                 });
                 return {
                     ...c.contact,
-                    lastMessage: lastMessage || null
+                    lastMessage: lastMessage || null,
+                    muted: muteRow?.muted || false,
                 };
             })
         );

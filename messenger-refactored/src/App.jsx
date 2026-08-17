@@ -14,14 +14,11 @@ import { useMarkAsRead } from './hooks/useMarkAsRead';
 import { useTheme } from './hooks/useTheme';
 import { useToast } from './hooks/useToast';
 import { useContacts } from './hooks/useContacts';
-import { getChatIdFromMessage } from './utils/chatUtils';
-import { playNotificationSound } from './utils/soundUtils';
+import { extractNumericId } from './utils/chatUtils';
 import { API_BASE_URL } from './config';
 import { apiClient } from './services/apiClient';
 import { MessageContext } from './contexts/MessageContext';
 import Toast from '/src/Toast';
-import { useAppHandlers } from './hooks/useAppHandlers';
-import { extractNumericId } from './utils/chatUtils';
 import ConfirmModal from './components/ConfirmModal';
 import { registerPush, dropStaleWebPush } from './services/pushRegistration';
 import { App as CapApp } from '@capacitor/app';
@@ -69,6 +66,7 @@ export default function App() {
   const { markAsRead, debouncedMarkAsRead } = useMarkAsRead();
   const { socket, emit, joinChat, sendMessage, isConnected } = useSocket(user, {});
   const { toast, showToast, hideToast } = useToast();
+  const [onlineUserIds, setOnlineUserIds] = useState(() => new Set());
 
   const resetSessionState = useCallback(() => {
     clearMessages();
@@ -156,11 +154,6 @@ export default function App() {
   handleLogout: rawHandleLogout,
 } = messageHandlers;
 
-  const handleLogout = useCallback(() => {
-    resetSessionState();
-    rawHandleLogout();
-  }, [resetSessionState, rawHandleLogout]);
-
   
 
  // ====== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ======
@@ -204,6 +197,19 @@ const handleAuthSuccess = (userData, token) => {
     });
   }, []);
 
+  const handleLogout = useCallback(() => {
+    showConfirm(
+      'Выйти из аккаунта?',
+      'Вы уверены, что хотите выйти?',
+      'Выйти',
+      () => {
+        resetSessionState();
+        rawHandleLogout();
+      },
+      'danger'
+    );
+  }, [resetSessionState, rawHandleLogout, showConfirm]);
+
   // ====== НАВИГАЦИЯ НАЗАД (веб-стрелка / Escape / Android back) ======
   const closeActiveChat = useCallback(() => {
     setIsProfileOpen(false);
@@ -218,6 +224,9 @@ const handleAuthSuccess = (userData, token) => {
       setConfirmModal((prev) => ({ ...prev, isOpen: false }));
       return true;
     }
+    const ev = new Event('potok-hardware-back', { cancelable: true });
+    window.dispatchEvent(ev);
+    if (ev.defaultPrevented) return true;
     if (isProfileOpen) {
       setIsProfileOpen(false);
       return true;
@@ -378,8 +387,9 @@ const handleAuthSuccess = (userData, token) => {
     if (data.userId === user?.id) {
       removeChannel(data.channelId);
       if (activeChatIdRef.current === `channel_${data.channelId}`) {
-        setActiveChatId('chat_general');
-        setActiveChatData({ name: 'Общий чат', avatar: '💬', type: 'general' });
+        setActiveChatId(null);
+        setActiveChatData(null);
+        setIsProfileOpen(false);
       }
     }
   }, [setChannels, user, removeChannel, setActiveChatId, setActiveChatData]);
@@ -470,8 +480,9 @@ const handleAuthSuccess = (userData, token) => {
     if (data.userId === user?.id) {
       removeGroupChat(data.chatId);
       if (activeChatIdRef.current === `chat_${data.chatId}`) {
-        setActiveChatId('chat_general');
-        setActiveChatData({ name: 'Общий чат', avatar: '💬', type: 'general' });
+        setActiveChatId(null);
+        setActiveChatData(null);
+        setIsProfileOpen(false);
       }
     }
   }, [setGroupChats, user, removeGroupChat, setActiveChatId, setActiveChatData]);
@@ -480,9 +491,7 @@ const handleAuthSuccess = (userData, token) => {
  
   // ====== РЕНДЕР ======
   const activeMessages = useMemo(() => {
-    const msgs = getMessages(activeChatId);
-    console.log(' activeMessages обновлён:', msgs.length);
-    return msgs;
+    return getMessages(activeChatId);
   }, [activeChatId, getMessages]);
 
   // Стабильный объект для ProfilePanel — без refetch на каждое новое сообщение
@@ -525,7 +534,13 @@ useEffect(() => {
     const fromChats = chats.find(c => c.id === activeChatId || c.dbId === userId);
     const fromContacts = contacts.find(c => c.id === userId);
     if (fromChats) {
-      setActiveChatData({ name: fromChats.name, avatar: fromChats.avatar, type: 'private', dbId: fromChats.dbId || userId });
+      setActiveChatData({
+        name: fromChats.name,
+        avatar: fromChats.avatar,
+        type: 'private',
+        dbId: fromChats.dbId || userId,
+        isOnline: onlineUserIds.has(userId),
+      });
       found = true;
     } else if (fromContacts) {
       setActiveChatData({
@@ -533,16 +548,16 @@ useEffect(() => {
         avatar: fromContacts.avatar,
         type: 'private',
         dbId: fromContacts.id,
+        isOnline: onlineUserIds.has(userId),
       });
       found = true;
     }
   }
   if (!found && activeChatId !== 'chat_general') {
-    console.log(' Чат не найден, сбрасываю activeChatId');
     setActiveChatId(null);
     setActiveChatData(null);
   }
-}, [activeChatId, channels, groupChats, chats, contacts]);
+}, [activeChatId, channels, groupChats, chats, contacts, onlineUserIds]);
 
 useEffect(() => {
   if (!socket || !isConnected) return;
@@ -623,6 +638,25 @@ useEffect(() => {
     showToast(`📩 Новая заявка в канал "${data.channelName}"`, 'info');
   }, [showToast]);
 
+  const handleMuteChange = useCallback((chatId, muted) => {
+    if (!chatId) return;
+    if (chatId.startsWith('user_')) {
+      const userId = parseInt(chatId.replace('user_', ''), 10);
+      setContacts((prev) => prev.map((c) => (c.id === userId ? { ...c, muted } : c)));
+      setChats((prev) => prev.map((c) => (c.id === chatId || c.dbId === userId ? { ...c, muted } : c)));
+      setContactsVersion((v) => v + 1);
+      setChatsVersion((v) => v + 1);
+    } else if (chatId.startsWith('channel_')) {
+      const channelId = parseInt(chatId.replace('channel_', ''), 10);
+      setChannels((prev) => prev.map((ch) => (ch.id === channelId ? { ...ch, muted } : ch)));
+      setChannelsVersion((v) => v + 1);
+    } else if (chatId.startsWith('chat_')) {
+      const groupId = parseInt(chatId.replace('chat_', ''), 10);
+      setGroupChats((prev) => prev.map((g) => (g.dbId === groupId || g.id === chatId ? { ...g, muted } : g)));
+      setGroupChatsVersion((v) => v + 1);
+    }
+  }, [setContacts, setChats, setChannels, setGroupChats, setContactsVersion, setChatsVersion, setChannelsVersion, setGroupChatsVersion]);
+
 useEffect(() => {
   if (!socket) return;
 
@@ -650,6 +684,23 @@ useEffect(() => {
   socket.on('join_request_approved', onJoinRequestApproved);
   socket.on('join_request_rejected', onJoinRequestRejected);
   socket.on('join_request_received', onJoinRequestReceived);
+  socket.on('online_users', (ids) => {
+    const list = Array.isArray(ids) ? ids : [];
+    setOnlineUserIds(new Set(list.map((id) => Number(id))));
+  });
+  socket.on('user_status_change', ({ userId, status }) => {
+    const id = Number(userId);
+    if (!id) return;
+    setOnlineUserIds((prev) => {
+      const next = new Set(prev);
+      if (status === 'online') next.add(id);
+      else next.delete(id);
+      return next;
+    });
+    if (activeChatIdRef.current === `user_${id}`) {
+      setActiveChatData((prev) => (prev ? { ...prev, isOnline: status === 'online' } : prev));
+    }
+  });
 
   return () => {
     socket.off('channel_created', handleChannelCreated);
@@ -676,6 +727,8 @@ useEffect(() => {
     socket.off('join_request_approved', onJoinRequestApproved);
     socket.off('join_request_rejected', onJoinRequestRejected);
     socket.off('join_request_received', onJoinRequestReceived);
+    socket.off('online_users');
+    socket.off('user_status_change');
   };
 }, [
   socket,
@@ -710,9 +763,9 @@ useEffect(() => {
   }
   return (
     <ErrorBoundary>
-      <div className="bg-zinc-100 dark:bg-zinc-900 text-zinc-900 dark:text-white h-screen flex justify-center items-center font-sans antialiased transition-colors duration-300">
+      <div className="bg-zinc-100 dark:bg-zinc-900 text-zinc-900 dark:text-white h-dvh flex justify-center items-center font-sans antialiased transition-colors duration-300 overflow-hidden">
         
-<div className="w-full h-full md:max-w-5xl md:h-[90vh] md:rounded-2xl md:border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex overflow-hidden shadow-2xl transition-colors duration-300">
+<div className="w-full h-full min-h-0 md:max-w-5xl md:h-[90vh] md:rounded-2xl md:border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex overflow-hidden shadow-2xl transition-colors duration-300">
 
   {/* Сайдбар — скрыт на мобилках когда чат открыт */}
   <div className={`${activeChatId ? 'hidden' : 'flex'} md:flex w-full md:w-[380px] flex-shrink-0 flex-col`}>
@@ -739,6 +792,7 @@ useEffect(() => {
       onUpdateUser={handleUpdateUser}
       formatMsgTime={(d) => d ? new Date(d).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
       contacts={contacts}
+      onlineUserIds={onlineUserIds}
       contactsLoading={contactsLoading}
       onAddContact={async (id) => {
         const result = await addContact(id);
@@ -757,7 +811,6 @@ useEffect(() => {
   {/* Чат — скрыт на мобилках когда чат не выбран */}
   <div className={`${!activeChatId ? 'hidden' : 'flex'} md:flex flex-1 flex-col`}>
     <MessageContext.Provider value={{ sendMessage: handleSendMessage }}>
-      {console.log('📤 [App] contacts перед передачей в ChatArea:', contacts)}
       <ChatArea
         key={activeChatId || 'no-chat'}
         activeChatId={activeChatId}
@@ -801,6 +854,7 @@ useEffect(() => {
     onChatDeleted={() => {}}
     onChatUpdate={handleChatUpdate}
     contacts={contacts}
+    onMuteChange={handleMuteChange}
     onMemberAdded={(newMember) => {
       setActiveChatData(prev => ({ ...prev, members: [...(prev?.members || []), newMember] }));
     }}

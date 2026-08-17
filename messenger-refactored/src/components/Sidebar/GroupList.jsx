@@ -10,7 +10,6 @@ export default function GroupList({
   groupChatsVersion  
   
 }) {
-  console.log('🔍 GroupList рендерится, version:', groupChatsVersion, 'groups:', groupChats.length);
   if (!groupChats || groupChats.length === 0) return null;
   
 

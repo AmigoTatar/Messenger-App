@@ -8,6 +8,7 @@ const {
     joinUserToRoom,
     leaveUserFromRoom,
     isUserOnline,
+    getOnlineUserIds,
     onlineUsers,
 } = require('../utils/onlineUsers');
 const { isTokenRevoked } = require('../utils/tokenRevoke');
@@ -26,11 +27,23 @@ const setupSocket = (io, prisma) => {
             return next(new Error('Authentication error: Token revoked'));
         }
 
-        jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+        jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
             if (err) return next(new Error('Authentication error: Invalid token'));
-            socket.userId = Number(decoded.userId);
-            socket.authToken = token;
-            next();
+            const userId = Number(decoded.userId);
+            try {
+                const user = await prisma.user.findUnique({
+                    where: { id: userId },
+                    select: { tokenVersion: true },
+                });
+                if (!user || (decoded.tokenVersion ?? 0) !== user.tokenVersion) {
+                    return next(new Error('Authentication error: Token revoked'));
+                }
+                socket.userId = userId;
+                socket.authToken = token;
+                next();
+            } catch (e) {
+                next(new Error('Authentication error'));
+            }
         });
     });
 
@@ -40,6 +53,7 @@ const setupSocket = (io, prisma) => {
 
         addOnlineUser(currentUserId, socket.id);
         io.emit('user_status_change', { userId: currentUserId, status: 'online' });
+        socket.emit('online_users', getOnlineUserIds());
 
         // ===  ПРИСОЕДИНЕНИЕ К КОМНАТЕ (только при наличии прав) ===
         socket.on('join_chat', async (chatId) => {
@@ -124,7 +138,7 @@ const setupSocket = (io, prisma) => {
                         status: 'unread'
                     },
                     include: {
-                        sender: { select: { id: true, username: true } }
+                        sender: { select: { id: true, username: true, avatar: true } }
                     }
                 });
 
@@ -145,12 +159,16 @@ try {
 
     // Приватный чат
     if (receiverId) {
-        const tokens = await prisma.pushToken.findMany({
-            where: { userId: receiverId, isActive: true }
+        const muteRow = await prisma.privateChatMember.findUnique({
+            where: { userId_otherUserId: { userId: receiverId, otherUserId: senderId } },
         });
-        console.log(`📤 [PUSH] private → user=${receiverId} activeTokens=${tokens.length}`);
-        for (const t of tokens) {
-            await sendPush(t.token, `💬 ${senderName}`, messageText, pushMeta, t.platform);
+        if (!muteRow?.muted) {
+            const tokens = await prisma.pushToken.findMany({
+                where: { userId: receiverId, isActive: true }
+            });
+            for (const t of tokens) {
+                await sendPush(t.token, `💬 ${senderName}`, messageText, pushMeta, t.platform);
+            }
         }
     }
 
@@ -173,10 +191,7 @@ try {
             }
         });
         for (const m of members) {
-            const n = m.user.pushTokens.length;
-            if (n > 1) {
-                console.log(`📤 [PUSH] group chat=${chatId} user=${m.userId} activeTokens=${n}`);
-            }
+            if (m.muted) continue;
             for (const t of m.user.pushTokens) {
                 await sendPush(t.token, `👥 ${chatName}`, `💬 ${senderName}: ${messageText}`, pushMeta, t.platform);
             }
@@ -202,10 +217,7 @@ try {
             }
         });
         for (const m of members) {
-            const n = m.user.pushTokens.length;
-            if (n > 1) {
-                console.log(`📤 [PUSH] channel=${channelId} user=${m.userId} activeTokens=${n}`);
-            }
+            if (m.muted) continue;
             for (const t of m.user.pushTokens) {
                 await sendPush(t.token, `📢 ${channelName}`, `💬 ${senderName}: ${messageText}`, pushMeta, t.platform);
             }
@@ -318,7 +330,7 @@ socket.on('delete_message', async ({ messageId, activeChatId }) => {
         const message = await prisma.message.findUnique({
             where: { id: Number(messageId) },
             include: {
-                sender: { select: { id: true, username: true } }
+                sender: { select: { id: true, username: true, avatar: true } }
             }
         });
 

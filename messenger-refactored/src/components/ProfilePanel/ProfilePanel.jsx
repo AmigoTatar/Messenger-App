@@ -14,7 +14,8 @@ export default function ProfilePanel({
   onClose,
   socketRef,
   showToast,
-  contacts
+  contacts,
+  onMuteChange,
 }) {
   console.log('📤 [ProfilePanel] contacts получены:', contacts);
 const [activeTab, setActiveTab] = useState('media');
@@ -72,6 +73,22 @@ useEffect(() => {
     setNewAvatar(activeChat.avatar || '');
   }
 }, [activeChat?.id, activeChat?.name, activeChat?.avatar]);
+
+useEffect(() => {
+  const onHwBack = (e) => {
+    if (confirmModal.isOpen) {
+      e.preventDefault();
+      setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+      return;
+    }
+    if (isEditing) {
+      e.preventDefault();
+      setIsEditing(false);
+    }
+  };
+  window.addEventListener('potok-hardware-back', onHwBack);
+  return () => window.removeEventListener('potok-hardware-back', onHwBack);
+}, [confirmModal.isOpen, isEditing]);
 
 
 const fetchMembers = async () => {
@@ -210,6 +227,7 @@ console.log('📤 [ProfilePanel] contactIds для групп:', contactIds);
       body: JSON.stringify({ type, id: numericId }),
     });
     setIsMuted(data.muted);
+    onMuteChange?.(chatId, data.muted);
   } catch (err) {
     console.error('Ошибка переключения mute:', err);
   } finally {

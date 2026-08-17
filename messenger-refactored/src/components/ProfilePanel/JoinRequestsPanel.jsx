@@ -16,7 +16,7 @@ export default function JoinRequestsPanel({ channelId, currentUserId, showToast,
                 { headers: { 'Authorization': `Bearer ${token}` } }
             );
             // 403 = не админ этого канала (нормально для участника) — просто пустой список
-            if (response.status === 403) {
+            if (response.status === 403 || response.status === 404) {
                 setRequests([]);
                 return;
             }

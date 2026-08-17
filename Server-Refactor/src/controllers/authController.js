@@ -91,7 +91,7 @@ const register = async (req, res) => {
 
         // Генерация токена
         const token = jwt.sign(
-            { userId: newUser.id, email: newUser.email },
+            { userId: newUser.id, email: newUser.email, tokenVersion: newUser.tokenVersion || 0 },
             process.env.JWT_SECRET,
             { expiresIn: '30d' }
         );
@@ -137,7 +137,7 @@ const login = async (req, res) => {
         }
 
         const token = jwt.sign(
-            { userId: user.id },
+            { userId: user.id, email: user.email, tokenVersion: user.tokenVersion || 0 },
             process.env.JWT_SECRET,
             { expiresIn: '30d' }
         );
@@ -146,7 +146,9 @@ const login = async (req, res) => {
             token,
             user: {
                 id: user.id,
-                username: user.username
+                username: user.username,
+                email: user.email,
+                avatar: user.avatar || null,
             }
         });
     } catch (error) {
@@ -163,6 +165,10 @@ const logout = async (req, res) => {
         revokeToken(token);
 
         if (req.userId) {
+            await prisma.user.update({
+                where: { id: req.userId },
+                data: { tokenVersion: { increment: 1 } },
+            });
             await prisma.pushToken.updateMany({
                 where: { userId: req.userId, platform: 'web' },
                 data: { isActive: false },

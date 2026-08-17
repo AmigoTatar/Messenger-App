@@ -31,8 +31,14 @@ const getUsers = async (req, res) => {
                 },
                 orderBy: { createdAt: 'desc' },
                 include: {
-                    sender: { select: { id: true, username: true } }
+                    sender: { select: { id: true, username: true, avatar: true } }
                 }
+            });
+
+            const muteRow = await prisma.privateChatMember.findUnique({
+                where: {
+                    userId_otherUserId: { userId: currentUserId, otherUserId: u.id },
+                },
             });
 
             return {
@@ -42,7 +48,8 @@ const getUsers = async (req, res) => {
                 avatar: u.avatar || '👤',
                 unreadCount: 0,
                 messages: [],
-                lastMessage: lastMessage || null
+                lastMessage: lastMessage || null,
+                muted: muteRow?.muted || false,
             };
         }));
 
@@ -87,7 +94,8 @@ const updateProfile = async (req, res) => {
             select: {
                 id: true,
                 username: true,
-                avatar: true
+                avatar: true,
+                email: true
             }
         });
 

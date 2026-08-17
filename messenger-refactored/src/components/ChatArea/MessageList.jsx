@@ -1,6 +1,5 @@
-import React, { useRef, useEffect, useCallback, useState } from 'react';
+import React, { useRef, useLayoutEffect, useCallback, useState } from 'react';
 import MessageItem from './MessageItem';
-import LoadingSpinner from '../LoadingSpinner';
 
 export default function MessageList({
   messages,
@@ -25,13 +24,28 @@ export default function MessageList({
   const isMarking = useRef(false);
   const messagesEndRef = useRef(null);
   const topSensorRef = useRef(null);
+  const pendingRestoreRef = useRef(null);
+  const prevChatIdRef = useRef(activeChatId);
 
-  // Эффект для автоскролла
-  useEffect(() => {
-    if (!isUserScrolledUp.current && containerRef.current) {
-      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    if (prevChatIdRef.current !== activeChatId) {
+      prevChatIdRef.current = activeChatId;
+      pendingRestoreRef.current = null;
+      isUserScrolledUp.current = false;
+      container.scrollTop = container.scrollHeight;
+      return;
     }
-  }, [messages]);
+    if (pendingRestoreRef.current != null) {
+      container.scrollTop = container.scrollHeight - pendingRestoreRef.current;
+      pendingRestoreRef.current = null;
+      return;
+    }
+    if (!isUserScrolledUp.current) {
+      container.scrollTop = container.scrollHeight;
+    }
+  }, [messages, activeChatId]);
 
   // Обработка скролла
   const handleScroll = useCallback(() => {
@@ -60,6 +74,7 @@ export default function MessageList({
     }
 
     if (scrollTop < 40 && !loading && hasMore && onLoadMore) {
+      pendingRestoreRef.current = scrollHeight - scrollTop;
       onLoadMore();
     }
   }, [onLoadMore, loading, hasMore, activeChatId, socketRef]);

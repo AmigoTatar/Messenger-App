@@ -11,7 +11,7 @@ const imageFileFilter = (req, file, cb) => {
 /** Memory storage → дальше грузим в Yandex S3 (аватары и медиа) */
 const avatarUpload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 5 * 1024 * 1024 },
+    limits: { fileSize: 20 * 1024 * 1024 },
     fileFilter: imageFileFilter,
 });
 

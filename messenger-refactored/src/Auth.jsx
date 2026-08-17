@@ -113,12 +113,15 @@ if (isForgotPassword) {
               <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">Введите email, и мы отправим ссылку для сброса пароля</p>
             </div>
 
-            <form onSubmit={handleForgotPassword} className="space-y-4 mt-6">
+            <form onSubmit={handleForgotPassword} className="space-y-4 mt-6" autoComplete="on">
               <div>
-                <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400">Email</label>
+                <label htmlFor="forgot-email" className="block text-sm font-medium text-zinc-600 dark:text-zinc-400">Email</label>
                 <input
+                  id="forgot-email"
+                  name="email"
                   type="email"
                   required
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="mt-1 block w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent px-4 py-3 text-zinc-900 dark:text-white shadow-sm focus:border-emerald-500 focus:outline-none transition-colors duration-200"
@@ -186,12 +189,15 @@ if (isForgotPassword) {
             </div>
           )}
 
-          <form className="space-y-4 mt-6" onSubmit={handleSubmit}>
+          <form className="space-y-4 mt-6" onSubmit={handleSubmit} autoComplete="on">
             <div>
-              <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400">Никнейм</label>
+              <label htmlFor="auth-username" className="block text-sm font-medium text-zinc-600 dark:text-zinc-400">Никнейм</label>
               <input
+                id="auth-username"
+                name="username"
                 type="text"
                 required
+                autoComplete="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="mt-1 block w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent px-4 py-3 text-zinc-900 dark:text-white shadow-sm focus:border-emerald-500 focus:outline-none transition-colors duration-200"
@@ -201,10 +207,13 @@ if (isForgotPassword) {
 
             {!isLogin && (
               <div>
-                <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400">Email</label>
+                <label htmlFor="auth-email" className="block text-sm font-medium text-zinc-600 dark:text-zinc-400">Email</label>
                 <input
+                  id="auth-email"
+                  name="email"
                   type="email"
                   required
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="mt-1 block w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent px-4 py-3 text-zinc-900 dark:text-white shadow-sm focus:border-emerald-500 focus:outline-none transition-colors duration-200"
@@ -214,12 +223,15 @@ if (isForgotPassword) {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400">
+              <label htmlFor="auth-password" className="block text-sm font-medium text-zinc-600 dark:text-zinc-400">
                 Пароль {!isLogin && '(минимум 8 символов)'}
               </label>
               <input
+                id="auth-password"
+                name="password"
                 type="password"
                 required
+                autoComplete={isLogin ? 'current-password' : 'new-password'}
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
@@ -255,7 +267,6 @@ if (isForgotPassword) {
               <button
                 type="button"
                 onClick={() => {
-                  console.log('🔑 Нажата кнопка "Забыли пароль?"');
                   setIsForgotPassword(true);
                 }}
                 className="text-sm text-zinc-400 hover:text-emerald-500 transition"

@@ -87,7 +87,25 @@ export function useSocket(user, eventHandlers) {
         };
         s.addRoom = addRoom;
 
+        const onVisibility = () => {
+            if (document.visibilityState !== 'visible') return;
+            const sock = socketRef.current;
+            if (!sock) return;
+            if (!sock.connected) {
+                sock.connect();
+                return;
+            }
+            roomsRef.current.forEach((room) => {
+                sock.emit('join_chat', room);
+            });
+            if (user?.id) {
+                sock.emit('join_chat', `user_${user.id}`);
+            }
+        };
+        document.addEventListener('visibilitychange', onVisibility);
+
         return () => {
+            document.removeEventListener('visibilitychange', onVisibility);
             if (handlers) {
                 Object.keys(handlers).forEach((event) => {
                     s.off(event);

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 
-export default function EditModal({ message, onSave, onCancel }) {
+export default function EditModal({ message, onSave, onCancel, onClose }) {
+  const close = onCancel || onClose;
   const [text, setText] = useState(message?.text || '');
   const [loading, setLoading] = useState(false);
 
@@ -9,7 +10,7 @@ export default function EditModal({ message, onSave, onCancel }) {
     setLoading(true);
     try {
       await onSave(message.id, text.trim());
-      onCancel();
+      close();
     } catch (err) {
     
     } finally {
@@ -31,7 +32,7 @@ export default function EditModal({ message, onSave, onCancel }) {
         />
         <div className="flex justify-end gap-2 mt-4">
           <button
-            onClick={onCancel}
+            onClick={close}
             className="px-4 py-2 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition"
             disabled={loading}
           >

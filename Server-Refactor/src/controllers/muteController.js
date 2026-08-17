@@ -66,7 +66,7 @@ const toggleMute = async (req, res) => {
 
         if (type === 'private') {
             const otherUserId = parseInt(id);
-            const member = await prisma.privateChatMember.findUnique({
+            let member = await prisma.privateChatMember.findUnique({
                 where: {
                     userId_otherUserId: {
                         userId: userId,
@@ -75,7 +75,9 @@ const toggleMute = async (req, res) => {
                 }
             });
             if (!member) {
-                return res.status(404).json({ error: 'Чат не найден' });
+                member = await prisma.privateChatMember.create({
+                    data: { userId, otherUserId, muted: false },
+                });
             }
             result = await prisma.privateChatMember.update({
                 where: { id: member.id },

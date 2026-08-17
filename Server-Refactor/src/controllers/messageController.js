@@ -46,7 +46,7 @@ const getMessages = async (req, res) => {
             orderBy: { createdAt: 'desc' },
             take: limit,
             include: {
-                sender: { select: { id: true, username: true } },
+                sender: { select: { id: true, username: true, avatar: true } },
                 threads: {
                     include: { user: { select: { id: true, username: true, avatar: true } } },
                     orderBy: { createdAt: 'asc' }

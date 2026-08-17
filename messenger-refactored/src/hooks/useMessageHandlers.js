@@ -1,6 +1,6 @@
 
 import { useCallback } from 'react';
-import { normalizeChatId, extractNumericId, getActiveChatData } from '../utils/chatUtils';
+import { normalizeChatId, extractNumericId, getActiveChatData, getChatType } from '../utils/chatUtils';
 import { getChatIdFromMessage } from '../utils/chatUtils';
 import { playNotificationSound } from '../utils/soundUtils';
 import { API_BASE_URL } from '../config';
@@ -63,7 +63,7 @@ export function useMessageHandlers({
     resetUnread(normalizedChatId);
     await loadHistory(normalizedChatId);
     let activeData = chatData || getActiveChatData(normalizedChatId, channels, groupChats, chats, contacts);
-    setActiveChatData(activeData || { name: 'Чат', avatar: '💬', type: 'general' });
+    setActiveChatData(activeData || { name: 'Чат', avatar: '💬', type: getChatType(normalizedChatId) || 'private' });
     setIsProfileOpen(false);
     if (socket) {
       socket.emit('read_messages', { activeChatId: normalizedChatId });
@@ -150,9 +150,9 @@ export function useMessageHandlers({
   // ====== 6. ПОЛУЧЕНИЕ НОВОГО СООБЩЕНИЯ ======
   const handleReceiveMessage = useCallback((newMessage) => {
     const chatId = getChatIdFromMessage(newMessage, user?.id);
-    console.log('📩 Получено сообщение для чата:', chatId, 'Сообщение:', newMessage);
+    if (!chatId) return;
 
-    if (chatId && chatId !== 'chat_general') {
+    if (chatId) {
       joinChat(chatId);
     }
 
@@ -226,12 +226,19 @@ export function useMessageHandlers({
     }
 
     if (String(newMessage.senderId) !== String(user?.id)) {
-      // Звук только на активной вкладке; в фоне отвечает FCM-баннер (без второго звука)
-      if (typeof document === 'undefined' || !document.hidden) {
+      const muted =
+        (chatId.startsWith('user_') && (
+          contacts?.find((c) => String(c.id) === String(chatId.replace('user_', '')))?.muted
+          || chats?.find((c) => c.id === chatId || String(c.dbId) === String(chatId.replace('user_', '')))?.muted
+        ))
+        || (chatId.startsWith('channel_') && channels?.find((ch) => String(ch.id) === String(chatId.replace('channel_', '')))?.muted)
+        || (chatId.startsWith('chat_') && groupChats?.find((g) => g.id === chatId || String(g.dbId) === String(chatId.replace('chat_', '')))?.muted);
+
+      if (!muted && (typeof document === 'undefined' || !document.hidden)) {
         playNotificationSound();
       }
     }
-  }, [user, joinChat, addMessage, setGroupChats, setChannels, setChats, setGroupChatsVersion, setChannelsVersion, setChatsVersion, setContacts, setContactsVersion]);
+  }, [user, joinChat, addMessage, setGroupChats, setChannels, setChats, setGroupChatsVersion, setChannelsVersion, setChatsVersion, setContacts, setContactsVersion, contacts, chats, channels, groupChats]);
 
   // ====== 7. ЗАКРЕПЛЕНИЕ ======
   const handlePin = useCallback(async (messageId) => {
@@ -295,28 +302,26 @@ export function useMessageHandlers({
   }, [setChannels, setGroupChats, setChannelsVersion, setGroupChatsVersion, activeChatId, setActiveChatData]);
 
   // ====== 9. ВЫХОД ======
-  const handleLogout = useCallback(() => {
+  const handleLogout = useCallback(async () => {
     const token = localStorage.getItem('token');
-    const revoke = token
-      ? fetch(`${API_BASE_URL}/api/auth/logout`, {
+    try {
+      await unregisterPush();
+    } catch (err) {
+      console.warn('⚠️ [PUSH] Ошибка при logout:', err);
+    }
+    if (token) {
+      try {
+        await fetch(`${API_BASE_URL}/api/auth/logout`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
-        }).catch(() => {})
-      : Promise.resolve();
-
-    // Сначала деактивируем пуш (пока JWT ещё в localStorage)
-    Promise.all([
-      unregisterPush().catch((err) => {
-        console.warn('⚠️ [PUSH] Ошибка при logout:', err);
-      }),
-      revoke,
-    ]).finally(() => {
-      if (socket) socket.disconnect();
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      setUser(null);
-      setActiveChatId(null);
-    });
+        });
+      } catch (_) {}
+    }
+    if (socket) socket.disconnect();
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
+    setActiveChatId(null);
   }, [socket, setUser, setActiveChatId]);
 
   // ====== 10. ОСТАЛЬНЫЕ (из messageHandlers) ======
@@ -524,8 +529,8 @@ const handleMessageDeleted = useCallback(({ messageId, activeChatId, otherUserId
     showToast(` Вас удалили из канала ${channelId}`);
     setChannels(prev => prev.filter(ch => ch.id !== channelId));
     if (activeChatIdRef?.current === `channel_${channelId}`) {
-      setActiveChatId('chat_general');
-      setActiveChatData({ name: 'Общий чат', avatar: '💬', type: 'general' });
+      setActiveChatId(null);
+      setActiveChatData(null);
       setMessagesByChat(prev => {
         const newState = { ...prev };
         delete newState[`channel_${channelId}`];

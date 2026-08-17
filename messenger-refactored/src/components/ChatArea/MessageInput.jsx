@@ -106,15 +106,24 @@ export default function MessageInput({
     }
   };
 
+  const [uploading, setUploading] = useState(false);
+
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
       showToast('Пожалуйста, выберите изображение');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      showToast('Файл слишком большой. Максимум 20 МБ', 'error');
+      e.target.value = '';
       return;
     }
     const formData = new FormData();
     formData.append('file', file);
+    setUploading(true);
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_BASE_URL}/api/upload`, {
@@ -138,8 +147,10 @@ export default function MessageInput({
     } catch (err) {
       console.error(err);
       showToast(err.message || 'Не удалось отправить изображение');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
     }
-    e.target.value = '';
   };
 
   const startRecordingWeb = async () => {
@@ -285,9 +296,14 @@ export default function MessageInput({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="p-2 text-zinc-400 hover:text-emerald-500 rounded-xl transition active:scale-95"
+            disabled={uploading}
+            className="p-2 text-zinc-400 hover:text-emerald-500 rounded-xl transition active:scale-95 disabled:opacity-50"
           >
-            📎
+            {uploading ? (
+              <span className="inline-block w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              '📎'
+            )}
           </button>
         )}
 

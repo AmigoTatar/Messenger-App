@@ -21,14 +21,7 @@ const messaging = firebase.messaging();
  * - showNotification только для data-only сообщений.
  */
 messaging.onBackgroundMessage((payload) => {
-    console.log('📨 [SW] background FCM:', {
-        hasNotification: !!payload.notification,
-        title: payload.notification?.title || payload.data?.title,
-        tag: payload.data?.tag,
-    });
-
     if (payload.notification) {
-        console.log('⏳ [SW] Пропуск showNotification — FCM уже отобразил notification-payload');
         return;
     }
 
@@ -36,7 +29,6 @@ messaging.onBackgroundMessage((payload) => {
     const body = payload.data?.body || 'У вас новое сообщение';
     const tag = payload.data?.tag || 'potok_message';
 
-    console.log('🔔 [SW] data-only → showNotification', { title, tag });
     self.registration.showNotification(title, {
         body,
         icon: '/icon-192x192.png',

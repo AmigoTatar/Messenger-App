@@ -13,6 +13,7 @@ model User {
   username        String
   password        String
   avatar          String?   
+  tokenVersion    Int       @default(0)
   createdAt       DateTime  @default(now())
   
   messages        Message[] 

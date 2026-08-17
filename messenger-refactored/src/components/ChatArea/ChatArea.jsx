@@ -45,8 +45,7 @@ export default function ChatArea({
   contacts
 }) {
 
-console.log('📤 [ChatArea] contacts получены:', contacts);
-const getChatName = (activeChatId, activeChatData, channelsProp, groupChatsProp, chatsProp) => {
+const getChatName = (activeChatId, activeChatData, channelsProp, groupChatsProp, chatsProp, contacts) => {
     if (!activeChatId) return 'Выберите чат';
     if (activeChatId === 'chat_general') return 'Общий чат';
     if (activeChatData?.name) return activeChatData.name;
@@ -60,9 +59,29 @@ const getChatName = (activeChatId, activeChatData, channelsProp, groupChatsProp,
     }
     if (activeChatId.startsWith('user_')) {
         const pr = chatsProp?.find(c => c.id === activeChatId);
-        return pr?.name || 'Пользователь';
+        if (pr?.name) return pr.name;
+        const uid = parseInt(activeChatId.replace('user_', ''), 10);
+        const c = contacts?.find(x => x.id === uid);
+        return c?.username || c?.name || 'Пользователь';
     }
     return 'Чат';
+};
+
+const getChatAvatar = (activeChatId, activeChatData, channelsProp, groupChatsProp, chatsProp, contacts) => {
+    if (activeChatData?.avatar) return activeChatData.avatar;
+    if (activeChatId?.startsWith('channel_')) {
+        return channelsProp?.find(c => `channel_${c.id}` === activeChatId)?.avatar;
+    }
+    if (activeChatId?.startsWith('chat_')) {
+        return groupChatsProp?.find(c => c.id === activeChatId)?.avatar;
+    }
+    if (activeChatId?.startsWith('user_')) {
+        const pr = chatsProp?.find(c => c.id === activeChatId);
+        if (pr?.avatar) return pr.avatar;
+        const uid = parseInt(activeChatId.replace('user_', ''), 10);
+        return contacts?.find(x => x.id === uid)?.avatar;
+    }
+    return null;
 };
 
   //  СОСТОЯНИЯ ДЛЯ UI
@@ -391,9 +410,6 @@ const isReadOnly = activeChatData?.type === 'channel' && (
 );
 const isTypingVisible = localTypingUser !== null && activeChatData?.type !== 'channel';
 
-console.log(' isReadOnly:', isReadOnly, 'activeChatData:', activeChatData);
-
-
 const canPin = (msg) => {
   if (!msg) return false;
   if (msg.senderId === currentUserId) return true;
@@ -411,11 +427,27 @@ const canPin = (msg) => {
   const handleMarkAsRead = () => {};
   const handleReactionToggle = () => {};
   const handleThreadReply = () => {};
-  
-  
 
-console.log(' [ChatArea] received messages:', messages);
-console.log(' [ChatArea] messages length:', messages?.length);
+  useEffect(() => {
+    const onHwBack = (e) => {
+      if (editingMessage) {
+        e.preventDefault();
+        setEditingMessage(null);
+        return;
+      }
+      if (forwardModal.visible) {
+        e.preventDefault();
+        setForwardModal({ visible: false, message: null });
+        return;
+      }
+      if (contextMenu.visible) {
+        e.preventDefault();
+        setContextMenu({ visible: false, x: 0, y: 0, message: null });
+      }
+    };
+    window.addEventListener('potok-hardware-back', onHwBack);
+    return () => window.removeEventListener('potok-hardware-back', onHwBack);
+  }, [editingMessage, forwardModal.visible, contextMenu.visible]);
 
 const handleBack = useCallback(() => {
   if (typeof onBack === 'function') {
@@ -448,9 +480,10 @@ if (isHistoryLoading) {
     </div>
   );
 }
-const chatName = getChatName(activeChatId, activeChatData, channelsProp, groupChatsProp, chatsProp);
+const chatName = getChatName(activeChatId, activeChatData, channelsProp, groupChatsProp, chatsProp, contacts);
+const chatAvatar = getChatAvatar(activeChatId, activeChatData, channelsProp, groupChatsProp, chatsProp, contacts);
   return (
-  <div className="flex-col flex-1 h-full bg-zinc-100 dark:bg-zinc-900">
+  <div className="flex flex-col flex-1 h-full min-h-0 bg-zinc-100 dark:bg-zinc-900">
     {!activeChatId ? (
   <div className="hidden md:flex flex-1 flex-col items-center justify-center text-zinc-500 p-4 text-center bg-white dark:bg-zinc-900">
     <span className="text-4xl mb-2">💬</span>
@@ -461,7 +494,7 @@ const chatName = getChatName(activeChatId, activeChatData, channelsProp, groupCh
       <div className="flex flex-col h-full">
         <ChatHeader
           chatName={chatName}
-          chatAvatar={activeChatData?.avatar}
+          chatAvatar={chatAvatar}
           chatType={activeChatData?.type}
           isOnline={activeChatData?.isOnline}
           isTyping={isTypingVisible}

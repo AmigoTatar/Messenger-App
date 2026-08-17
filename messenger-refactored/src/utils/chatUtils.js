@@ -1,25 +1,19 @@
 export const getChatIdFromMessage = (msg, currentUserId) => {
-    console.log(' getChatIdFromMessage:', msg);
-    if (!msg) return 'chat_general';
+    if (!msg) return null;
 
-    // === КАНАЛЫ ===
     if (msg.channelId) {
         const channelId = String(msg.channelId);
         return channelId.startsWith('channel_') ? channelId : `channel_${channelId}`;
     }
 
-    // === ГРУППОВЫЕ ЧАТЫ ===
     if (msg.chatId) {
         const chatId = String(msg.chatId);
-        // Если уже есть префикс chat_ — оставляем
         if (chatId.startsWith('chat_')) {
             return chatId;
         }
-        // Если это число или ID без префикса — добавляем
         return `chat_${chatId}`;
     }
 
-    // === ПРИВАТНЫЕ ЧАТЫ ===
     if (msg.receiverId && msg.senderId) {
         const senderId = Number(msg.senderId);
         const receiverId = Number(msg.receiverId);
@@ -27,8 +21,7 @@ export const getChatIdFromMessage = (msg, currentUserId) => {
         return senderId === myId ? `user_${receiverId}` : `user_${senderId}`;
     }
 
-    // === ОБЩИЙ ЧАТ (если ничего не подошло) ===
-    return 'chat_general';
+    return null;
 };
 
 export const getChatType = (chatId) => {

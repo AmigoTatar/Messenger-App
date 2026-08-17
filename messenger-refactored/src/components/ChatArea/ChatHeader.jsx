@@ -51,6 +51,8 @@ export default function ChatHeader({
               <span className="text-zinc-400 dark:text-zinc-500">общий чат</span>
             ) : chatType === 'channel' ? (
               <span className="text-zinc-400 dark:text-zinc-500">канал</span>
+            ) : chatType === 'group' ? (
+              <span className="text-zinc-400 dark:text-zinc-500">группа</span>
             ) : isOnline ? (
               <span className="text-emerald-500 dark:text-emerald-400 font-medium">в сети</span>
             ) : (

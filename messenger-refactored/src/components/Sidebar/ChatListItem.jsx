@@ -25,8 +25,12 @@ export default function ChatListItem({
     >
       <div className="relative mr-3 shrink-0">
         <Avatar avatar={avatar} name={name} type={type} size="lg" />
-        {isOnline && type === 'private' && (
-          <span className="absolute bottom-0 right-0 block h-3 w-3 rounded-full bg-emerald-500 border-2 border-white dark:border-zinc-950 ring-1 ring-emerald-500/20 animate-pulse" />
+        {type === 'private' && (
+          <span
+            className={`absolute bottom-0 right-0 block h-3 w-3 rounded-full border-2 border-white dark:border-zinc-950 ${
+              isOnline ? 'bg-emerald-500 ring-1 ring-emerald-500/20' : 'bg-zinc-400 dark:bg-zinc-500'
+            }`}
+          />
         )}
       </div>
 
