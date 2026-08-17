@@ -45,6 +45,19 @@ export default function Sidebar({
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isAddContactOpen, setIsAddContactOpen] = useState(false);
   const [isChannelSearchOpen, setIsChannelSearchOpen] = useState(false);
+
+  useEffect(() => {
+    const onHwBack = (e) => {
+      if (isNewChannelOpen) { e.preventDefault(); setIsNewChannelOpen(false); return; }
+      if (isNewGroupOpen) { e.preventDefault(); setIsNewGroupOpen(false); return; }
+      if (isSearchOpen) { e.preventDefault(); setIsSearchOpen(false); return; }
+      if (isAddContactOpen) { e.preventDefault(); setIsAddContactOpen(false); return; }
+      if (isChannelSearchOpen) { e.preventDefault(); setIsChannelSearchOpen(false); return; }
+    };
+    window.addEventListener('potok-hardware-back', onHwBack);
+    return () => window.removeEventListener('potok-hardware-back', onHwBack);
+  }, [isNewChannelOpen, isNewGroupOpen, isSearchOpen, isAddContactOpen, isChannelSearchOpen]);
+
   if (loading && (!channels?.length && !groupChats?.length && !contacts?.length)) {
   return (
     <div className="w-full md:w-80 h-full flex items-center justify-center">
@@ -68,23 +81,6 @@ const filteredGroups = groupChats
     .filter(c => c.name?.toLowerCase().includes(searchQuery.toLowerCase()))
     .sort(byLastMessage);
 
-  useEffect(() => {
-    const onHwBack = (e) => {
-      if (isNewChannelOpen) { e.preventDefault(); setIsNewChannelOpen(false); return; }
-      if (isNewGroupOpen) { e.preventDefault(); setIsNewGroupOpen(false); return; }
-      if (isSearchOpen) { e.preventDefault(); setIsSearchOpen(false); return; }
-      if (isAddContactOpen) { e.preventDefault(); setIsAddContactOpen(false); return; }
-      if (isChannelSearchOpen) { e.preventDefault(); setIsChannelSearchOpen(false); return; }
-    };
-    window.addEventListener('potok-hardware-back', onHwBack);
-    return () => window.removeEventListener('potok-hardware-back', onHwBack);
-  }, [isNewChannelOpen, isNewGroupOpen, isSearchOpen, isAddContactOpen, isChannelSearchOpen]);
-
-/*console.log(' Sidebar: filteredContacts:', JSON.stringify(filteredContacts.map(c => ({ 
-    id: c.id, 
-    name: c.username, 
-    lastMessage: c.lastMessage 
-})), null, 2));*/
   return (
    
     <div className="w-full max-w-full overflow-hidden border-r border-zinc-200 dark:border-zinc-800 flex flex-col bg-white dark:bg-zinc-950 transition-colors duration-300">
