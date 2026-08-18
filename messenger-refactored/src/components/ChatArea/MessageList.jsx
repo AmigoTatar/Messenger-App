@@ -1,4 +1,4 @@
-import React, { useRef, useLayoutEffect, useCallback, useState } from 'react';
+import React, { useRef, useLayoutEffect, useCallback, useState, useEffect } from 'react';
 import MessageItem from './MessageItem';
 
 export default function MessageList({
@@ -26,6 +26,45 @@ export default function MessageList({
   const topSensorRef = useRef(null);
   const pendingRestoreRef = useRef(null);
   const prevChatIdRef = useRef(activeChatId);
+  const [previewIndex, setPreviewIndex] = useState(-1);
+  const [zoom, setZoom] = useState(1);
+  const pinchRef = useRef({ dist: 0, startZoom: 1 });
+  const swipeRef = useRef({ x: 0 });
+
+  const imageUrls = (Array.isArray(messages) ? messages : [])
+    .filter((m) => !m?.isDeleted && m?.mediaUrl && (m.mediaType === 'image' || /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(m.mediaUrl)))
+    .map((m) => m.mediaUrl);
+
+  const openPreview = (url) => {
+    const idx = imageUrls.indexOf(url);
+    setPreviewIndex(idx >= 0 ? idx : 0);
+    setZoom(1);
+  };
+
+  const closePreview = () => setPreviewIndex(-1);
+
+  useEffect(() => {
+    if (previewIndex < 0) return undefined;
+    const onHwBack = (e) => {
+      e.preventDefault();
+      closePreview();
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') closePreview();
+      if (e.key === 'ArrowLeft') setPreviewIndex((i) => Math.max(0, i - 1));
+      if (e.key === 'ArrowRight') setPreviewIndex((i) => Math.min(imageUrls.length - 1, i + 1));
+    };
+    window.addEventListener('potok-hardware-back', onHwBack);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('potok-hardware-back', onHwBack);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [previewIndex, imageUrls.length]);
+
+  useEffect(() => {
+    setZoom(1);
+  }, [previewIndex]);
 
   useLayoutEffect(() => {
     const container = containerRef.current;
@@ -119,6 +158,7 @@ export default function MessageList({
           onEdit={onEdit}
           onPin={onPin}
           onDelete={onDelete}
+          onPreviewImage={openPreview}
         />
       ))}
 
@@ -136,6 +176,79 @@ export default function MessageList({
             </span>
           )}
         </button>
+      )}
+      {previewIndex >= 0 && imageUrls[previewIndex] && (
+        <div
+          className="fixed inset-0 z-[80] bg-black/90 flex items-center justify-center p-4"
+          onClick={closePreview}
+          role="button"
+          tabIndex={0}
+        >
+          <div
+            className="relative max-w-full max-h-full"
+            onClick={(e) => e.stopPropagation()}
+            onTouchStart={(e) => {
+              if (e.touches.length === 2) {
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                pinchRef.current = { dist: Math.hypot(dx, dy), startZoom: zoom };
+              } else if (e.touches.length === 1) {
+                swipeRef.current = { x: e.touches[0].clientX };
+              }
+            }}
+            onTouchEnd={(e) => {
+              if (zoom > 1.05) return;
+              const startX = swipeRef.current.x;
+              const endX = e.changedTouches?.[0]?.clientX;
+              if (startX && endX) {
+                const delta = endX - startX;
+                if (delta > 50) setPreviewIndex((i) => Math.max(0, i - 1));
+                if (delta < -50) setPreviewIndex((i) => Math.min(imageUrls.length - 1, i + 1));
+              }
+            }}
+            onTouchMove={(e) => {
+              if (e.touches.length !== 2 || !pinchRef.current.dist) return;
+              const dx = e.touches[0].clientX - e.touches[1].clientX;
+              const dy = e.touches[0].clientY - e.touches[1].clientY;
+              const scale = Math.hypot(dx, dy) / pinchRef.current.dist;
+              setZoom(Math.min(3, Math.max(1, pinchRef.current.startZoom * scale)));
+            }}
+          >
+            <img
+              src={imageUrls[previewIndex]}
+              alt=""
+              className="max-w-full max-h-[85vh] object-contain select-none"
+              style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
+              draggable={false}
+            />
+            {imageUrls.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => { setPreviewIndex((i) => Math.max(0, i - 1)); setZoom(1); }}
+                  className="absolute left-0 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/20 text-white text-xl"
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setPreviewIndex((i) => Math.min(imageUrls.length - 1, i + 1)); setZoom(1); }}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/20 text-white text-xl"
+                >
+                  ›
+                </button>
+                <div className="absolute top-2 left-1/2 -translate-x-1/2 text-white text-xs bg-black/40 px-2 py-1 rounded-full">
+                  {previewIndex + 1} / {imageUrls.length}
+                </div>
+              </>
+            )}
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-2">
+              <button type="button" onClick={() => setZoom((z) => Math.max(1, Number((z - 0.4).toFixed(1))))} className="w-10 h-10 rounded-full bg-white/20 text-white text-xl">−</button>
+              <button type="button" onClick={() => setZoom(1)} className="px-3 h-10 rounded-full bg-white/20 text-white text-xs">{Math.round(zoom * 100)}%</button>
+              <button type="button" onClick={() => setZoom((z) => Math.min(3, Number((z + 0.4).toFixed(1))))} className="w-10 h-10 rounded-full bg-white/20 text-white text-xl">+</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

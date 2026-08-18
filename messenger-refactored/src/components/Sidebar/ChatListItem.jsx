@@ -12,6 +12,9 @@ export default function ChatListItem({
   isMuted,
   onClick,
   onDelete,
+  menuLabel = 'Скрыть контакт',
+  menuDanger = true,
+  actionLabel,
   formatMsgTime,
   type, // 'private', 'channel', 'group'
 }) {
@@ -149,6 +152,18 @@ export default function ChatListItem({
             )}
           </div>
         </div>
+        {actionLabel && onDelete && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            className="ml-1 shrink-0 px-2 py-1 text-[10px] font-medium rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+          >
+            {actionLabel}
+          </button>
+        )}
       </div>
       {menu && onDelete && (
         <div
@@ -163,9 +178,13 @@ export default function ChatListItem({
               closeMenu();
               onDelete();
             }}
-            className="w-full text-left px-4 py-2 hover:bg-red-50 dark:hover:bg-red-950/40 text-red-600 dark:text-red-400 transition flex items-center gap-3"
+            className={`w-full text-left px-4 py-2 transition flex items-center gap-3 ${
+              menuDanger
+                ? 'hover:bg-red-50 dark:hover:bg-red-950/40 text-red-600 dark:text-red-400'
+                : 'hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
+            }`}
           >
-            <span>Скрыть контакт</span>
+            <span>{menuLabel}</span>
           </button>
         </div>
       )}

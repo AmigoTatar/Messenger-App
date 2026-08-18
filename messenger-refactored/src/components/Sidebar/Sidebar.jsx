@@ -36,6 +36,7 @@ export default function Sidebar({
   contactsLoading,
   onAddContact,
   onRemoveContact,
+  onUnhideContact,
   onSearchUsers,
   contactsVersion,
   onlineUserIds,
@@ -143,6 +144,7 @@ const filteredGroups = groupChats
     unreadCounts={unreadCounts}
     onSelectChat={onSelectChat}
     onRemoveContact={onRemoveContact}
+    onUnhideContact={onUnhideContact}
     showConfirm={showConfirm}
     formatMsgTime={formatMsgTime}
     onlineUserIds={onlineUserIds}

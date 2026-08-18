@@ -51,6 +51,7 @@ const getContacts = async (req, res) => {
                     ...c.contact,
                     lastMessage: lastMessage || null,
                     muted: muteRow?.muted || false,
+                    hidden: Boolean(c.hidden),
                 };
             })
         );
@@ -101,6 +102,19 @@ const addContact = async (req, res) => {
         });
 
         if (existing) {
+            if (existing.hidden) {
+                await prisma.contact.update({
+                    where: { userId_contactId: { userId, contactId: contactIdNum } },
+                    data: { hidden: false },
+                });
+                return res.status(200).json({
+                    id: contactUser.id,
+                    username: contactUser.username,
+                    avatar: contactUser.avatar,
+                    email: contactUser.email,
+                    hidden: false,
+                });
+            }
             return res.status(400).json({ error: 'Контакт уже добавлен' });
         }
 
@@ -185,26 +199,45 @@ const deleteContact = async (req, res) => {
             return res.status(404).json({ error: 'Контакт не найден' });
         }
 
-        await prisma.contact.delete({
+        await prisma.contact.update({
             where: {
                 userId_contactId: {
                     userId,
                     contactId
                 }
-            }
+            },
+            data: { hidden: true },
         });
 
-        await prisma.contact.deleteMany({
-            where: {
-                userId: contactId,
-                contactId: userId
-            }
-        });
-
-        res.json({ success: true, message: 'Контакт удален' });
+        res.json({ success: true, hidden: true, message: 'Контакт скрыт' });
     } catch (error) {
         console.error('❌ Ошибка удаления контакта:', error);
         res.status(500).json({ error: 'Не удалось удалить контакт' });
+    }
+};
+
+
+const unhideContact = async (req, res) => {
+    try {
+        const userId = req.userId;
+        const contactId = parseInt(req.params.contactId);
+        if (isNaN(contactId)) {
+            return res.status(400).json({ error: 'Неверный ID' });
+        }
+        const contact = await prisma.contact.findUnique({
+            where: { userId_contactId: { userId, contactId } },
+        });
+        if (!contact) {
+            return res.status(404).json({ error: 'Контакт не найден. Добавьте его через поиск.' });
+        }
+        await prisma.contact.update({
+            where: { userId_contactId: { userId, contactId } },
+            data: { hidden: false },
+        });
+        res.json({ success: true, hidden: false });
+    } catch (error) {
+        console.error('❌ Ошибка возврата контакта:', error);
+        res.status(500).json({ error: 'Не удалось вернуть контакт' });
     }
 };
 
@@ -243,16 +276,18 @@ const searchUsers = async (req, res) => {
             take: 20
         });
 
-        const contactIds = await prisma.contact.findMany({
+        const contactRows = await prisma.contact.findMany({
             where: { userId },
-            select: { contactId: true }
+            select: { contactId: true, hidden: true }
         });
 
-        const contactIdSet = new Set(contactIds.map(c => c.contactId));
+        const visibleIds = new Set(contactRows.filter((c) => !c.hidden).map((c) => c.contactId));
+        const hiddenIds = new Set(contactRows.filter((c) => c.hidden).map((c) => c.contactId));
 
         const result = users.map(user => ({
             ...user,
-            isContact: contactIdSet.has(user.id)
+            isContact: visibleIds.has(user.id),
+            isHidden: hiddenIds.has(user.id),
         }));
 
         console.log('🔍 [server] Найдено пользователей:', result.length);
@@ -267,5 +302,6 @@ module.exports = {
     getContacts,
     addContact,
     deleteContact,
+    unhideContact,
     searchUsers
 };

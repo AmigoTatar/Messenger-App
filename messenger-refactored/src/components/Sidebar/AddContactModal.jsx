@@ -7,7 +7,7 @@ export default function AddContactModal({ isOpen, onClose, onSearch, onAdd, exis
     const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(false);
     const [adding, setAdding] = useState(null);
-    const [searched, setSearched] = useState(false); // ← НОВОЕ
+    const [searched, setSearched] = useState(false);
 
     // Сброс при закрытии
     useEffect(() => {
@@ -45,10 +45,6 @@ export default function AddContactModal({ isOpen, onClose, onSearch, onAdd, exis
         } finally {
             setAdding(null);
         }
-    };
-
-    const isContact = (userId) => {
-        return existingContacts?.some(c => c.id === userId);
     };
 
     return (
@@ -106,7 +102,8 @@ export default function AddContactModal({ isOpen, onClose, onSearch, onAdd, exis
                         )}
 
                         {results.map((user) => {
-                            const alreadyContact = isContact(user.id);
+                            const alreadyContact = user.isContact;
+                            const isHidden = user.isHidden;
                             return (
                                 <div
                                     key={user.id}
@@ -140,6 +137,8 @@ export default function AddContactModal({ isOpen, onClose, onSearch, onAdd, exis
                                             <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                         ) : alreadyContact ? (
                                             '✅ В контактах'
+                                        ) : isHidden ? (
+                                            'Вернуть'
                                         ) : (
                                             '➕ Добавить'
                                         )}

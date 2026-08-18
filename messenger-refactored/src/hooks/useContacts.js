@@ -25,8 +25,8 @@ const addContact = useCallback(async (contactId) => {
             body: JSON.stringify({ contactId }),
         });
         setContacts(prev => {
-            if (prev.some(c => c.id === newContact.id)) return prev;
-            return [...prev, newContact];
+            const without = prev.filter(c => c.id !== newContact.id);
+            return [...without, { ...newContact, hidden: false }];
         });
         return newContact;
     } catch (err) {
@@ -40,9 +40,25 @@ const addContact = useCallback(async (contactId) => {
             await apiClient(`/api/contacts/${contactId}`, {
                 method: 'DELETE',
             });
-            setContacts(prev => prev.filter(c => c.id !== contactId));
+            setContacts(prev => prev.map((c) => (
+                c.id === contactId ? { ...c, hidden: true } : c
+            )));
         } catch (err) {
             console.error('Ошибка удаления контакта:', err);
+            throw err;
+        }
+    }, []);
+
+    const unhideContact = useCallback(async (contactId) => {
+        try {
+            await apiClient(`/api/contacts/${contactId}/unhide`, {
+                method: 'PATCH',
+            });
+            setContacts(prev => prev.map((c) => (
+                c.id === contactId ? { ...c, hidden: false } : c
+            )));
+        } catch (err) {
+            console.error('Ошибка возврата контакта:', err);
             throw err;
         }
     }, []);
@@ -67,5 +83,5 @@ const addContact = useCallback(async (contactId) => {
         fetchContacts();
     }, [fetchContacts]);
 
-    return { contacts, loading, fetchContacts, addContact, removeContact, searchUsers, setContacts, clearContacts };
+    return { contacts, loading, fetchContacts, addContact, removeContact, unhideContact, searchUsers, setContacts, clearContacts };
 }

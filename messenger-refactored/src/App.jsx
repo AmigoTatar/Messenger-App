@@ -60,7 +60,7 @@ export default function App() {
   // ====== ХУКИ ======
   const { isDarkMode, toggleTheme } = useTheme();
   const { chats, channels, groupChats, addChannel, addGroupChat, removeChannel, removeGroupChat, setChannels, setGroupChats, setChats, reload: reloadChats, loading: chatsLoading, clearChats } = useChats(user);
-  const { contacts, loading: contactsLoading, addContact, removeContact, searchUsers, setContacts, fetchContacts, clearContacts } = useContacts(user);
+  const { contacts, loading: contactsLoading, addContact, removeContact, unhideContact, searchUsers, setContacts, fetchContacts, clearContacts } = useContacts(user);
   const { unreadCounts, fetchUnread, updateUnread, resetUnread, clearUnread } = useUnread(user);
   const { getMessages, addMessage, addMessages, loadHistory, hasMore, loading, markMessageAsRead, deleteMessageLocally, setMessagesByChat, clearMessages } = useMessages(user?.id);
   const { markAsRead, debouncedMarkAsRead } = useMarkAsRead();
@@ -908,6 +908,10 @@ useEffect(() => {
       }}
       onRemoveContact={async (id) => {
         await removeContact(id);
+        setContactsVersion((v) => v + 1);
+      }}
+      onUnhideContact={async (id) => {
+        await unhideContact(id);
         setContactsVersion((v) => v + 1);
       }}
       onSearchUsers={searchUsers}
