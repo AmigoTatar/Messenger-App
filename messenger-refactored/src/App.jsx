@@ -251,19 +251,25 @@ const handleAuthSuccess = (userData, token) => {
   }, [activeChatIdRef, setIsProfileOpen, setActiveChatId, setActiveChatData, removeChannel, removeGroupChat, showToast]);
 
   useEffect(() => {
-    const consumePendingChat = (chatId) => {
+    const consumePendingChat = (chatId, senderId) => {
       if (!chatId) return;
+      const myId = user?.id;
+      let resolved = String(chatId);
+      if (myId && resolved === `user_${myId}` && senderId && String(senderId) !== String(myId)) {
+        resolved = `user_${senderId}`;
+      }
+      if (myId && resolved === `user_${myId}`) return;
       if (user) {
         sessionStorage.removeItem('potok_open_chat');
-        handleSelectChat(chatId);
+        handleSelectChat(resolved);
       } else {
-        sessionStorage.setItem('potok_open_chat', chatId);
+        sessionStorage.setItem('potok_open_chat', resolved);
       }
     };
 
-    const onOpenChat = (e) => consumePendingChat(e.detail?.chatId);
+    const onOpenChat = (e) => consumePendingChat(e.detail?.chatId, e.detail?.senderId);
     const onSwMessage = (e) => {
-      if (e.data?.type === 'OPEN_CHAT') consumePendingChat(e.data.chatId);
+      if (e.data?.type === 'OPEN_CHAT') consumePendingChat(e.data.chatId, e.data.senderId);
     };
 
     window.addEventListener('potok-open-chat', onOpenChat);

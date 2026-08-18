@@ -141,10 +141,16 @@ async function registerNativePush() {
       });
 
       await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-        const data = action?.notification?.data || {};
-        const chatId = data.chatId;
+        const raw = action?.notification?.data || action?.notification || {};
+        const data = typeof raw === 'string' ? (() => { try { return JSON.parse(raw); } catch { return {}; } })() : raw;
+        const tag = String(data.tag || '');
+        const fromTag = tag.startsWith('potok_') ? tag.slice(6) : '';
+        const chatId = data.chatId || data.chat_id || fromTag;
+        const senderId = data.senderId || data.sender_id || '';
         if (chatId) {
-          window.dispatchEvent(new CustomEvent('potok-open-chat', { detail: { chatId: String(chatId) } }));
+          window.dispatchEvent(new CustomEvent('potok-open-chat', {
+            detail: { chatId: String(chatId), senderId: senderId ? String(senderId) : '' },
+          }));
         }
       });
 

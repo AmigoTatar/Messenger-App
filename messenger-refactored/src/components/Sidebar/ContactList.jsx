@@ -42,12 +42,12 @@ export default function ContactList({ contacts, contactsVersion, activeChatId, u
                                 const run = () => onRemoveContact(contact.id);
                                 if (showConfirm) {
                                   showConfirm(
-                                    'Удалить контакт',
-                                    `Удалить ${contact.username} из контактов?`,
-                                    'Удалить',
+                                    'Скрыть контакт',
+                                    `${contact.username} исчезнет из списка. Переписка и уведомления сохранятся.`,
+                                    'Скрыть',
                                     run
                                   );
-                                } else if (window.confirm(`Удалить ${contact.username} из контактов?`)) {
+                                } else if (window.confirm(`Скрыть ${contact.username} из контактов?`)) {
                                   run();
                                 }
                               }

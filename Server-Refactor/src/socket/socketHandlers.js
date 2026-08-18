@@ -149,12 +149,17 @@ try {
     const { sendPush } = require('../services/pushService');
     const senderName = savedMessage.sender?.username || 'Пользователь';
     const messageText = text || (mediaType === 'image' ? '📷 Фото' : '📎 Файл');
-    const pushChatId = activeChatId || (receiverId ? `user_${receiverId}` : chatId ? `chat_${chatId}` : channelId ? `channel_${channelId}` : 'potok');
+    // В привате у каждого свой id: получатель открывает чат с отправителем (user_${senderId}).
+    // activeChatId отправителя = user_${receiverId} — это чат «с самим собой» у получателя.
+    const pushChatId = receiverId
+        ? `user_${senderId}`
+        : (activeChatId || (chatId ? `chat_${chatId}` : channelId ? `channel_${channelId}` : 'potok'));
     const frontend = (!process.env.FRONTEND_URL || /localhost|127\.0\.0\.1/i.test(process.env.FRONTEND_URL))
         ? 'https://potokmessenger.ru'
         : String(process.env.FRONTEND_URL).replace(/\/$/, '');
     const pushMeta = {
         chatId: pushChatId,
+        senderId: String(senderId),
         tag: `potok_${pushChatId}`,
         url: `${frontend}/?chat=${encodeURIComponent(pushChatId)}`,
         messageId: String(savedMessage.id),

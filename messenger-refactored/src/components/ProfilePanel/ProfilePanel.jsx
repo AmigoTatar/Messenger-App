@@ -487,13 +487,13 @@ const openEditModal = () => {
 
 
   return (
-    <div className="w-80 h-full border-l flex flex-col animate-fade-in fixed right-0 top-0 z-50 md:relative md:z-0 shadow-2xl md:shadow-none bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800">
+    <div className="w-full sm:w-80 h-full border-l flex flex-col animate-fade-in fixed right-0 top-0 bottom-0 z-50 md:relative md:z-0 md:inset-auto shadow-2xl md:shadow-none bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 pt-[calc(env(safe-area-inset-top,0px)+12px)] pb-[calc(env(safe-area-inset-bottom,0px)+40px)] md:pt-0 md:pb-0">
       <div className="p-4 border-b flex items-center justify-between border-zinc-200 dark:border-zinc-800 bg-white/40 dark:bg-zinc-950/40">
         <h3 className="font-semibold text-sm text-zinc-800 dark:text-zinc-200">Информация</h3>
         <button onClick={onClose} className="p-1.5 rounded-lg transition text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white dark:hover:bg-zinc-800">✕</button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-5 space-y-6 no-scrollbar text-zinc-800 dark:text-zinc-200">
+      <div className="flex-1 overflow-y-auto p-5 pb-8 space-y-6 no-scrollbar text-zinc-800 dark:text-zinc-200">
         
         <div className="flex flex-col items-center text-center space-y-3">
   <Avatar
