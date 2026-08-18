@@ -1,5 +1,5 @@
 
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import Avatar, { SafeImage } from '../Avatar';
 import DOMPurify from 'dompurify';
 
@@ -11,6 +11,12 @@ export default function MessageItem({
 }) {
   const longPressTimer = useRef(null);
   const [previewSrc, setPreviewSrc] = useState(null);
+  const [zoom, setZoom] = useState(1);
+  const pinchRef = useRef({ dist: 0, startZoom: 1 });
+
+  useEffect(() => {
+    if (previewSrc) setZoom(1);
+  }, [previewSrc]);
 
   if (!msg || typeof msg !== 'object') {
     return (
@@ -210,7 +216,55 @@ return (
           role="button"
           tabIndex={0}
         >
-          <img src={previewSrc} alt="" className="max-w-full max-h-full object-contain" />
+          <div
+            className="relative max-w-full max-h-full"
+            onClick={(e) => e.stopPropagation()}
+            onTouchStart={(e) => {
+              if (e.touches.length === 2) {
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                pinchRef.current = { dist: Math.hypot(dx, dy), startZoom: zoom };
+              }
+            }}
+            onTouchMove={(e) => {
+              if (e.touches.length !== 2 || !pinchRef.current.dist) return;
+              const dx = e.touches[0].clientX - e.touches[1].clientX;
+              const dy = e.touches[0].clientY - e.touches[1].clientY;
+              const scale = Math.hypot(dx, dy) / pinchRef.current.dist;
+              setZoom(Math.min(3, Math.max(1, pinchRef.current.startZoom * scale)));
+            }}
+          >
+            <img
+              src={previewSrc}
+              alt=""
+              className="max-w-full max-h-[85vh] object-contain select-none"
+              style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
+              draggable={false}
+            />
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setZoom((z) => Math.max(1, Number((z - 0.4).toFixed(1))))}
+                className="w-10 h-10 rounded-full bg-white/20 text-white text-xl"
+              >
+                −
+              </button>
+              <button
+                type="button"
+                onClick={() => setZoom(1)}
+                className="px-3 h-10 rounded-full bg-white/20 text-white text-xs"
+              >
+                {Math.round(zoom * 100)}%
+              </button>
+              <button
+                type="button"
+                onClick={() => setZoom((z) => Math.min(3, Number((z + 0.4).toFixed(1))))}
+                className="w-10 h-10 rounded-full bg-white/20 text-white text-xl"
+              >
+                +
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

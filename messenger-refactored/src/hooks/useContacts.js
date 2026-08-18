@@ -4,16 +4,17 @@ import { apiClient } from '../services/apiClient';
 export function useContacts(user) {
     const [contacts, setContacts] = useState([]);
     const [loading, setLoading] = useState(true);
-    const fetchContacts = useCallback(async () => {
+    const fetchContacts = useCallback(async (options = {}) => {
         if (!user) return;
-        setLoading(true);
+        const silent = options.silent === true;
+        if (!silent) setLoading(true);
         try {
             const data = await apiClient('/api/contacts');
             setContacts(data);
         } catch (err) {
             console.error('Ошибка загрузки контактов:', err);
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, [user]);
 

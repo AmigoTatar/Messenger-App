@@ -1,6 +1,7 @@
 const prisma = require('../lib/prisma');
 const path = require('path');
 const fs = require('fs');
+const { containsBadWord } = require('../utils/badWords');
 
 //  Получить список всех пользователей (кроме себя)
 const getUsers = async (req, res) => {
@@ -70,6 +71,12 @@ const updateProfile = async (req, res) => {
         if (!username || username.trim().length < 3) {
             return res.status(400).json({
                 error: 'Имя должно содержать минимум 3 символа'
+            });
+        }
+
+        if (containsBadWord(username.trim())) {
+            return res.status(400).json({
+                error: 'Имя содержит недопустимые слова. Выберите другой никнейм'
             });
         }
 

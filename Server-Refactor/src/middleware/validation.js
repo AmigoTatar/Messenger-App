@@ -1,5 +1,7 @@
 
 
+const { containsBadWord } = require('../utils/badWords');
+
 // Валидация регистрации
 function validateRegister(req, res, next) {
     const { username, email, password } = req.body;
@@ -8,6 +10,8 @@ function validateRegister(req, res, next) {
 
     if (!username || username.length < 3) {
         errors.push('Имя пользователя должно содержать минимум 3 символа');
+    } else if (containsBadWord(username)) {
+        errors.push('Имя содержит недопустимые слова. Выберите другой никнейм');
     }
 
     if (!email || !email.includes('@') || !email.includes('.')) {
@@ -110,6 +114,10 @@ function validateProfile(req, res, next) {
 
     if (username.trim().length > 50) {
         return res.status(400).json({ error: 'Имя слишком длинное (максимум 50 символов)' });
+    }
+
+    if (containsBadWord(username.trim())) {
+        return res.status(400).json({ error: 'Имя содержит недопустимые слова. Выберите другой никнейм' });
     }
 
     next();

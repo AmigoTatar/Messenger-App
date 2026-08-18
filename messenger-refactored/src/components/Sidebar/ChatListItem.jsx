@@ -11,13 +11,19 @@ export default function ChatListItem({
   isOnline,
   isMuted,
   onClick,
+  onDelete,
   formatMsgTime,
   type, // 'private', 'channel', 'group'
 }) {
   return (
-    <button
+    <div
       onClick={onClick}
-      className={`w-full flex items-center p-3 rounded-xl transition-all select-none text-left ${
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') onClick?.(e);
+      }}
+      className={`w-full flex items-center p-3 rounded-xl transition-all select-none text-left cursor-pointer ${
         isActive
           ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-400 border border-emerald-100/50 dark:border-emerald-900/30'
           : 'hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-300'
@@ -72,6 +78,19 @@ export default function ChatListItem({
           )}
         </div>
       </div>
-    </button>
+      {onDelete && (
+        <button
+          type="button"
+          title="Удалить контакт"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          className="ml-1 p-1.5 text-zinc-400 hover:text-red-500 rounded-lg shrink-0"
+        >
+          🗑
+        </button>
+      )}
+    </div>
   );
 }

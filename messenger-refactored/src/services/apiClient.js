@@ -25,7 +25,14 @@ export const apiClient = async (endpoint, options = {}) => {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.error || `HTTP ${response.status}`);
+    const message = error.error || `HTTP ${response.status}`;
+    if (
+      response.status === 401 ||
+      (response.status === 403 && /токен/i.test(message))
+    ) {
+      window.dispatchEvent(new CustomEvent('potok-auth-expired', { detail: { message } }));
+    }
+    throw new Error(message);
   }
   return response.json();
 };

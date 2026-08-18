@@ -1,5 +1,8 @@
 const sendResetEmail = async (email, token) => {
-    const frontend = (process.env.FRONTEND_URL || 'https://potokmessenger.ru').replace(/\/$/, '');
+    const raw = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
+    const frontend = (!raw || /localhost|127\.0\.0\.1/i.test(raw))
+        ? 'https://potokmessenger.ru'
+        : raw;
     const resetLink = `${frontend}/reset-password?token=${token}`;
 
     const html = `

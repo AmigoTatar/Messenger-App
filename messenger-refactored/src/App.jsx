@@ -210,6 +210,107 @@ const handleAuthSuccess = (userData, token) => {
     );
   }, [resetSessionState, rawHandleLogout, showConfirm]);
 
+  useEffect(() => {
+    const onExpired = () => {
+      if (!localStorage.getItem('token')) return;
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      if (socket) socket.disconnect();
+      resetSessionState();
+      setUser(null);
+      showToast('Сессия истекла. Войдите снова', 'error');
+    };
+    window.addEventListener('potok-auth-expired', onExpired);
+    return () => window.removeEventListener('potok-auth-expired', onExpired);
+  }, [socket, resetSessionState, setUser, showToast]);
+
+  useEffect(() => {
+    let last = { chatId: null, at: 0 };
+    const onForbidden = (e) => {
+      const chatId = e.detail?.chatId;
+      if (!chatId || activeChatIdRef.current !== chatId) return;
+      const now = Date.now();
+      if (last.chatId === chatId && now - last.at < 2000) return;
+      last = { chatId, at: now };
+      setIsProfileOpen(false);
+      setActiveChatId(null);
+      setActiveChatData(null);
+      activeChatIdRef.current = null;
+      if (chatId.startsWith('channel_')) {
+        const numeric = Number(chatId.replace('channel_', ''));
+        removeChannel(numeric);
+        removeChannel(chatId);
+      } else if (chatId.startsWith('chat_')) {
+        const numeric = Number(chatId.replace('chat_', ''));
+        removeGroupChat(numeric);
+      }
+      showToast(e.detail?.message || 'Нет доступа к этому чату', 'error');
+    };
+    window.addEventListener('potok-chat-forbidden', onForbidden);
+    return () => window.removeEventListener('potok-chat-forbidden', onForbidden);
+  }, [activeChatIdRef, setIsProfileOpen, setActiveChatId, setActiveChatData, removeChannel, removeGroupChat, showToast]);
+
+  useEffect(() => {
+    const consumePendingChat = (chatId) => {
+      if (!chatId) return;
+      if (user) {
+        sessionStorage.removeItem('potok_open_chat');
+        handleSelectChat(chatId);
+      } else {
+        sessionStorage.setItem('potok_open_chat', chatId);
+      }
+    };
+
+    const onOpenChat = (e) => consumePendingChat(e.detail?.chatId);
+    const onSwMessage = (e) => {
+      if (e.data?.type === 'OPEN_CHAT') consumePendingChat(e.data.chatId);
+    };
+
+    window.addEventListener('potok-open-chat', onOpenChat);
+    navigator.serviceWorker?.addEventListener('message', onSwMessage);
+    return () => {
+      window.removeEventListener('potok-open-chat', onOpenChat);
+      navigator.serviceWorker?.removeEventListener('message', onSwMessage);
+    };
+  }, [user, handleSelectChat]);
+
+  useEffect(() => {
+    if (!user) return;
+    const fromQuery = new URLSearchParams(window.location.search).get('chat');
+    const pending = sessionStorage.getItem('potok_open_chat') || fromQuery;
+    if (!pending) return;
+    sessionStorage.removeItem('potok_open_chat');
+    handleSelectChat(pending);
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('chat')) {
+      url.searchParams.delete('chat');
+      window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+    }
+    // только при появлении сессии, иначе handleSelectChat в deps заново откроет чат
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user) return undefined;
+    let lastAt = 0;
+    const refresh = () => {
+      if (document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (now - lastAt < 1500) return;
+      lastAt = now;
+      reloadChats({ silent: true });
+      fetchContacts({ silent: true });
+      const id = activeChatIdRef.current;
+      if (id) loadHistory(id);
+    };
+    document.addEventListener('visibilitychange', refresh);
+    window.addEventListener('focus', refresh);
+    return () => {
+      document.removeEventListener('visibilitychange', refresh);
+      window.removeEventListener('focus', refresh);
+    };
+  }, [user, reloadChats, fetchContacts, loadHistory, activeChatIdRef]);
+
   // ====== НАВИГАЦИЯ НАЗАД (веб-стрелка / Escape / Android back) ======
   const closeActiveChat = useCallback(() => {
     setIsProfileOpen(false);
@@ -805,6 +906,7 @@ useEffect(() => {
       }}
       onSearchUsers={searchUsers}
       contactsVersion={contactsVersion}
+      showConfirm={showConfirm}
     />
   </div>
 

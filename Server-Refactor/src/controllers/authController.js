@@ -1,3 +1,4 @@
+const { containsBadWord } = require('../utils/badWords');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../lib/prisma');
@@ -22,6 +23,12 @@ const register = async (req, res) => {
         if (trimmedUsername.length < 3) {
             return res.status(400).json({
                 error: 'Имя пользователя должно содержать минимум 3 символа'
+            });
+        }
+
+        if (containsBadWord(trimmedUsername)) {
+            return res.status(400).json({
+                error: 'Имя содержит недопустимые слова. Выберите другой никнейм'
             });
         }
 

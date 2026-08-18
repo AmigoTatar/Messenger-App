@@ -66,6 +66,10 @@ export function useMessages(currentUserId) {
             }
             setHasMore(prev => ({ ...prev, [chatId]: data.hasMore || false }));
         } catch (err) {
+            const msg = err?.message || '';
+            if (/не участник|нет доступа|запрещен|Forbidden/i.test(msg) && !/токен/i.test(msg)) {
+                window.dispatchEvent(new CustomEvent('potok-chat-forbidden', { detail: { chatId, message: msg } }));
+            }
             console.error('Error loading history:', err);
         } finally {
             loadingRef.current[chatId] = false;

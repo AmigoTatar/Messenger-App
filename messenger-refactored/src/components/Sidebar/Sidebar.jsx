@@ -39,6 +39,7 @@ export default function Sidebar({
   onSearchUsers,
   contactsVersion,
   onlineUserIds,
+  showConfirm,
 }) {
   const [isNewChannelOpen, setIsNewChannelOpen] = useState(false);
   const [isNewGroupOpen, setIsNewGroupOpen] = useState(false);
@@ -141,6 +142,8 @@ const filteredGroups = groupChats
     activeChatId={activeChatId}
     unreadCounts={unreadCounts}
     onSelectChat={onSelectChat}
+    onRemoveContact={onRemoveContact}
+    showConfirm={showConfirm}
     formatMsgTime={formatMsgTime}
     onlineUserIds={onlineUserIds}
           />

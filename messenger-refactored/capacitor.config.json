@@ -6,6 +6,11 @@
   "plugins": {
     "CapacitorHttp": {
       "enabled": false
+    },
+    "StatusBar": {
+      "overlaysWebView": false,
+      "style": "DARK",
+      "backgroundColor": "#18181b"
     }
   }
 }

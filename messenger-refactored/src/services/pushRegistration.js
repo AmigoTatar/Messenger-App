@@ -140,6 +140,14 @@ async function registerNativePush() {
         console.error('❌ [PUSH][APK] registrationError:', err);
       });
 
+      await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+        const data = action?.notification?.data || {};
+        const chatId = data.chatId;
+        if (chatId) {
+          window.dispatchEvent(new CustomEvent('potok-open-chat', { detail: { chatId: String(chatId) } }));
+        }
+      });
+
       listenersAttached = true;
     }
 

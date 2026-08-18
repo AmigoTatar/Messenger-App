@@ -3,12 +3,17 @@ import { API_BASE_URL } from '../../config';
 import Avatar from '../Avatar';
 import LoadingSpinner from '../LoadingSpinner';
 
-export default function JoinRequestsPanel({ channelId, currentUserId, showToast, onRequestHandled }) {
+export default function JoinRequestsPanel({ channelId, currentUserId, showToast, onRequestHandled, socketRef }) {
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [processing, setProcessing] = useState(null);
 
     const fetchRequests = async () => {
+        if (!channelId) {
+            setRequests([]);
+            setLoading(false);
+            return;
+        }
         try {
             const token = localStorage.getItem('token');
             const response = await fetch(
@@ -34,6 +39,23 @@ export default function JoinRequestsPanel({ channelId, currentUserId, showToast,
     useEffect(() => {
         fetchRequests();
     }, [channelId]);
+
+    useEffect(() => {
+        if (!socketRef?.on || !channelId) return undefined;
+        const onNew = (data) => {
+            if (Number(data.channelId) !== Number(channelId)) return;
+            if (data.request) {
+                setRequests((prev) => {
+                    if (prev.some((r) => r.id === data.request.id)) return prev;
+                    return [data.request, ...prev];
+                });
+                return;
+            }
+            fetchRequests();
+        };
+        socketRef.on('join_request_received', onNew);
+        return () => socketRef.off('join_request_received', onNew);
+    }, [socketRef, channelId]);
 
     const handleApprove = async (requestId) => {
         setProcessing(requestId);

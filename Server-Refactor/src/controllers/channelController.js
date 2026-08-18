@@ -347,9 +347,12 @@ const removeChannelMember = async (req, res) => {
             if (!member) {
                 return res.status(404).json({ error: 'Вы не участник канала' });
             }
-            await prisma.channelMember.delete({
-                where: { channelId_userId: { channelId, userId } }
-            });
+        await prisma.channelMember.delete({
+            where: { channelId_userId: { channelId, userId } }
+        });
+        await prisma.joinRequest.deleteMany({
+            where: { channelId, userId },
+        });
             const io = req.app.get('io');
             io.to(`channel_${channelId}`).emit('channel_member_removed', {
                 channelId,
@@ -385,6 +388,9 @@ const removeChannelMember = async (req, res) => {
 
         await prisma.channelMember.delete({
             where: { channelId_userId: { channelId, userId } }
+        });
+        await prisma.joinRequest.deleteMany({
+            where: { channelId, userId },
         });
 
         const io = req.app.get('io');
@@ -488,13 +494,11 @@ const createJoinRequest = async (req, res) => {
         });
 
         if (existingRequest) {
-            // Если заявка уже одобрена
             if (existingRequest.status === 'approved') {
-                return res.status(400).json({ error: 'Вы уже участник канала' });
-            }
-            
-            // Если заявка отклонена — проверяем время
-            if (existingRequest.status === 'rejected') {
+                await prisma.joinRequest.delete({
+                    where: { id: existingRequest.id }
+                });
+            } else if (existingRequest.status === 'rejected') {
                 const now = new Date();
                 const createdAt = new Date(existingRequest.createdAt);
                 const diffMinutes = (now - createdAt) / (1000 * 60);

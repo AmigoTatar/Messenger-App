@@ -1,7 +1,7 @@
 import React from 'react';
 import ChatListItem from './ChatListItem';
 
-export default function ContactList({ contacts, contactsVersion, activeChatId, unreadCounts, onSelectChat, formatMsgTime, onlineUserIds }) {
+export default function ContactList({ contacts, contactsVersion, activeChatId, unreadCounts, onSelectChat, formatMsgTime, onlineUserIds, onRemoveContact, showConfirm }) {
  /*console.log(' ContactList: contacts for render:', JSON.stringify(contacts.map(c => ({ 
     id: c.id, 
     name: c.username, 
@@ -36,6 +36,23 @@ export default function ContactList({ contacts, contactsVersion, activeChatId, u
                         isOnline={onlineUserIds instanceof Set ? onlineUserIds.has(Number(contact.id)) : false}
                         isMuted={contact.muted}
                         onClick={() => onSelectChat(chatId)}
+                        onDelete={
+                          onRemoveContact
+                            ? () => {
+                                const run = () => onRemoveContact(contact.id);
+                                if (showConfirm) {
+                                  showConfirm(
+                                    'Удалить контакт',
+                                    `Удалить ${contact.username} из контактов?`,
+                                    'Удалить',
+                                    run
+                                  );
+                                } else if (window.confirm(`Удалить ${contact.username} из контактов?`)) {
+                                  run();
+                                }
+                              }
+                            : undefined
+                        }
                         formatMsgTime={formatMsgTime}
                         type="private"
                     />

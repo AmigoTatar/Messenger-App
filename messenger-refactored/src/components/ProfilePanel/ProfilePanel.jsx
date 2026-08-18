@@ -757,6 +757,7 @@ const openEditModal = () => {
             channelId={getNumericId(activeChat.id)}
             currentUserId={currentUserId}
             showToast={showToast}
+            socketRef={socketRef}
             onRequestHandled={() => {
               fetchMembers();
             }}

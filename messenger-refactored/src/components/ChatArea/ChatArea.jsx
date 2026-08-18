@@ -233,6 +233,12 @@ const fetchPinnedMessages = useCallback(async () => {
     const response = await fetch(`${API_BASE_URL}/api/messages/pinned?${params}`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
+    if (response.status === 403) {
+      window.dispatchEvent(new CustomEvent('potok-chat-forbidden', {
+        detail: { chatId: activeChatId, message: 'Нет доступа к этому чату' },
+      }));
+      return;
+    }
     if (response.ok) {
       const data = await response.json();
       setPinnedMessages(data);
@@ -458,7 +464,7 @@ const handleBack = useCallback(() => {
   setActiveChatId?.(null);
 }, [onBack, setActiveChatId]);
 
-if (isHistoryLoading) {
+if (isHistoryLoading && (!messages || messages.length === 0)) {
   return (
     <div className="flex flex-col flex-1 h-full bg-zinc-100 dark:bg-zinc-900">
       <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center bg-zinc-50 dark:bg-zinc-950/40">

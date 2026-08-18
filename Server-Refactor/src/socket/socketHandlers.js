@@ -150,10 +150,13 @@ try {
     const senderName = savedMessage.sender?.username || 'Пользователь';
     const messageText = text || (mediaType === 'image' ? '📷 Фото' : '📎 Файл');
     const pushChatId = activeChatId || (receiverId ? `user_${receiverId}` : chatId ? `chat_${chatId}` : channelId ? `channel_${channelId}` : 'potok');
+    const frontend = (!process.env.FRONTEND_URL || /localhost|127\.0\.0\.1/i.test(process.env.FRONTEND_URL))
+        ? 'https://potokmessenger.ru'
+        : String(process.env.FRONTEND_URL).replace(/\/$/, '');
     const pushMeta = {
         chatId: pushChatId,
         tag: `potok_${pushChatId}`,
-        url: '/',
+        url: `${frontend}/?chat=${encodeURIComponent(pushChatId)}`,
         messageId: String(savedMessage.id),
     };
 

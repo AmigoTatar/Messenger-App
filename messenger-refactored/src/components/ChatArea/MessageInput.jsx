@@ -27,6 +27,10 @@ export default function MessageInput({
   const timerRef = useRef(null);
   const streamRef = useRef(null);
   const useNativeRecorderRef = useRef(false);
+  const discardRecordingRef = useRef(false);
+  const [showEmojis, setShowEmojis] = useState(false);
+
+  const QUICK_EMOJIS = ['😀', '😂', '😍', '😘', '😎', '😭', '👍', '❤️', '🔥', '🎉', '👏', '🙏'];
 
   useEffect(() => {
     if (isRecording) {
@@ -108,48 +112,55 @@ export default function MessageInput({
 
   const [uploading, setUploading] = useState(false);
 
-  const handleFileChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      showToast('Пожалуйста, выберите изображение');
-      e.target.value = '';
-      return;
-    }
-    if (file.size > 20 * 1024 * 1024) {
-      showToast('Файл слишком большой. Максимум 20 МБ', 'error');
-      e.target.value = '';
-      return;
-    }
+  const uploadImageFile = async (file) => {
     const formData = new FormData();
     formData.append('file', file);
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_BASE_URL}/api/upload`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+    if (!response.ok) {
+      let details = '';
+      try {
+        const errBody = await response.json();
+        details = errBody.details || errBody.error || '';
+      } catch (_) {}
+      throw new Error(details || `Ошибка загрузки (${response.status})`);
+    }
+    const data = await response.json();
+    return data.fileUrl.startsWith('http')
+      ? data.fileUrl
+      : `${apiBaseUrl}${data.fileUrl}`;
+  };
+
+  const handleFileChange = async (e) => {
+    const picked = Array.from(e.target.files || []).filter((f) => f.type.startsWith('image/'));
+    e.target.value = '';
+    if (picked.length === 0) {
+      showToast('Пожалуйста, выберите изображение');
+      return;
+    }
+    if (picked.length > 5) {
+      showToast('Можно отправить не больше 5 фото за раз', 'info');
+    }
+    const files = picked.slice(0, 5);
     setUploading(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/api/upload`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-      if (!response.ok) {
-        let details = '';
-        try {
-          const errBody = await response.json();
-          details = errBody.details || errBody.error || '';
-        } catch (_) {}
-        throw new Error(details || `Ошибка загрузки (${response.status})`);
+      for (const file of files) {
+        if (file.size > 20 * 1024 * 1024) {
+          showToast(`${file.name}: максимум 20 МБ`, 'error');
+          continue;
+        }
+        const fileUrl = await uploadImageFile(file);
+        sendMessage(null, fileUrl, 'image');
       }
-      const data = await response.json();
-      const fileUrl = data.fileUrl.startsWith('http')
-        ? data.fileUrl
-        : `${apiBaseUrl}${data.fileUrl}`;
-      sendMessage(null, fileUrl, 'image');
     } catch (err) {
       console.error(err);
       showToast(err.message || 'Не удалось отправить изображение');
     } finally {
       setUploading(false);
-      e.target.value = '';
     }
   };
 
@@ -175,6 +186,11 @@ export default function MessageInput({
     };
     mediaRecorderRef.current.onstop = async () => {
       try {
+        if (discardRecordingRef.current) {
+          discardRecordingRef.current = false;
+          audioChunksRef.current = [];
+          return;
+        }
         const type = mediaRecorderRef.current?.mimeType || 'audio/webm';
         const blob = new Blob(audioChunksRef.current, { type });
         const ext = type.includes('mp4') ? 'm4a' : 'webm';
@@ -204,6 +220,7 @@ export default function MessageInput({
 
   const startRecording = async () => {
     try {
+      discardRecordingRef.current = false;
       // Live-reload по http://IP — mediaDevices нет; на APK используем нативный плагин
       useNativeRecorderRef.current =
         isNativeApp || Capacitor.isNativePlatform();
@@ -219,6 +236,11 @@ export default function MessageInput({
       showToast('Микрофон недоступен: ' + (err?.message || String(err)));
       setIsRecording(false);
     }
+  };
+
+  const stopStreamTracks = () => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
   };
 
   const stopRecording = async () => {
@@ -243,6 +265,28 @@ export default function MessageInput({
     } catch (err) {
       console.error('stopRecording:', err);
       showToast('Не удалось отправить аудио: ' + (err?.message || String(err)));
+    }
+  };
+
+  const cancelRecording = async () => {
+    if (!isRecording) return;
+    setIsRecording(false);
+    discardRecordingRef.current = true;
+    try {
+      if (useNativeRecorderRef.current) {
+        try {
+          await VoiceRecorder.stopRecording();
+        } catch {
+          /* запись могла уже остановиться */
+        }
+      } else if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+    } catch (err) {
+      console.warn('cancelRecording:', err);
+    } finally {
+      audioChunksRef.current = [];
+      stopStreamTracks();
     }
   };
 
@@ -282,36 +326,65 @@ export default function MessageInput({
 
       <form
         onSubmit={handleSubmit}
-        className="p-4 bg-zinc-50 dark:bg-zinc-950/40 border-t border-zinc-200 dark:border-zinc-800 flex gap-2 items-center shrink-0"
+        className="p-4 bg-zinc-50 dark:bg-zinc-950/40 border-t border-zinc-200 dark:border-zinc-800 flex flex-col gap-2 shrink-0"
       >
+        {showEmojis && !isRecording && (
+          <div className="flex flex-wrap gap-1 px-1">
+            {QUICK_EMOJIS.map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                onClick={() => setInputValue((prev) => prev + emoji)}
+                className="text-lg p-1 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 transition"
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="flex gap-2 items-center">
         <input
           type="file"
           ref={fileInputRef}
           onChange={handleFileChange}
           accept="image/*"
+          multiple
           className="hidden"
         />
 
         {!isRecording && (
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="p-2 text-zinc-400 hover:text-emerald-500 rounded-xl transition active:scale-95 disabled:opacity-50"
-          >
-            {uploading ? (
-              <span className="inline-block w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-            ) : (
-              '📎'
-            )}
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="p-2 text-zinc-400 hover:text-emerald-500 rounded-xl transition active:scale-95 disabled:opacity-50"
+              title="Прикрепить фото"
+            >
+              {uploading ? (
+                <span className="inline-block w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                '📎'
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowEmojis((v) => !v)}
+              className={`p-2 rounded-xl transition active:scale-95 ${
+                showEmojis ? 'text-emerald-500' : 'text-zinc-400 hover:text-emerald-500'
+              }`}
+              title="Смайлы"
+            >
+              😊
+            </button>
+          </>
         )}
 
         {isRecording ? (
-          <div className="flex-1 bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl px-4 py-2.5 text-sm flex items-center justify-between font-medium animate-pulse">
+          <div className="flex-1 bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl px-4 py-2.5 text-sm flex items-center justify-between font-medium">
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-              <span>Запись голосового сообщения...</span>
+              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+              <span>Запись...</span>
             </div>
             <span>{formatTime(recordingTime)}</span>
           </div>
@@ -333,17 +406,33 @@ export default function MessageInput({
           />
         )}
 
-        {inputValue.trim() === '' ? (
+        {isRecording ? (
+          <>
+            <button
+              type="button"
+              onClick={cancelRecording}
+              className="p-2.5 rounded-xl text-sm font-medium transition active:scale-95 bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:text-red-500"
+              title="Отменить запись"
+            >
+              ✕
+            </button>
+            <button
+              type="button"
+              onClick={stopRecording}
+              className="p-2.5 rounded-xl text-sm font-medium transition active:scale-95 shadow-md bg-emerald-600 text-white hover:bg-emerald-500"
+              title="Отправить голосовое"
+            >
+              ➤
+            </button>
+          </>
+        ) : inputValue.trim() === '' ? (
           <button
             type="button"
-            onClick={isRecording ? stopRecording : startRecording}
-            className={`p-2.5 rounded-xl text-sm font-medium transition active:scale-95 shadow-md flex items-center justify-center ${
-              isRecording
-                ? 'bg-red-600 text-white hover:bg-red-500'
-                : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-emerald-500 dark:hover:text-emerald-400'
-            }`}
+            onClick={startRecording}
+            className="p-2.5 rounded-xl text-sm font-medium transition active:scale-95 shadow-md flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-emerald-500 dark:hover:text-emerald-400"
+            title="Голосовое сообщение"
           >
-            {isRecording ? '⏹️' : '🎙️'}
+            🎤
           </button>
         ) : (
           <button
@@ -353,6 +442,7 @@ export default function MessageInput({
             Отправить
           </button>
         )}
+        </div>
       </form>
     </>
   );

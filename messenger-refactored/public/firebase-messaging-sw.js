@@ -40,13 +40,21 @@ messaging.onBackgroundMessage((payload) => {
 
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
-    const urlToOpen = event.notification.data?.url || '/';
+    const data = event.notification.data || {};
+    const chatId = data.chatId || '';
+    let urlToOpen = data.url || '/';
+    try {
+        const u = new URL(urlToOpen, self.location.origin);
+        if (chatId) u.searchParams.set('chat', chatId);
+        urlToOpen = u.pathname + u.search;
+    } catch {
+        if (chatId) urlToOpen = `/?chat=${encodeURIComponent(chatId)}`;
+    }
     event.waitUntil(
-        clients.matchAll({ type: 'window' }).then((windowClients) => {
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
             for (const client of windowClients) {
-                if ('focus' in client) {
-                    return client.focus();
-                }
+                if (chatId) client.postMessage({ type: 'OPEN_CHAT', chatId });
+                if ('focus' in client) return client.focus();
             }
             if (clients.openWindow) {
                 return clients.openWindow(urlToOpen);
