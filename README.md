@@ -4,38 +4,128 @@ Realtime-мессенджер: веб + Android APK (Capacitor), один Node-�
 
 **Прод:** [potokmessenger.ru](https://potokmessenger.ru)  
 **Пакет Android:** `com.potokmessenger.app`  
-**Слепок:** 15 августа 2026. Журнал правок — [`NOTES.md`](NOTES.md), деплой — [`DEPLOY.md`](DEPLOY.md).
+**Слепок:** 18 августа 2026. Журнал — [`NOTES.md`](NOTES.md), деплой — [`DEPLOY.md`](DEPLOY.md).
 
 ---
 
-## Статус
+## Статус (18 авг)
 
-Работает: веб, release APK, сокеты, медиа (S3), голосовые, FCM, каркас RuStore Push, join-requests каналов.
+Веб и текущий APK после сегодняшней заливки в целом живые. Большинство багов из списков 17–18 авг закрыто в коде. Контрольный смоук — завтра (см. ниже).
 
-На проде после заливки этого кода обязательно: `npx prisma migrate deploy`, `npx prisma generate`, рестарт процесса. `DATABASE_URL` только `postgresql://…`.
+На VPS после каждой заливки сервера:
 
-Известный долг — в конце файла.
+```bash
+npx prisma migrate deploy
+npx prisma generate
+# pm2 restart
+```
+
+`JWT_SECRET` не менять. `DATABASE_URL` только `postgresql://…`.  
+`FRONTEND_URL` — **одна** строка `https://potokmessenger.ru` (dotenv берёт первую; дубль с localhost ломал ссылку сброса).
+
+Миграции, которые должны быть на проде:
+
+- `20260817180000_add_user_token_version` — `User.tokenVersion`
+- `20260818220000_add_contact_hidden` — `Contact.hidden`
 
 ---
 
-## Стек (как в репо)
+## Слепок работы 17–18 августа 2026
+
+### Сделано (сервер)
+
+- JWT revoke через `User.tokenVersion` (не RAM). Logout гасит старый токен навсегда.
+- Сброс пароля: Unisender Go API первым, SMTP запасной. `FRONTEND_URL` с localhost/пустой игнорируется → `https://potokmessenger.ru`.
+- Ник при регистрации/профиле: фильтр `badWords` (маты, транслит, leet).
+- Mute: приватный upsert `PrivateChatMember`; FCM/RuStore не шлются, если чат в mute.
+- Логин отдаёт `email` + `avatar`. История сообщений — `sender.avatar`.
+- Свой сокет `user_{self}` больше не режется как «чат с собой».
+- Кик/выход из канала: `JoinRequest` сбрасывается; повторная заявка не врёт «уже участник».
+- Пуш: в data есть `chatId` / `senderId` / url `/?chat=…`. **В личке** получатель открывает `user_{отправитель}`, не «чат с собой».
+- Контакты: скрытие — флаг `hidden` (одностороннее). Переписка и пуши остаются. `PATCH /api/contacts/:id/unhide`.
+
+### Сделано (клиент / APK)
+
+- Удаление группы/канала → главная, не «общий чат».
+- Logout: сначала unregister push, потом revoke JWT (не было 403 на `DELETE /push-token`).
+- Mute в UI: без звука, серый бейдж, 🔕.
+- Онлайн-точка в сайдбаре; в шапке лички «в сети».
+- Пагинация истории не сбрасывает скролл (спиннер только на первой загрузке).
+- Тосты: ник занят / изменён, файл > 20 МБ, сессия истекла.
+- Форма входа: `id` / `name` / `autocomplete` (сохранение логина в APK).
+- Назад APK: модалки → чат → выход. Контекст-меню в чате, не системное iOS.
+- 403 JWT → выход на логин. 403 «не участник» → закрыть чат, тост (не путать с JWT).
+- Заявки в открытом профиле: сокет `join_request_received`. 403/404 не спамят.
+- Возврат на вкладку: reconnect сокета + тихий рефетч чатов/контактов/истории.
+- Клик по пушу открывает чат (SW + Capacitor `pushNotificationActionPerformed`). Лички починены 18 авг.
+- StatusBar: светлые иконки на тёмной теме, тёмные на светлой (`@capacitor/status-bar`).
+- Профиль APK: safe-area — крестик не под батареей, заявки не под системными кнопками.
+- Голос: отмена ✕ без отправки, ➤ отправить, плоская 2D-иконка микрофона.
+- Смайлы в инпуте. До 5 фото за раз + спиннер.
+- Контакт: контекстное меню «Скрыть» / секция «Скрытые» → «Вернуть».
+- Просмотр фото: зум + листание (свайп / стрелки).
+- React #310 в сайдбаре (хуки до early-return).
+
+### Не делали / отложено (следующий спринт)
+
+Не трогать в ближайшем паке: **видео, документы, кнопки в шторке пуша** («Ответить / Прочитано / Удалить») — нативка.
+
+| Тема | Как планируем |
+|------|----------------|
+| Цитата/ответ снизу | как WhatsApp |
+| Комменты канала | отдельная модалка |
+| Галерея | листать уже есть; реакции/комменты в галерее — если тяжело, не тащить |
+| Галочки прочтения в сайдбаре | отдельная задача |
+| Жалобы / мини-админка | кнопка «пожаловаться» + список владельцу, без большой админки |
+| Разговорный динамик | нативный плагин |
+| Блок юзера (не писать) | отдельно от «скрыть» |
+| Свайп обновить | не в чате (ломает пагинацию); если нужно — только список чатов |
+| ИИ-бот (Ollama) | не стартовать, пока смоук и стор |
+
+Пул-ту-рефреш в чате **не добавляли** сознательно.
+
+Контакт, скрытый **старым** DELETE (до миграции `hidden`), в «Скрытых» не появится — вернуть через ➕ поиск один раз.
+
+---
+
+## Контрольный смоук (завтра)
+
+Короткий прогон на **проде** (веб + свежий APK). Старый APK пуш-лички / скрытие / статусбар не отражает.
+
+1. Сброс пароля — ссылка `https://potokmessenger.ru/reset-password?…`, не localhost.
+2. Logout на одном клиенте → второй (веб/APK) через время просит логин, пуш после выхода не приходит.
+3. Mute: нет звука и пуша, бейдж серый, 🔕.
+4. Пуш: личка / группа / канал открывают **этот** чат.
+5. Кик из канала → повторная заявка (не «уже участник»); заявка видна в открытом профиле.
+6. Скрыть контакт → секция «Скрытые» → Вернуть. Пуши от него всё ещё приходят.
+7. Пагинация вверх в длинном чате — не прыгает вниз.
+8. Профиль канала: крестик ниже статусбара, «Принять» заявку можно нажать (не под навбаром).
+9. Голос: запись → ✕ не отправляет; ➤ отправляет.
+10. 5 фото, зум и листание в просмотре.
+11. Тёмная тема APK: видны время / заряд / Wi‑Fi.
+12. Назад: модалка закрывается, не приложение.
+13. Длинная сессия 10–20 мин: вкладка в фоне → вернулся — last message и история без F5. Если лаг остался — записывать, это следующий точечный баг, не новый спринт.
+
+---
+
+## Стек
 
 | Слой | Что |
 |------|-----|
-| Клиент | React 19, Vite 8, Tailwind 4 (`@tailwindcss/vite`), React Router 7, Socket.io-client 4 |
-| Натив | Capacitor 8, `@capacitor/app`, `@capacitor/push-notifications`, `capacitor-voice-recorder` |
-| Android | `namespace` / `applicationId` `com.potokmessenger.app`, minSdk 24, target/compile 36, Java 21 |
-| RuStore SDK | `ru.rustore.sdk:pushclient:6.4.0` (Maven VK) |
-| Сервер | Node, Express 5, Socket.io 4, Prisma 5.22, JWT, Helmet, cors, express-rate-limit, bcryptjs, Nodemailer |
-| БД | **только PostgreSQL** (`pg`). SQLite больше не используем |
-| Файлы | Yandex Object Storage (S3 API, `@aws-sdk/client-s3`), fallback `public/uploads` |
-| Пуши веб | Firebase JS SDK + `firebase-messaging-sw.js` |
-| Пуши APK | FCM через Capacitor Push + свой плагин `RuStorePush` |
-| Пуши сервер | `firebase-admin` → FCM; HTTP → `https://vkpns.rustore.ru/.../messages:send` |
-| Почта | SMTP Яндекс (Unisender — план) |
-| Деплой | VPS Ubuntu, Nginx (TLS + WebSocket upgrade), PM2/systemd |
+| Клиент | React 19, Vite 8, Tailwind 4, React Router 7, Socket.io-client 4 |
+| Натив | Capacitor 8, `@capacitor/app`, `@capacitor/push-notifications`, `@capacitor/status-bar`, `capacitor-voice-recorder` |
+| Android | `com.potokmessenger.app`, minSdk 24, target/compile 36, Java 21 |
+| RuStore SDK | `ru.rustore.sdk:pushclient:6.4.0` |
+| Сервер | Node, Express 5, Socket.io 4, Prisma 5.22, JWT, Helmet, cors, rate-limit, bcryptjs |
+| БД | только PostgreSQL (`pg`) |
+| Файлы | Yandex Object Storage (S3), fallback `public/uploads` |
+| Пуши веб | Firebase JS + `firebase-messaging-sw.js` |
+| Пуши APK | FCM Capacitor + плагин `RuStorePush` |
+| Пуши сервер | `firebase-admin` → FCM; HTTP → `vkpns.rustore.ru` |
+| Почта | Unisender Go API, SMTP Яндекс запасной |
+| Деплой | VPS Ubuntu, Nginx (TLS + WS upgrade), PM2 |
 
-Консоль: `drop: ['console','debugger']` в prod-сборке Vite. В `vite.config.js` рядом стоят esbuild и oxc — **oxc побеждает**, `drop` из esbuild может не сработать; в DevTools на проде логи иногда остаются.
+VPS маленький (1 vCPU, ~1 ГБ RAM, 10 ГБ диск, без swap) — **не** собирать Vite/Gradle на сервере. `dist` и APK — локально.
 
 ---
 
@@ -50,10 +140,10 @@ Messenger-App/
 └── README.md
 ```
 
-Два рабочих корня. Фронт **не** ходит на бэк относительными `/api` — всегда абсолютный `API_BASE_URL`.
+Два рабочих корня. Клиент ходит на абсолютный `API_BASE_URL` (`messenger-refactored/src/config.js`). Корневой `messenger-refactored/config.js` — заглушка, не импортировать.
 
-Единственный конфиг клиента: `messenger-refactored/src/config.js`.  
-Корневой `messenger-refactored/config.js` — заглушка, **не импортировать**.
+`.env` / `.env.local` в gitignore.  
+`messenger-refactored/.env.local` — только публичные `VITE_FIREBASE_*` (они всё равно в бандле). Секреты — `Server-Refactor/.env`.
 
 ---
 
@@ -72,161 +162,84 @@ Messenger-App/
                     |
               Prisma → PostgreSQL
                     |
-         Yandex S3 | Firebase Admin | RuStore Push API
+         Yandex S3 | Firebase Admin | RuStore Push API | Unisender
 ```
 
-Клиенты независимы: один user может быть онлайн в вебе и в APK сразу (`onlineUsers`: `userId → Set<socketId>`). Offline только когда отвалился **последний** сокет.
+Один user может быть онлайн в вебе и APK сразу (`userId → Set<socketId>`). Offline — когда отвалился **последний** сокет.
 
-### Как клиент выбирает API
+### API URL клиента
 
 ```
 по умолчанию     https://potokmessenger.ru
-VITE_API_URL     перебивает (live-debug, .env.local)
+VITE_API_URL     перебивает (.env.local, live-debug)
 ```
 
-Release APK: **нет** `server.url` в `capacitor.config.json`, **нет** `VITE_API_URL` → API прод.
-
-Live-debug APK:
-
-- `.env.local` → `VITE_API_URL=http://<LAN-IP>:5001`
-- `capacitor.config.json` → `server.url: http://<LAN-IP>:5173`, `cleartext: true`
-- Vite `server.host: true`
-- `CapacitorHttp.enabled: false` — иначе fetch улетает не туда
-- `android:usesCleartextTraffic="true"`
-
-Натив: `Capacitor.isNativePlatform()`, не `window.Capacitor`.
+Release APK: нет `server.url`, нет `VITE_API_URL` → прод.  
+`CapacitorHttp.enabled: false`. Натив: `Capacitor.isNativePlatform()`.
 
 ---
 
-## Идентификаторы чатов (критично)
-
-Строковые id на всём пути сокет/REST:
+## Идентификаторы чатов
 
 | Префикс | Смысл | Пример |
 |---------|--------|--------|
-| `user_{id}` | приват с пользователем | `user_12` |
+| `user_{id}` | приват (у каждого свой: «чат с этим человеком») | `user_12` |
 | `chat_{id}` | группа | `chat_5` |
 | `channel_{id}` | канал | `channel_3` |
-| `chat_general` | старое лобби | **закрыт** (`assertChatAccess` → 403) |
+| `chat_general` | старое лобби | закрыт (403) |
 
-Хелперы: `src/utils/chatUtils.js`, сервер `src/utils/chatAccess.js`.  
-`join_chat` без членства не пускает. `markRead` сам membership не создаёт.
+Пуш в личке **обязан** нести `user_{senderId}` для получателя. Id отправителя (`user_{receiver}`) открывает «чат с собой» и сразу закрывается.
 
----
-
-## Клиент (`messenger-refactored`)
-
-SPA в одном `App.jsx` (~840 строк) — оркестратор. Хуки:
-
-| Хук | Роль |
-|-----|------|
-| `useAppState` | user, activeChat, версии списков, рефы |
-| `useSocket` | connect, rooms, emit; polling → websocket |
-| `useMessages` / `useChats` / `useContacts` / `useUnread` | данные |
-| `useMessageHandlers` | send/delete/pin/logout/реакции/треды |
-| `useAppHandlers` | часть UI-хендлеров (есть дубли logout — живой путь из `App` через `useMessageHandlers`) |
-| `useMarkAsRead` | debounce прочтения |
-| `useTheme` / `useToast` | тема, тосты |
-
-Компоненты: `Sidebar`, `ChatArea`, `ProfilePanel`, `Auth`, `ResetPassword`.  
-Роуты: `/`, `/reset-password`.
-
-Навигация APK: `@capacitor/app` `backButton` + своя история экранов (чат → сайдбар, не выход из приложения).
-
-Голос: веб — `getUserMedia`; APK — `capacitor-voice-recorder` (`RECORD_AUDIO`). На HTTP live-reload `mediaDevices` нет — это норма, нужен native плагин.
-
-HTML вместо JSON: запрос попал на Vite `:5173`, не на API `:5001`. `apiClient` это ловит.
-
-### Capacitor / Android — грабли
-
-- **Не** подменять `WebViewClient` у Capacitor. Origin приложения — `https://localhost`; Capacitor сам отдаёт `dist`. Свой клиент → браузер лезет на настоящий localhost.
-- `BuildConfig` в release: `buildFeatures { buildConfig true }` на уровне `android {}`, не внутри `aaptOptions`. WebView debug — через `FLAG_DEBUGGABLE`.
-- Плагин `RuStorePush` регистрировать **до** `super.onCreate()`.
-- `PluginCall.reject` только `(String)` / `(String, Exception)`, не `Throwable`.
-- Подпись debug/release должна совпасть с отпечатком в RuStore Console, иначе пуши RuStore молчат.
+Хелперы: `src/utils/chatUtils.js`, сервер `src/utils/chatAccess.js`.
 
 ---
 
-## Сервер (`Server-Refactor`)
+## Клиент
 
-Точка входа: `server.js` — Express + `http.Server` + Socket.io, listen `0.0.0.0`.  
-Prisma: один клиент `src/lib/prisma.js`.
+SPA: `App.jsx` — оркестратор. Хуки: `useAppState`, `useSocket`, `useMessages`, `useChats`, `useContacts`, `useUnread`, `useMessageHandlers`, `useMarkAsRead`, `useTheme`, `useToast`.
 
-### REST (основные)
+Компоненты: `Sidebar`, `ChatArea`, `ProfilePanel`, `Auth`, `ResetPassword`. Роуты: `/`, `/reset-password`.
+
+Голос: веб `getUserMedia`; APK `capacitor-voice-recorder`. На HTTP live-reload микрофона браузера нет — норма.
+
+### Capacitor / Android
+
+- Не подменять `WebViewClient`. Origin — `https://localhost`.
+- `RuStorePush` регистрировать до `super.onCreate()`.
+- Подпись debug/release = отпечаток в RuStore Console.
+- После смены плагинов (StatusBar и т.п.): `npm run build` → `npx cap sync android` → новый release.
+
+---
+
+## Сервер
+
+`server.js` — Express + `http.Server` + Socket.io, `0.0.0.0`. Prisma: `src/lib/prisma.js`.
 
 | Префикс | Назначение |
 |---------|------------|
-| `/api/auth` | register, login, logout, forgot/reset password |
-| `/api/users` | профиль, аватар, поиск |
+| `/api/auth` | register, login, logout, forgot/reset |
+| `/api/users` | профиль, аватар |
 | `/api/channels` | CRUD, участники, join-requests |
 | `/api/chats` | группы |
 | `/api/messages` | история, pin, edit, reactions, search |
-| `/api/contacts` | взаимные контакты |
-| `/api/upload` | медиа |
+| `/api/contacts` | контакты; DELETE = скрыть; `PATCH /:id/unhide` |
+| `/api/upload` | медиа (лимит аватара 20 МБ) |
 | `/api/read` `/api/unread` `/api/mute` | прочтение, счётчики, мут |
 | `/api/push-token` | POST сохранить, DELETE деактивировать |
 
-JWT: `Authorization: Bearer`. Logout: in-memory blacklist (`tokenRevoke.js`) + гашение веб-пуш токенов. Blacklist **живёт в RAM** — рестарт сервера оживляет JWT до `exp`.
+JWT: `Authorization: Bearer`, в payload `tokenVersion`. Middleware сравнивает с БД. Старые JWT без поля = `0`.
 
-CORS: `CORS_ORIGINS` из env **плюс всегда** Capacitor-origin’ы `https://localhost`, `http://localhost`, `capacitor://localhost`, `ionic://localhost`. Иначе APK (origin `https://localhost`) режется, сокет падает с `ERR_CONNECTION_ABORTED`.
+CORS: `CORS_ORIGINS` **плюс всегда** `https://localhost`, `http://localhost`, `capacitor://localhost`, `ionic://localhost`.
 
-Лимиты: global `/api`, login, register, search, reactions, read.
-
-Сокеты (после JWT в `handshake.auth.token`):  
-`join_chat`, `send_message`, `delete_message`, `read_messages`, `typing` / `stop_typing`, `add_member` / `remove_member`, `delete_channel` / `delete_group`, `create_thread`, `toggle_reaction`, `channel_updated` / `chat_updated` (только creator/admin).  
-Create/delete чатов emit **участникам**, не `io.emit` всему серверу.
-
-Доступ: `assertChatAccess` на сокете и на чувствительных REST.
-
----
-
-## База
-
-`provider = "postgresql"`. Миграции в `Server-Refactor/prisma/migrations/`, lock — postgresql.
-
-Модели: `User`, `PasswordReset`, `PushToken`, `Contact`, `Message`, `Channel`, `ChannelMember`, `Chat`, `ChatMember`, `PrivateChatMember`, `Thread`, `Reaction`, `JoinRequest`.
-
-`PushToken.platform`: `fcm` (Android FCM), `web` (браузер FCM), `rustore`.  
-`isActive` — мягкое отключение при logout.
-
-На VPS: `npx prisma migrate deploy` + `npx prisma generate`. Не копировать с ПК `file:./dev.db`.
-
----
-
-## Файлы / S3
-
-Бакет Yandex, `forcePathStyle: true`, **без ACL** (ACL на Yandex часто выключены, публичность — политика бакета).  
-Whitelist MIME/расширений, имя файла санитизируется. Нет ключей → пишем в `public/uploads`.  
-Аватары тоже через этот пайплайн (не «только локально», как было в старом README).
+Сокеты после JWT: `join_chat`, `send_message`, `delete_message`, `read_messages`, `typing`, мемберы, треды, реакции, апдейты канала/группы.
 
 ---
 
 ## Пуши
 
-Три канала на одного пользователя возможны сразу: веб FCM, APK FCM, RuStore.
+Три канала сразу: веб FCM, APK FCM, RuStore. Один блок `notification` (не дублировать в `webpush.notification`).
 
-| Клиент | Регистрация | Logout |
-|--------|-------------|--------|
-| Браузер | `requestFCMToken` → POST `platform: web` | `deleteToken` + unregister SW `firebase-messaging-sw.js` + DELETE `allWeb` |
-| APK | Capacitor Push (FCM) + `RuStorePush.getToken()` | unregister FCM / `deleteToken` RuStore, **веб-токены не трогаем** |
-
-Сервер шлёт во все `isActive` токены. FCM: один блок `notification` (не дублировать в `webpush.notification` — Chrome рисует два баннера). Невалидный токен удаляется из БД.
-
-RuStore: project id в `strings.xml` (`rustore_project_id`) и `RUSTORE_PROJECT_ID` / `RUSTORE_SERVICE_TOKEN` на сервере. S2S-токен из **RuStore Console → Push → Projects**, не VK Cloud. На устройстве без RuStore `checkAvailability=false` — норма, остаётся FCM.
-
-Нюанс старых сессий: логаут до фикса оставлял SW в Chrome. Новые пользователи после этого фронта: вышел из веба → пуш на ПК не должен идти. Уже залогиненный старый Chrome: открыть сайт на экране логина (Ctrl+Shift+R) или Unregister SW.
-
----
-
-## Фичи продукта
-
-- Регистрация / логин / сброс пароля по email  
-- Приват, группы, каналы (пишут админ/создатель)  
-- Текст, фото, аудио/голос, форвард, edit, delete, pin, реакции, треды  
-- Заявки в канал (повтор с таймером; manage = creator **или** admin)  
-- Взаимные контакты, поиск людей и каналов  
-- Мут, unread, typing, звук, тёмная тема  
-- Мобильная вёрстка + APK с системной кнопкой «назад»
+Клик: `chatId` + `senderId` в data. Клиент: событие `potok-open-chat` / SW `OPEN_CHAT`.
 
 ---
 
@@ -234,62 +247,33 @@ RuStore: project id в `strings.xml` (`rustore_project_id`) и `RUSTORE_PROJECT_
 
 Шаблоны: `Server-Refactor/.env.example`, `.env.production.example`. **`.env` в git не класть.**
 
-Сервер: `PORT`, `NODE_ENV`, `DATABASE_URL`, `JWT_SECRET`, `FRONTEND_URL`, `CORS_ORIGINS`, SMTP, `S3_*`, `GOOGLE_APPLICATION_CREDENTIALS` или `FIREBASE_SERVICE_ACCOUNT_JSON`, `RUSTORE_PROJECT_ID`, `RUSTORE_SERVICE_TOKEN`.
+Сервер: `PORT`, `NODE_ENV`, `DATABASE_URL`, `JWT_SECRET`, `FRONTEND_URL` (один раз), `CORS_ORIGINS`, `UNISENDER_*`, SMTP, `S3_*`, Firebase Admin, `RUSTORE_*`.
 
 Клиент: `VITE_API_URL` (опционально), `VITE_FIREBASE_*`, `VITE_FIREBASE_VAPID_KEY`.
-
-`JWT_SECRET` на проде не менять — слетят сессии.
 
 ---
 
 ## Сборка
 
-**Веб / то, что отдаёт Nginx из `dist`:**
-
 ```bash
 cd messenger-refactored
-npm run build
+npm run build                 # dist → Nginx
+npx cap sync android          # после build, перед APK
 ```
 
-**Release APK:**
-
-```bash
-cd messenger-refactored
-npm run build
-npx cap sync android
-```
-
-Android Studio → release. Подпись = отпечаток в RuStore.
-
-**Сервер на VPS:** код → поправить `.env` → `npm ci` → `npx prisma migrate deploy` → `npx prisma generate` → рестарт. Nginx: `proxy_set_header Upgrade` / `Connection` для `/socket.io`.
+Сервер: код → `.env` → `npm ci` → `npx prisma migrate deploy` → `npx prisma generate` → pm2. Nginx: Upgrade/Connection для `/socket.io`.
 
 ---
 
-## Нюансы (шпаргалка)
+## Нюансы
 
-1. Origin APK = `https://localhost` → CORS должен пускать, иначе сокет мёртв.  
-2. Сокет: на Android сначала **polling**, потом upgrade; nginx WS уже работает.  
-3. Не включать `CapacitorHttp` в текущей схеме.  
-4. Не ставить `hostname: potokmessenger.ru` в Capacitor — перехватит `/api` как локальные файлы.  
-5. `chat_general` закрыт.  
-6. JWT blacklist не переживает рестарт.  
-7. Аватарки/медиа без S3 ACL.  
-8. Два баннера FCM = дубль `notification` или два токена в БД.  
-9. Голос на live HTTP APK без native-плагина не пишется.  
-10. `App.jsx` толстый; план: `useSocketBindings` → не трогали.  
-11. `useMemo(profileActiveChat)` **после** `activeMessages` (иначе TDZ).  
-12. 403 на join-requests у обычного мембера — норма.
-
----
-
-## Долг
-
-- **Блокер RuStore:** JWT revoke не в RAM (`tokenVersion` в User или Redis) — вместе с багами APK, до магазина  
-- Рефакторинг `App.jsx`  
-- Добить деплой свежего сервера+фронта на VPS (CORS, postgres, пуш-logout)  
-- ИИ-бот: Ollama + gemma2:2b, FastAPI, RAG — интеграция в Node позже (см. `NOTES.md`)  
-- SMTP на домен (Unisender)  
-- Старые `PushToken.platform=fcm` с веба в БД — гасятся `deleteToken` при визите логина  
+1. Origin APK = `https://localhost` → CORS обязан пускать.
+2. Сокет на Android: polling → websocket.
+3. Не включать `CapacitorHttp`. Не ставить `hostname: potokmessenger.ru` в Capacitor.
+4. `FRONTEND_URL` — первая строка в `.env` побеждает.
+5. 403 на все `/api/*` сразу = мёртвый JWT. 403 только на канал = не участник.
+6. `fixed` панели (профиль) игнорируют padding `App` — safe-area на самой панели.
+7. `App.jsx` толстый; рефакторинг не трогали.
 
 ---
 
