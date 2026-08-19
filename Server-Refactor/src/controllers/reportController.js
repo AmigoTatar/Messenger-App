@@ -1,4 +1,5 @@
 const prisma = require('../lib/prisma');
+const { sendReportEmail } = require('../utils/email');
 
 function isAppAdmin(userId) {
     const raw = process.env.ADMIN_USER_IDS || '';
@@ -21,6 +22,18 @@ const createReport = async (req, res) => {
                 reason: text.slice(0, 500),
             },
         });
+        const reporter = await prisma.user.findUnique({
+            where: { id: req.userId },
+            select: { username: true },
+        });
+        sendReportEmail({
+            reportId: report.id,
+            reporterId: req.userId,
+            reporterName: reporter?.username,
+            targetUserId: report.targetUserId,
+            messageId: report.messageId,
+            reason: report.reason,
+        }).catch((err) => console.error('sendReportEmail:', err.message));
         res.status(201).json({ success: true, id: report.id });
     } catch (err) {
         console.error('createReport:', err);
