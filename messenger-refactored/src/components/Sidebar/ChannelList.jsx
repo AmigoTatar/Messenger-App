@@ -8,7 +8,8 @@ export default function ChannelList({
   unreadCounts, 
   onSelectChat, 
   formatMsgTime,
-  channelsVersion 
+  channelsVersion,
+  currentUserId,
 }) {
   if (!channels || channels.length === 0) return null;
 
@@ -41,6 +42,7 @@ export default function ChannelList({
             }}
             formatMsgTime={formatMsgTime}
             type="channel"
+            currentUserId={currentUserId}
           />
         );
       })}

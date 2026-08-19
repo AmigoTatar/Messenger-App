@@ -136,10 +136,47 @@ export function useMessageHandlers({
   }, [addGroupChat, joinChat, handleSelectChat, user, showToast]);
 
   // ====== 4. ОТПРАВКА СООБЩЕНИЯ ======
-  const handleSendMessage = useCallback((text, mediaUrl = null, mediaType = null) => {
+  const handleSendMessage = useCallback((text, mediaUrl = null, mediaType = null, extra = {}) => {
     if (!text && !mediaUrl) return;
-    sendMessage({ text, mediaUrl, mediaType, activeChatId });
-  }, [sendMessage, activeChatId]);
+    if (extra.retryOf) {
+      setMessagesByChat((prev) => ({
+        ...prev,
+        [activeChatId]: (prev[activeChatId] || []).filter((m) => m.id !== extra.retryOf),
+      }));
+    }
+    const clientId = extra.clientId || `tmp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    addMessage(activeChatId, {
+      id: clientId,
+      clientId,
+      text,
+      mediaUrl,
+      mediaType,
+      senderId: user?.id,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      pending: true,
+      replyToId: extra.replyToId || null,
+      replyTo: extra.replyTo || null,
+      sender: { id: user?.id, username: user?.username, avatar: user?.avatar },
+    });
+    sendMessage(
+      { text, mediaUrl, mediaType, activeChatId, clientId, replyToId: extra.replyToId || null },
+      (ack) => {
+        if (ack?.ok && ack.message) {
+          addMessage(activeChatId, ack.message);
+          return;
+        }
+        if (!ack?.ok) {
+          setMessagesByChat((prev) => ({
+            ...prev,
+            [activeChatId]: (prev[activeChatId] || []).map((m) =>
+              m.id === clientId ? { ...m, pending: false, failed: true, failReason: ack?.error } : m
+            ),
+          }));
+        }
+      }
+    );
+  }, [sendMessage, activeChatId, user, addMessage, setMessagesByChat]);
 
   // ====== 5. УДАЛЕНИЕ СООБЩЕНИЯ ======
   const handleDeleteMessage = useCallback((msgId) => {
@@ -290,7 +327,12 @@ export function useMessageHandlers({
       setChannels(prev => prev.map(ch => ch.id === updated.id ? updated : ch));
       setChannelsVersion(prev => prev + 1);
       if (activeChatId === `channel_${updated.id}`) {
-        setActiveChatData(prev => ({ ...prev, name: updated.name, avatar: updated.avatar }));
+        setActiveChatData(prev => ({
+          ...prev,
+          name: updated.name,
+          avatar: updated.avatar,
+          commentsEnabled: updated.commentsEnabled !== undefined ? updated.commentsEnabled : prev?.commentsEnabled,
+        }));
       }
     } else if (updated.type === 'group') {
       setGroupChats(prev => prev.map(ch => ch.dbId === updated.id ? { ...ch, name: updated.name, avatar: updated.avatar } : ch));
@@ -588,7 +630,27 @@ const handleMessageDeleted = useCallback(({ messageId, activeChatId, otherUserId
       }
       return newState;
     });
-  }, [setMessagesByChat, user]);
+    const markLast = (item) => {
+      if (!item?.lastMessage) return item;
+      if (Number(item.lastMessage.senderId) !== Number(user?.id)) return item;
+      return { ...item, lastMessage: { ...item.lastMessage, status: 'read' } };
+    };
+    if (String(readChatId).startsWith('user_')) {
+      const uid = parseInt(String(readChatId).replace('user_', ''), 10);
+      setContacts((prev) => prev.map((c) => (c.id === uid ? markLast(c) : c)));
+      setChats((prev) => prev.map((c) => (c.id === readChatId || c.dbId === uid ? markLast(c) : c)));
+      setContactsVersion((v) => v + 1);
+      setChatsVersion((v) => v + 1);
+    } else if (String(readChatId).startsWith('channel_')) {
+      const id = parseInt(String(readChatId).replace('channel_', ''), 10);
+      setChannels((prev) => prev.map((ch) => (ch.id === id ? markLast(ch) : ch)));
+      setChannelsVersion((v) => v + 1);
+    } else if (String(readChatId).startsWith('chat_')) {
+      const id = parseInt(String(readChatId).replace('chat_', ''), 10);
+      setGroupChats((prev) => prev.map((g) => (g.dbId === id || g.id === readChatId ? markLast(g) : g)));
+      setGroupChatsVersion((v) => v + 1);
+    }
+  }, [setMessagesByChat, user, setContacts, setChats, setChannels, setGroupChats, setContactsVersion, setChatsVersion, setChannelsVersion, setGroupChatsVersion]);
 
   return {
     handleReactionUpdated,

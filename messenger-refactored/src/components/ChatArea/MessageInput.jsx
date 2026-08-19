@@ -21,6 +21,7 @@ export default function MessageInput({
   const [recordingTime, setRecordingTime] = useState(0);
   const [isTypingEmitted, setIsTypingEmitted] = useState(false);
 
+  const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
@@ -74,7 +75,8 @@ export default function MessageInput({
     const text = inputValue.trim();
     if (!text) return;
 
-    if (replyingTo) {
+    const isChannel = activeChatData?.type === 'channel' || String(activeChatId || '').startsWith('channel_');
+    if (replyingTo && isChannel) {
       if (socketRef) {
         socketRef.emit('create_thread', {
           messageId: replyingTo.messageId,
@@ -84,9 +86,16 @@ export default function MessageInput({
         setReplyingTo(null);
       }
     } else {
-      sendMessage(text, null, null);
+      sendMessage(text, null, null, {
+        replyToId: replyingTo?.messageId || null,
+        replyTo: replyingTo
+          ? { id: replyingTo.messageId, text: replyingTo.text, sender: { username: replyingTo.username || 'Сообщение' } }
+          : null,
+      });
+      setReplyingTo(null);
     }
     setInputValue('');
+    requestAnimationFrame(() => textareaRef.current?.focus());
 
     if (socketRef) {
       socketRef.emit('stop_typing', { activeChatId });
@@ -296,10 +305,13 @@ export default function MessageInput({
     return `${mins}:${remainingSecs.toString().padStart(2, '0')}`;
   };
 
-  if (isChannelReadOnly) {
+  const commentsEnabled = activeChatData?.commentsEnabled !== false;
+  if (isChannelReadOnly && !(replyingTo && commentsEnabled)) {
     return (
       <div className="p-5 bg-zinc-100 dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 text-center text-sm font-medium tracking-wide text-zinc-400 dark:text-zinc-500 flex items-center justify-center gap-2 select-none">
-        📢 Только администраторы могут оставлять сообщения
+        {commentsEnabled
+          ? '📢 Только администраторы могут оставлять посты. Нажмите «Ответить», чтобы написать комментарий'
+          : '📢 Только администраторы могут оставлять сообщения'}
       </div>
     );
   }
@@ -309,7 +321,7 @@ export default function MessageInput({
       {replyingTo && (
         <div className="w-full flex items-center justify-between p-2 bg-zinc-100 dark:bg-zinc-800 rounded-t-xl border-b border-zinc-200 dark:border-zinc-700">
           <span className="text-xs text-zinc-500 dark:text-zinc-400 truncate max-w-[80%]">
-            Ответ на:{' '}
+            {activeChatData?.type === 'channel' ? 'Комментарий к: ' : 'Ответ на: '}
             <span className="font-medium text-zinc-700 dark:text-zinc-300">
               {replyingTo.text}
             </span>
@@ -390,6 +402,7 @@ export default function MessageInput({
           </div>
         ) : (
           <textarea
+            ref={textareaRef}
             value={inputValue}
             onChange={handleChange}
             onKeyDown={(e) => {
@@ -399,7 +412,7 @@ export default function MessageInput({
                 e.target.style.height = '40px';
               }
             }}
-            placeholder="Напишите сообщение..."
+            placeholder={replyingTo && (activeChatData?.type === 'channel' || String(activeChatId || '').startsWith('channel_')) ? 'Комментарий...' : 'Напишите сообщение...'}
             autoComplete="off"
             rows={1}
             className="flex-1 bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/50 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-emerald-500 transition text-zinc-800 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 resize-none min-h-[40px] max-h-[120px] no-scrollbar py-2"

@@ -225,6 +225,20 @@ const handleAuthSuccess = (userData, token) => {
   }, [socket, resetSessionState, setUser, showToast]);
 
   useEffect(() => {
+    if (!socket) return undefined;
+    const onDeleted = () => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      socket.disconnect();
+      resetSessionState();
+      setUser(null);
+      showToast('Аккаунт удалён', 'error');
+    };
+    socket.on('account_deleted', onDeleted);
+    return () => socket.off('account_deleted', onDeleted);
+  }, [socket, resetSessionState, setUser, showToast]);
+
+  useEffect(() => {
     let last = { chatId: null, at: 0 };
     const onForbidden = (e) => {
       const chatId = e.detail?.chatId;
@@ -616,6 +630,7 @@ const handleAuthSuccess = (userData, token) => {
     activeChatData?.type,
     activeChatData?.creatorId,
     activeChatData?.members,
+    activeChatData?.commentsEnabled,
     activeMessages,
   ]);
 
@@ -627,7 +642,7 @@ useEffect(() => {
   if (activeChatId.startsWith('channel_')) {
     const channel = channels.find(c => `channel_${c.id}` === activeChatId);
     if (channel) {
-      setActiveChatData({ name: channel.name, avatar: channel.avatar, type: 'channel', creatorId: channel.creatorId, members: channel.members || [] });
+      setActiveChatData({ name: channel.name, avatar: channel.avatar, type: 'channel', creatorId: channel.creatorId, members: channel.members || [], commentsEnabled: channel.commentsEnabled !== false });
       found = true;
     }
   } else if (activeChatId.startsWith('chat_')) {
@@ -715,10 +730,24 @@ useEffect(() => {
   }, [showToast, setContacts, setContactsVersion]);
 
   const onChannelUpdated = useCallback((data) => {
-    setChannels((prev) => prev.map((ch) => (ch.id === data.id ? data : ch)));
+    const id = data.id || data.channelId;
+    if (!id) return;
+    setChannels((prev) => prev.map((ch) => {
+      if (ch.id !== id) return ch;
+      if (data.lastMessage && !data.name) {
+        return { ...ch, lastMessage: data.lastMessage };
+      }
+      return { ...ch, ...data };
+    }));
     setChannelsVersion((v) => v + 1);
-    if (activeChatIdRef.current === `channel_${data.id}`) {
-      setActiveChatData((prev) => ({ ...prev, name: data.name, avatar: data.avatar }));
+    if (activeChatIdRef.current === `channel_${id}`) {
+      setActiveChatData((prev) => ({
+        ...prev,
+        ...(data.name ? { name: data.name } : {}),
+        ...(data.avatar ? { avatar: data.avatar } : {}),
+        ...(data.commentsEnabled !== undefined ? { commentsEnabled: data.commentsEnabled } : {}),
+        ...(data.lastMessage ? { lastMessage: data.lastMessage } : {}),
+      }));
     }
   }, [setChannels, setChannelsVersion, activeChatIdRef, setActiveChatData]);
 
@@ -943,7 +972,7 @@ useEffect(() => {
         channelsProp={channels}
         onLoadMoreHistory={() => {
           const oldest = activeMessages.length > 0 ? activeMessages[0]?.id : null;
-          loadHistory(activeChatId, oldest);
+          return loadHistory(activeChatId, oldest);
         }}
         hasMoreHistory={hasMore(activeChatId)}
         isHistoryLoading={loading(activeChatId)}

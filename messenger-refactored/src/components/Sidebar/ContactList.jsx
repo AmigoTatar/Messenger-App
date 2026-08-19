@@ -16,6 +16,7 @@ function ContactRows({
   confirmText,
   menuLabel,
   menuDanger,
+  currentUserId,
 }) {
   return contacts.map((contact) => {
     const chatId = `user_${contact.id}`;
@@ -48,6 +49,7 @@ function ContactRows({
         menuDanger={menuDanger}
         formatMsgTime={formatMsgTime}
         type="private"
+        currentUserId={currentUserId}
       />
     );
   });
@@ -64,6 +66,7 @@ export default function ContactList({
   onRemoveContact,
   onUnhideContact,
   showConfirm,
+  currentUserId,
 }) {
   const [hiddenOpen, setHiddenOpen] = useState(false);
   const visible = (contacts || []).filter((c) => !c.hidden);
@@ -103,6 +106,7 @@ export default function ContactList({
           confirmText="Скрыть"
           menuLabel="Скрыть контакт"
           menuDanger
+          currentUserId={currentUserId}
         />
       )}
       {hidden.length > 0 && (
@@ -132,6 +136,7 @@ export default function ContactList({
           menuLabel="Вернуть в контакты"
           menuDanger={false}
           actionLabel="Вернуть"
+          currentUserId={currentUserId}
             />
           )}
         </div>

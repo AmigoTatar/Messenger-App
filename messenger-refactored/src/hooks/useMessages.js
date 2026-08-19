@@ -25,8 +25,15 @@ export function useMessages(currentUserId) {
         console.log(' [addMessage] Текущие сообщения в', chatId, ':', current.length);
         
         if (current.some(m => m.id === message.id)) {
-            console.log(' [addMessage] Сообщение уже есть, пропускаю');
             return prev;
+        }
+        if (message.clientId) {
+            const idx = current.findIndex((m) => m.id === message.clientId || m.clientId === message.clientId);
+            if (idx >= 0) {
+                const next = [...current];
+                next[idx] = { ...message, pending: false, failed: false };
+                return { ...prev, [chatId]: next };
+            }
         }
         
         const updated = [...current, message];
@@ -50,7 +57,7 @@ export function useMessages(currentUserId) {
     }, []);
 
     const loadHistory = useCallback(async (chatId, cursorMessageId = null) => {
-        if (loadingRef.current[chatId]) return;
+        if (loadingRef.current[chatId]) return true;
         loadingRef.current[chatId] = true;
         setLoading(prev => ({ ...prev, [chatId]: true }));
 
@@ -64,13 +71,16 @@ export function useMessages(currentUserId) {
             if (rawMessages.length > 0) {
                 addMessages(chatId, rawMessages, !!cursorMessageId);
             }
-            setHasMore(prev => ({ ...prev, [chatId]: data.hasMore || false }));
+            const more = !!(data && data.hasMore);
+            setHasMore(prev => ({ ...prev, [chatId]: more }));
+            return more;
         } catch (err) {
             const msg = err?.message || '';
             if (/не участник|нет доступа|запрещен|Forbidden/i.test(msg) && !/токен/i.test(msg)) {
                 window.dispatchEvent(new CustomEvent('potok-chat-forbidden', { detail: { chatId, message: msg } }));
             }
             console.error('Error loading history:', err);
+            return false;
         } finally {
             loadingRef.current[chatId] = false;
             setLoading(prev => ({ ...prev, [chatId]: false }));

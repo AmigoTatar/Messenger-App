@@ -16,6 +16,7 @@ export default function MessageList({
   onPin,
   onDelete,
   socketRef, 
+  onRetry,
 }) {
   const containerRef = useRef(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
@@ -129,7 +130,7 @@ export default function MessageList({
 
   if (!Array.isArray(messages) || messages.length === 0) {
     return (
-      <div className="flex-1 overflow-y-auto p-4 text-center text-zinc-500 dark:text-zinc-400 bg-white dark:bg-zinc-950/20 h-full">
+      <div className="flex-1 overflow-y-auto p-4 text-center text-zinc-500 dark:text-zinc-400 chat-wallpaper h-full">
         💬 Нет сообщений в этом чате
       </div>
     );
@@ -139,7 +140,7 @@ export default function MessageList({
     <div
       ref={containerRef}
       onScroll={handleScroll}
-      className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 no-scrollbar bg-white dark:bg-zinc-950/20"
+      className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 no-scrollbar chat-wallpaper"
     >
       <div ref={topSensorRef} className="h-1 w-full flex items-center justify-center text-xs text-zinc-500/50">
         {loading ? '⏳ Загрузка истории...' : ''}
@@ -159,6 +160,7 @@ export default function MessageList({
           onPin={onPin}
           onDelete={onDelete}
           onPreviewImage={openPreview}
+          onRetry={onRetry}
         />
       ))}
 

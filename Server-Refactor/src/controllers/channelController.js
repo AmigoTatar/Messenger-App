@@ -11,6 +11,7 @@ const getChannels = async (req, res) => {
             include: {
                 channel: {
                     include: {
+                        members: { select: { userId: true, role: true } },
                         messages: {
                             orderBy: { createdAt: 'desc' },
                             take: 1,
@@ -124,7 +125,7 @@ const updateChannel = async (req, res) => {
     try {
         const channelId = parseInt(req.params.channelId);
         const userId = req.userId;
-        const { name } = req.body;
+        const { name, commentsEnabled } = req.body;
 
         const channel = await prisma.channel.findUnique({ where: { id: channelId } });
         if (!channel) {
@@ -155,6 +156,9 @@ const updateChannel = async (req, res) => {
             data: {
                 name: name !== undefined ? name.trim() : channel.name,
                 avatar,
+                ...(commentsEnabled !== undefined
+                    ? { commentsEnabled: commentsEnabled === true || commentsEnabled === 'true' }
+                    : {}),
             },
             include: {
                 messages: {

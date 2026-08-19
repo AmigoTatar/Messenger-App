@@ -26,6 +26,9 @@ const [allUsers, setAllUsers] = useState([]);
 const [selectedUserId, setSelectedUserId] = useState('');
 const [isMuted, setIsMuted] = useState(false);
 const [isMuteLoading, setIsMuteLoading] = useState(false);
+const [commentsEnabled, setCommentsEnabled] = useState(true);
+const [blockedByMe, setBlockedByMe] = useState(false);
+const [blockLoading, setBlockLoading] = useState(false);
 const [isEditing, setIsEditing] = useState(false);
 const [isSaving, setIsSaving] = useState(false);
 const [newName, setNewName] = useState(activeChat?.name || '');
@@ -71,8 +74,9 @@ useEffect(() => {
   if (activeChat) {
     setNewName(activeChat.name || '');
     setNewAvatar(activeChat.avatar || '');
+    setCommentsEnabled(activeChat.commentsEnabled !== false);
   }
-}, [activeChat?.id, activeChat?.name, activeChat?.avatar]);
+}, [activeChat?.id, activeChat?.name, activeChat?.avatar, activeChat?.commentsEnabled]);
 
 useEffect(() => {
   const onHwBack = (e) => {
@@ -143,6 +147,20 @@ const fetchMembers = async () => {
   }
 };
 
+ const fetchBlockStatus = async () => {
+  if (!activeChat?.id?.startsWith('user_')) {
+    setBlockedByMe(false);
+    return;
+  }
+  try {
+    const uid = getNumericId(activeChat.id);
+    const data = await apiClient(`/api/blocks/status?userId=${uid}`);
+    setBlockedByMe(!!data.blockedByMe);
+  } catch (err) {
+    console.error('Ошибка статуса блокировки:', err);
+  }
+};
+
   // Загрузка участников и статуса mute
   
   useEffect(() => {
@@ -162,6 +180,7 @@ const fetchMembers = async () => {
     setMembers([]);
     fetchMembers();
     fetchMuteStatus();
+    fetchBlockStatus();
   }, [isOpen, activeChat?.id]);
 
   
@@ -232,6 +251,47 @@ console.log('📤 [ProfilePanel] contactIds для групп:', contactIds);
     console.error('Ошибка переключения mute:', err);
   } finally {
     setIsMuteLoading(false);
+  }
+};
+
+const handleToggleComments = async () => {
+  if (activeChat?.type !== 'channel') return;
+  const numericId = getNumericId(activeChat.id);
+  const next = !commentsEnabled;
+  try {
+    const updated = await apiClient(`/api/channels/${numericId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ commentsEnabled: next }),
+    });
+    setCommentsEnabled(updated.commentsEnabled !== false);
+    onChatUpdate?.({ ...updated, type: 'channel' });
+    showToast(next ? 'Комментарии включены' : 'Комментарии отключены', 'success');
+  } catch (err) {
+    showToast(err.message || 'Не удалось изменить комментарии', 'error');
+  }
+};
+
+const handleToggleBlock = async () => {
+  const uid = getNumericId(activeChat?.id);
+  if (!uid) return;
+  setBlockLoading(true);
+  try {
+    if (blockedByMe) {
+      await apiClient(`/api/blocks/${uid}`, { method: 'DELETE' });
+      setBlockedByMe(false);
+      showToast('Пользователь разблокирован', 'success');
+    } else {
+      await apiClient('/api/blocks', {
+        method: 'POST',
+        body: JSON.stringify({ userId: uid }),
+      });
+      setBlockedByMe(true);
+      showToast('Пользователь заблокирован', 'success');
+    }
+  } catch (err) {
+    showToast(err.message || 'Не удалось изменить блокировку', 'error');
+  } finally {
+    setBlockLoading(false);
   }
 };
 
@@ -634,6 +694,38 @@ const openEditModal = () => {
           {isMuted ? 'Включить уведомления' : 'Отключить уведомления'}
           {isMuteLoading && <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin ml-1"></span>}
         </button>
+
+        {activeChat.type === 'channel' && isAdmin && (
+          <button
+            type="button"
+            onClick={handleToggleComments}
+            className="w-full py-2.5 px-4 rounded-xl text-sm font-medium transition flex items-center justify-center gap-2 bg-zinc-800/30 hover:bg-zinc-800/50 text-zinc-400 hover:text-zinc-300"
+          >
+            <span>{commentsEnabled ? '💬' : '🚫'}</span>
+            {commentsEnabled ? 'Отключить комментарии' : 'Включить комментарии'}
+          </button>
+        )}
+
+        {activeChat.id?.startsWith('user_') && (
+          <button
+            type="button"
+            onClick={() => {
+              showConfirm(
+                blockedByMe ? 'Разблокировать?' : 'Заблокировать?',
+                blockedByMe
+                  ? 'Пользователь снова сможет писать вам.'
+                  : 'Он не сможет писать вам, и вы не сможете писать ему.',
+                blockedByMe ? 'Разблокировать' : 'Заблокировать',
+                handleToggleBlock
+              );
+            }}
+            disabled={blockLoading}
+            className="w-full py-2.5 px-4 rounded-xl text-sm font-medium transition flex items-center justify-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 disabled:opacity-50"
+          >
+            <span>🚫</span>
+            {blockedByMe ? 'Разблокировать' : 'Заблокировать'}
+          </button>
+        )}
 
         <hr className="border-zinc-200 dark:border-zinc-800" />
 

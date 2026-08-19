@@ -145,12 +145,23 @@ export function useSocket(user, eventHandlers) {
         }
     }, []);
 
-    const sendMessage = useCallback((messageData) => {
-        if (socketRef.current?.connected) {
-            socketRef.current.emit('send_message', messageData);
-        } else {
-            console.warn('⚠️ sendMessage: сокет не подключён');
+    const sendMessage = useCallback((messageData, onAck) => {
+        if (!socketRef.current?.connected) {
+            if (typeof onAck === 'function') onAck({ ok: false, error: 'Нет соединения' });
+            return;
         }
+        let settled = false;
+        const timer = setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            if (typeof onAck === 'function') onAck({ ok: false, error: 'Не удалось отправить' });
+        }, 12000);
+        socketRef.current.emit('send_message', messageData, (res) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            if (typeof onAck === 'function') onAck(res || { ok: true });
+        });
     }, []);
 
     return { socket, emit, joinChat, sendMessage, isConnected };

@@ -9,6 +9,7 @@ export default function MessageItem({
   isGroup,
   onContextMenu,
   onPreviewImage,
+  onRetry,
 }) {
   const longPressTimer = useRef(null);
 
@@ -100,6 +101,21 @@ return (
         } ${isPinned ? 'ring-2 ring-amber-400 dark:ring-amber-500 ring-offset-1 dark:ring-offset-zinc-900' : ''}`}
       >
 
+        {msg.replyTo && (
+          <div className={`mb-1.5 px-2 py-1 rounded-lg border-l-2 text-left ${
+            isOwn
+              ? 'bg-emerald-700/40 border-emerald-200/70'
+              : 'bg-zinc-200/70 dark:bg-zinc-900/60 border-emerald-500/70'
+          }`}>
+            <div className={`text-[10px] font-semibold truncate ${isOwn ? 'text-emerald-50' : 'text-emerald-600 dark:text-emerald-400'}`}>
+              {msg.replyTo.sender?.username || 'Сообщение'}
+            </div>
+            <div className={`text-xs truncate opacity-80 ${isOwn ? 'text-white' : 'text-zinc-600 dark:text-zinc-300'}`}>
+              {msg.replyTo.text || 'Медиа'}
+            </div>
+          </div>
+        )}
+
         {isImage && mediaUrl && (
           <div className="mb-2 max-w-full overflow-hidden rounded-lg bg-zinc-900/50 min-h-[80px]">
             <SafeImage
@@ -143,9 +159,11 @@ return (
             <span className="text-[9px] text-zinc-400 dark:text-zinc-500 italic">(изменено)</span>
           )}
           <span>{time}</span>
-          {isOwn && (
+          {isOwn && !msg.failed && (
             <span className="text-xs font-bold leading-none">
-              {msg.status === 'read' || msg.isRead === true ? (
+              {msg.pending ? (
+                <span className="text-emerald-200/50">⏳</span>
+              ) : msg.status === 'read' || msg.isRead === true ? (
                 <span className="text-cyan-200 dark:text-cyan-400">✓✓</span>
               ) : (
                 <span className="text-emerald-200/60">✓</span>
@@ -153,6 +171,18 @@ return (
             </span>
           )}
         </div>
+
+        {msg.failed && (
+          <button
+            type="button"
+            onClick={() => onRetry?.(msg)}
+            className={`mt-1 text-[11px] font-medium underline-offset-2 hover:underline ${
+              isOwn ? 'text-red-100' : 'text-red-500'
+            }`}
+          >
+            Не удалось отправить · Повторить
+          </button>
+        )}
 
         {reactions.length > 0 && (
           <div className="flex items-center gap-0.5 mt-1.5 flex-wrap">

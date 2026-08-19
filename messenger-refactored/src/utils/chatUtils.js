@@ -58,7 +58,8 @@ export const getActiveChatData = (chatId, channels, groupChats, chats, contacts 
                 avatar: ch.avatar,
                 type: 'channel',
                 creatorId: ch.creatorId,
-                members: ch.members || []
+                members: ch.members || [],
+                commentsEnabled: ch.commentsEnabled !== false,
             };
         }
     } else if (chatId.startsWith('chat_')) {

@@ -9,6 +9,7 @@ import LoadingSpinner from '../LoadingSpinner';
 import ContactList from './ContactList';
 import AddContactModal from './AddContactModal';
 import ChannelSearchModal from './ChannelSearchModal';
+import { apiClient } from '../../services/apiClient';
 
 export default function Sidebar({
   loading,
@@ -47,6 +48,23 @@ export default function Sidebar({
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isAddContactOpen, setIsAddContactOpen] = useState(false);
   const [isChannelSearchOpen, setIsChannelSearchOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [reportsOpen, setReportsOpen] = useState(false);
+  const [reports, setReports] = useState([]);
+
+  useEffect(() => {
+    if (!user?.id) return undefined;
+    let cancelled = false;
+    apiClient('/api/reports/status')
+      .then((data) => {
+        if (cancelled) return;
+        setIsAdmin(!!data.admin);
+      })
+      .catch(() => {
+        if (!cancelled) setIsAdmin(false);
+      });
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   useEffect(() => {
     const onHwBack = (e) => {
@@ -55,10 +73,11 @@ export default function Sidebar({
       if (isSearchOpen) { e.preventDefault(); setIsSearchOpen(false); return; }
       if (isAddContactOpen) { e.preventDefault(); setIsAddContactOpen(false); return; }
       if (isChannelSearchOpen) { e.preventDefault(); setIsChannelSearchOpen(false); return; }
+      if (reportsOpen) { e.preventDefault(); setReportsOpen(false); return; }
     };
     window.addEventListener('potok-hardware-back', onHwBack);
     return () => window.removeEventListener('potok-hardware-back', onHwBack);
-  }, [isNewChannelOpen, isNewGroupOpen, isSearchOpen, isAddContactOpen, isChannelSearchOpen]);
+  }, [isNewChannelOpen, isNewGroupOpen, isSearchOpen, isAddContactOpen, isChannelSearchOpen, reportsOpen]);
 
   if (loading && (!channels?.length && !groupChats?.length && !contacts?.length)) {
   return (
@@ -148,6 +167,7 @@ const filteredGroups = groupChats
     showConfirm={showConfirm}
     formatMsgTime={formatMsgTime}
     onlineUserIds={onlineUserIds}
+    currentUserId={user?.id}
           />
         <ChannelList
           channels={filteredChannels}
@@ -156,6 +176,7 @@ const filteredGroups = groupChats
           unreadCounts={unreadCounts}
           onSelectChat={onSelectChat}
           formatMsgTime={formatMsgTime}
+          currentUserId={user?.id}
         />
         <GroupList
           groupChats={filteredGroups}
@@ -164,6 +185,7 @@ const filteredGroups = groupChats
           onSelectChat={onSelectChat}
           formatMsgTime={formatMsgTime}
           groupChatsVersion={groupChatsVersion}
+          currentUserId={user?.id}
         />
       </div>
 
@@ -172,6 +194,22 @@ const filteredGroups = groupChats
         <div className="flex justify-between items-center">
           <span className="text-[11px] text-zinc-400 font-medium">Potok </span>
           <div className="flex items-center gap-1">
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={async () => {
+                  setReportsOpen(true);
+                  try {
+                    const list = await apiClient('/api/reports');
+                    setReports(Array.isArray(list) ? list : []);
+                  } catch (_) {}
+                }}
+                className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition text-zinc-500 dark:text-zinc-400"
+                title="Жалобы"
+              >
+                🛡️
+              </button>
+            )}
             <button onClick={() => setIsSearchOpen(true)} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition text-zinc-500 dark:text-zinc-400" title="Поиск (Ctrl+K)">🔍</button>
             <button onClick={onToggleTheme} className="p-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-amber-500 dark:hover:text-amber-400 rounded-xl transition active:scale-95 shadow-sm">
               {isDarkMode ? '☀️' : '🌙'}
@@ -218,6 +256,34 @@ const filteredGroups = groupChats
     currentUserId={user?.id}
     showToast={showToast}
 />
+      {reportsOpen && (
+        <div className="fixed inset-0 z-[70] bg-black/40 flex items-end sm:items-center justify-center p-4" onClick={() => setReportsOpen(false)}>
+          <div
+            className="w-full max-w-md max-h-[70vh] overflow-y-auto rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-sm text-zinc-800 dark:text-zinc-100">Жалобы</h3>
+              <button type="button" onClick={() => setReportsOpen(false)} className="text-zinc-400">✕</button>
+            </div>
+            {reports.length === 0 ? (
+              <p className="text-xs text-zinc-400">Жалоб пока нет</p>
+            ) : (
+              <div className="space-y-2">
+                {reports.map((r) => (
+                  <div key={r.id} className="p-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 text-xs">
+                    <div className="text-zinc-500">
+                      #{r.id} · {r.reporter?.username || r.reporterId} · {new Date(r.createdAt).toLocaleString()}
+                    </div>
+                    <div className="text-zinc-800 dark:text-zinc-200 mt-1">{r.reason}</div>
+                    <div className="text-zinc-400 mt-0.5">msg:{r.messageId || '—'} user:{r.targetUserId || '—'}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
 
   );

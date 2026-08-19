@@ -52,7 +52,8 @@ export default function Auth({ onAuthSuccess, apiBaseUrl }) {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Что-то пошло не так');
+        const fromList = Array.isArray(data.errors) ? data.errors.filter(Boolean).join('. ') : '';
+        throw new Error(data.error || fromList || 'Что-то пошло не так');
       }
 
       localStorage.setItem('token', data.token);
@@ -92,7 +93,7 @@ export default function Auth({ onAuthSuccess, apiBaseUrl }) {
   // ФОРМА ВОССТАНОВЛЕНИЯ ПАРОЛЯ
 if (isForgotPassword) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-100 dark:bg-zinc-900 px-4 transition-colors duration-300">
+      <div className="flex min-h-[100dvh] items-start sm:items-center justify-center overflow-y-auto bg-zinc-100 dark:bg-zinc-900 px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] transition-colors duration-300">
         <div className="w-full max-w-md space-y-6">
           
           {/* Логотип */}
@@ -124,6 +125,7 @@ if (isForgotPassword) {
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  onFocus={(e) => e.target.scrollIntoView({ block: 'center', behavior: 'smooth' })}
                   className="mt-1 block w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent px-4 py-3 text-zinc-900 dark:text-white shadow-sm focus:border-emerald-500 focus:outline-none transition-colors duration-200"
                   placeholder="example@mail.com"
                 />
@@ -157,25 +159,25 @@ if (isForgotPassword) {
 
   // ОСНОВНАЯ ФОРМА (ВХОД / РЕГИСТРАЦИЯ)
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-100 dark:bg-zinc-900 px-4 transition-colors duration-300">
+    <div className="flex min-h-[100dvh] items-start sm:items-center justify-center overflow-y-auto bg-zinc-100 dark:bg-zinc-900 px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] transition-colors duration-300">
       
-      <div className="w-full max-w-md space-y-6">
+      <div className="w-full max-w-md space-y-4 sm:space-y-6">
         
         {/* Логотип */}
-        <div className="flex flex-col items-center gap-2">
+        <div className="flex flex-col items-center gap-1.5">
           <img 
             src="/logo.png" 
             alt="Поток" 
-            className="w-16 h-16 rounded-2xl shadow-lg"
+            className={`${isLogin ? 'w-16 h-16' : 'w-10 h-10'} rounded-2xl shadow-lg`}
           />
           <h1 className="text-2xl font-bold text-zinc-800 dark:text-white">Поток</h1>
           <p className="text-sm text-zinc-400 dark:text-zinc-500">Мессенджер для своих</p>
         </div>
 
         {/* Карточка */}
-        <div className="rounded-2xl bg-white dark:bg-zinc-950 p-8 shadow-2xl border border-zinc-200 dark:border-zinc-800 transition-colors duration-300">
+        <div className="rounded-2xl bg-white dark:bg-zinc-950 p-6 sm:p-8 shadow-2xl border border-zinc-200 dark:border-zinc-800 transition-colors duration-300">
           <div className="text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">
+            <h2 className={`${isLogin ? 'text-3xl' : 'text-2xl'} font-bold tracking-tight text-zinc-900 dark:text-white`}>
               {isLogin ? 'Войти в аккаунт' : 'Создать аккаунт'}
             </h2>
             <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
@@ -200,6 +202,7 @@ if (isForgotPassword) {
                 autoComplete="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
+                onFocus={(e) => e.target.scrollIntoView({ block: 'center', behavior: 'smooth' })}
                 className="mt-1 block w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent px-4 py-3 text-zinc-900 dark:text-white shadow-sm focus:border-emerald-500 focus:outline-none transition-colors duration-200"
                 placeholder="Введите ваш ник"
               />
@@ -216,6 +219,7 @@ if (isForgotPassword) {
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  onFocus={(e) => e.target.scrollIntoView({ block: 'center', behavior: 'smooth' })}
                   className="mt-1 block w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent px-4 py-3 text-zinc-900 dark:text-white shadow-sm focus:border-emerald-500 focus:outline-none transition-colors duration-200"
                   placeholder="example@mail.com"
                 />
@@ -233,6 +237,7 @@ if (isForgotPassword) {
                 required
                 autoComplete={isLogin ? 'current-password' : 'new-password'}
                 value={password}
+                onFocus={(e) => e.target.scrollIntoView({ block: 'center', behavior: 'smooth' })}
                 onChange={(e) => {
                   setPassword(e.target.value);
                   if (!isLogin) {

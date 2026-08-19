@@ -15,6 +15,8 @@ export default function ContextMenu({
   onReaction,
   canDelete,
   showConfirm,
+  onReport,
+  canReply = true,
 }) {
   const menuRef = useRef(null);
 
@@ -89,7 +91,7 @@ export default function ContextMenu({
       )}
 
       {/* Ответить */}
-      {!isDeleted && (
+      {!isDeleted && canReply && (
         <button
           onClick={() => {
             onReply(message);
@@ -168,6 +170,19 @@ export default function ContextMenu({
           })}
         </div>
       </div>
+
+      {!isDeleted && !isOwn && typeof onReport === 'function' && (
+        <button
+          onClick={() => {
+            onReport(message);
+            onClose();
+          }}
+          className="w-full text-left px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-700/60 transition flex items-center gap-3"
+        >
+          <span className="text-base">🚩</span>
+          <span>Пожаловаться</span>
+        </button>
+      )}
 
 {/* Удалить (если есть права) */}
 {canDelete && (

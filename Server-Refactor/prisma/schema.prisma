@@ -30,9 +30,10 @@ model User {
   contacts      Contact[] @relation("UserContacts")
   addedBy       Contact[] @relation("ContactUser")
   joinRequests JoinRequest[]
-  
-  
   pushTokens    PushToken[]
+  blocksMade    UserBlock[] @relation("BlocksMade")
+  blocksReceived UserBlock[] @relation("BlocksReceived")
+  reportsMade   Report[]    @relation("ReportsMade")
 
   @@index([username])
   @@index([email])
@@ -97,7 +98,10 @@ model Message {
   isForwarded Boolean? @default(false)  
   isPinned    Boolean? @default(false)
   edited      Boolean? @default(false) 
-  isDeleted   Boolean? @default(false)  
+  isDeleted   Boolean? @default(false)
+  replyToId   Int?
+  replyTo     Message?  @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies     Message[] @relation("MessageReplies") 
   
   
   sender      User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
@@ -133,6 +137,7 @@ model Channel {
   @@index([creatorId])
   @@index([createdAt])
   joinRequests JoinRequest[]
+  commentsEnabled Boolean @default(true)
 }
 
 model ChannelMember {
@@ -246,4 +251,34 @@ model JoinRequest {
   @@index([channelId])
   @@index([userId])
   @@index([status])
+}
+
+model UserBlock {
+  id        Int      @id @default(autoincrement())
+  blockerId Int
+  blockedId Int
+  createdAt DateTime @default(now())
+
+  blocker   User     @relation("BlocksMade", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked   User     @relation("BlocksReceived", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])
+  @@index([blockedId])
+}
+
+model Report {
+  id           Int      @id @default(autoincrement())
+  reporterId   Int
+  targetUserId Int?
+  messageId    Int?
+  reason       String
+  createdAt    DateTime @default(now())
+  status       String   @default("open")
+
+  reporter     User     @relation("ReportsMade", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@index([reporterId])
+  @@index([status])
+  @@index([createdAt])
 }

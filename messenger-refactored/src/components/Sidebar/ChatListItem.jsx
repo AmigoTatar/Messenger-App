@@ -17,6 +17,7 @@ export default function ChatListItem({
   actionLabel,
   formatMsgTime,
   type, // 'private', 'channel', 'group'
+  currentUserId,
 }) {
   const [menu, setMenu] = useState(null);
   const menuRef = useRef(null);
@@ -143,13 +144,17 @@ export default function ChatListItem({
                 ? 'Нет сообщений'
                 : 'Нет сообщений'}
             </p>
-            {unreadCount > 0 && (
+            {unreadCount > 0 ? (
               <span className={`text-white text-[10px] font-bold h-4 min-w-4 px-1 rounded-full flex items-center justify-center select-none shrink-0 ${
                 isMuted ? 'bg-gray-500' : 'bg-emerald-500'
               }`}>
                 {unreadCount}
               </span>
-            )}
+            ) : lastMessage && Number(lastMessage.senderId) === Number(currentUserId) ? (
+              <span className="text-[11px] shrink-0 text-emerald-500 dark:text-emerald-400 font-semibold">
+                {lastMessage.status === 'read' || lastMessage.isRead ? '✓✓' : '✓'}
+              </span>
+            ) : null}
           </div>
         </div>
         {actionLabel && onDelete && (

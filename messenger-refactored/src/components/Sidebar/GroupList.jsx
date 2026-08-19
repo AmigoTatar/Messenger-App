@@ -7,8 +7,8 @@ export default function GroupList({
   unreadCounts, 
   onSelectChat, 
   formatMsgTime,
-  groupChatsVersion  
-  
+  groupChatsVersion,
+  currentUserId,
 }) {
   if (!groupChats || groupChats.length === 0) return null;
   
@@ -36,6 +36,7 @@ export default function GroupList({
             onClick={() => onSelectChat(chatId)}
             formatMsgTime={formatMsgTime}
             type="group"
+            currentUserId={currentUserId}
           />
         );
       })}

@@ -7,3 +7,23 @@ html, body, #root {
   margin: 0;
   overflow: hidden;
 }
+
+.chat-wallpaper {
+  background-color: #e7edf4;
+  background-image:
+    radial-gradient(rgba(16, 24, 40, 0.07) 1.1px, transparent 1.1px);
+  background-size: 18px 18px;
+}
+.dark .chat-wallpaper {
+  background-color: #0c1220;
+  background-image:
+    radial-gradient(rgba(255, 255, 255, 0.045) 1.1px, transparent 1.1px);
+}
+
+@keyframes pin-highlight {
+  0%, 100% { box-shadow: none; }
+  25% { box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.55); }
+}
+.highlight-animation {
+  animation: pin-highlight 1.6s ease;
+}

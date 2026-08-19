@@ -96,21 +96,28 @@ const sendFcmPush = async (token, title, body, data = {}) => {
             return { success: false, error: 'Firebase Admin not initialized' };
         }
 
-        // data values must be strings for FCM
+        // data values must be strings for FCM. Не кладём полный текст — лимит 4KB.
+        const clip = (s, n) => {
+            const t = String(s || '');
+            return t.length <= n ? t : `${t.slice(0, n)}…`;
+        };
+        const safeTitle = clip(title, 80);
+        const safeBody = clip(body, 180);
         const stringData = Object.fromEntries(
             Object.entries({
-                title,
-                body,
-                tag,
-                ...data,
+                title: safeTitle,
+                body: safeBody,
+                tag: String(tag).slice(0, 64),
+                chatId: data.chatId || '',
+                senderId: data.senderId || '',
+                url: data.url || '/',
+                messageId: data.messageId || '',
             }).map(([k, v]) => [k, v == null ? '' : String(v)])
         );
 
         const message = {
             token,
-            // Один notification-блок на верхнем уровне.
-            // Дублировать в webpush.notification нельзя — Chrome рисует два баннера.
-            notification: { title, body },
+            notification: { title: safeTitle, body: safeBody },
             android: {
                 priority: 'high',
                 collapseKey: String(tag).slice(0, 64),

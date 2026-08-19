@@ -59,6 +59,12 @@ const setupSocket = (io, prisma) => {
         socket.on('join_chat', async (chatId) => {
             if (!chatId) return;
             try {
+                const still = await prisma.user.findUnique({ where: { id: currentUserId }, select: { id: true } });
+                if (!still) {
+                    socket.emit('account_deleted', { message: 'Аккаунт удалён' });
+                    socket.disconnect(true);
+                    return;
+                }
                 const { assertChatAccess } = require('../utils/chatAccess');
                 const access = await assertChatAccess(currentUserId, String(chatId));
                 if (!access.ok) {
@@ -66,21 +72,38 @@ const setupSocket = (io, prisma) => {
                     return;
                 }
                 socket.join(String(chatId));
-                console.log(`🚪 Сокет ${socket.id} (юзер ${currentUserId}) в комнате: ${chatId}`);
             } catch (err) {
                 console.error('join_chat error:', err.message);
             }
         });
 
         // ===  ОТПРАВКА СООБЩЕНИЯ ===
-        socket.on('send_message', async (messageData) => {
+        socket.on('send_message', async (messageData, ack) => {
+            const replyAck = (payload) => {
+                if (typeof ack === 'function') ack(payload);
+            };
             try {
-                console.log(' [send_message] START от', currentUserId, messageData);
+                const still = await prisma.user.findUnique({ where: { id: currentUserId }, select: { id: true } });
+                if (!still) {
+                    socket.emit('account_deleted', { message: 'Аккаунт удалён' });
+                    replyAck({ ok: false, error: 'Аккаунт удалён' });
+                    socket.disconnect(true);
+                    return;
+                }
 
-                const { text, mediaUrl, mediaType, activeChatId, isForwarded } = messageData;
-                if (!text && !mediaUrl) return;
-                if (text && text.length > 10000) return;
-                if (!activeChatId) return;
+                const { text, mediaUrl, mediaType, activeChatId, isForwarded, replyToId, clientId } = messageData;
+                if (!text && !mediaUrl) {
+                    replyAck({ ok: false, error: 'Пустое сообщение' });
+                    return;
+                }
+                if (text && text.length > 10000) {
+                    replyAck({ ok: false, error: 'Слишком длинное сообщение' });
+                    return;
+                }
+                if (!activeChatId) {
+                    replyAck({ ok: false, error: 'Нет чата' });
+                    return;
+                }
 
                 const senderId = currentUserId;
                 let receiverId = null;
@@ -91,7 +114,22 @@ const setupSocket = (io, prisma) => {
                 if (activeChatId.startsWith('user_')) {
                     receiverId = parseInt(activeChatId.replace('user_', ''), 10);
                     if (isNaN(receiverId)) return;
-                    console.log(`📨 [send_message] Приватный чат с ${receiverId}`);
+                    const block = await prisma.userBlock.findFirst({
+                        where: {
+                            OR: [
+                                { blockerId: senderId, blockedId: receiverId },
+                                { blockerId: receiverId, blockedId: senderId },
+                            ],
+                        },
+                    });
+                    if (block) {
+                        const msg = block.blockerId === receiverId
+                            ? 'Пользователь вас заблокировал'
+                            : 'Вы заблокировали этого пользователя';
+                        socket.emit('error', { message: msg });
+                        replyAck({ ok: false, error: msg });
+                        return;
+                    }
                 } else if (activeChatId.startsWith('channel_')) {
                     channelId = parseInt(activeChatId.replace('channel_', ''), 10);
                     if (isNaN(channelId)) return;
@@ -101,10 +139,12 @@ const setupSocket = (io, prisma) => {
                     });
                     if (!member) {
                         socket.emit('error', { message: 'Вы не участник канала' });
+                        replyAck({ ok: false, error: 'Вы не участник канала' });
                         return;
                     }
                     if (member.role !== 'admin') {
                         socket.emit('error', { message: 'Только администраторы могут писать в канал' });
+                        replyAck({ ok: false, error: 'Только администраторы могут писать в канал' });
                         return;
                     }
                 } else if (activeChatId.startsWith('chat_')) {
@@ -135,10 +175,19 @@ const setupSocket = (io, prisma) => {
                         channelId: channelId,
                         chatId: chatId,
                         isForwarded: isForwarded || false,
-                        status: 'unread'
+                        status: 'unread',
+                        replyToId: replyToId ? Number(replyToId) : null,
                     },
                     include: {
-                        sender: { select: { id: true, username: true, avatar: true } }
+                        sender: { select: { id: true, username: true, avatar: true } },
+                        replyTo: {
+                            select: {
+                                id: true,
+                                text: true,
+                                senderId: true,
+                                sender: { select: { username: true } },
+                            },
+                        },
                     }
                 });
 
@@ -148,7 +197,8 @@ const setupSocket = (io, prisma) => {
 try {
     const { sendPush } = require('../services/pushService');
     const senderName = savedMessage.sender?.username || 'Пользователь';
-    const messageText = text || (mediaType === 'image' ? '📷 Фото' : '📎 Файл');
+    const rawText = text || (mediaType === 'image' ? '📷 Фото' : mediaType === 'audio' ? '🎤 Голосовое' : '📎 Файл');
+    const messageText = String(rawText).length > 180 ? `${String(rawText).slice(0, 180)}…` : String(rawText);
     // В привате у каждого свой id: получатель открывает чат с отправителем (user_${senderId}).
     // activeChatId отправителя = user_${receiverId} — это чат «с самим собой» у получателя.
     const pushChatId = receiverId
@@ -248,7 +298,10 @@ try {
                     chatId: savedMessage.chatId,
                     sender: savedMessage.sender,
                     activeChatId: activeChatId,
-                    isForwarded: savedMessage.isForwarded || false
+                    isForwarded: savedMessage.isForwarded || false,
+                    replyToId: savedMessage.replyToId || null,
+                    replyTo: savedMessage.replyTo || null,
+                    clientId: clientId || null,
                 };
 
                 // === РАССЫЛКА ===
@@ -259,12 +312,12 @@ try {
                         select: { userId: true }
                     });
                     for (const member of members) {
-                        if (member.userId === senderId) continue;
                         emitToUser(io, member.userId, 'receive_message', newMessage);
                         emitToUser(io, member.userId, 'chat_updated', {
                             chatId,
                             lastMessage: newMessage
                         });
+                        if (member.userId === senderId) continue;
                         const unreadCount = await prisma.message.count({
                             where: {
                                 chatId,
@@ -285,12 +338,12 @@ try {
                         select: { userId: true }
                     });
                     for (const member of members) {
-                        if (member.userId === senderId) continue;
                         emitToUser(io, member.userId, 'receive_message', newMessage);
                         emitToUser(io, member.userId, 'channel_updated', {
                             channelId,
                             lastMessage: newMessage
                         });
+                        if (member.userId === senderId) continue;
                         const unreadCount = await prisma.message.count({
                             where: {
                                 channelId,
@@ -305,7 +358,7 @@ try {
                         });
                     }
                 } else if (receiverId) {
-                    socket.emit('receive_message', newMessage);
+                    emitToUser(io, senderId, 'receive_message', newMessage);
                     emitToUser(io, receiverId, 'receive_message', newMessage);
                     const unreadCount = await prisma.message.count({
                         where: {
@@ -324,9 +377,10 @@ try {
                 }
 
                 console.log(`✅ [send_message] Сообщение ${savedMessage.id} разослано`);
+                replyAck({ ok: true, message: newMessage });
             } catch (error) {
                 console.error('❌ [send_message] Ошибка:', error);
-                console.error('❌ [send_message] Стек:', error.stack);
+                replyAck({ ok: false, error: 'Не удалось отправить' });
             }
         });
 
@@ -781,9 +835,32 @@ const deletePayload = {
         socket.on('create_thread', async ({ messageId, text, activeChatId }) => {
             try {
                 const userId = socket.userId;
+                const still = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+                if (!still) {
+                    socket.emit('account_deleted', { message: 'Аккаунт удалён' });
+                    socket.disconnect(true);
+                    return;
+                }
                 if (!text?.trim()) return;
                 const message = await prisma.message.findUnique({ where: { id: messageId } });
                 if (!message) return;
+                if (message.channelId) {
+                    const channel = await prisma.channel.findUnique({
+                        where: { id: message.channelId },
+                        select: { commentsEnabled: true },
+                    });
+                    if (channel && channel.commentsEnabled === false) {
+                        socket.emit('error', { message: 'Комментарии в канале отключены' });
+                        return;
+                    }
+                    const member = await prisma.channelMember.findFirst({
+                        where: { channelId: message.channelId, userId },
+                    });
+                    if (!member) {
+                        socket.emit('error', { message: 'Вы не участник канала' });
+                        return;
+                    }
+                }
                 const thread = await prisma.thread.create({
                     data: { messageId, userId, text: text.trim() },
                     include: { user: { select: { id: true, username: true, avatar: true } } }

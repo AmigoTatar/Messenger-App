@@ -3,6 +3,7 @@ import { API_BASE_URL } from '../config';
 
 export const apiClient = async (endpoint, options = {}) => {
   const token = localStorage.getItem('token');
+  const usedToken = token;
   const headers = {
     'Content-Type': 'application/json',
     ...(token && { Authorization: `Bearer ${token}` }),
@@ -25,12 +26,15 @@ export const apiClient = async (endpoint, options = {}) => {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    const message = error.error || `HTTP ${response.status}`;
+    const message = error.error || (Array.isArray(error.errors) ? error.errors[0] : null) || `HTTP ${response.status}`;
     if (
       response.status === 401 ||
       (response.status === 403 && /токен/i.test(message))
     ) {
-      window.dispatchEvent(new CustomEvent('potok-auth-expired', { detail: { message } }));
+      const current = localStorage.getItem('token');
+      if (current && usedToken && current === usedToken) {
+        window.dispatchEvent(new CustomEvent('potok-auth-expired', { detail: { message } }));
+      }
     }
     throw new Error(message);
   }

@@ -8,6 +8,8 @@ import EditModal from './EditModal';
 import { useMarkAsRead } from '../../hooks/useMarkAsRead';
 import { API_BASE_URL } from '../../config';
 import LoadingSpinner from '../LoadingSpinner';
+import { apiClient } from '../../services/apiClient';
+import { useMessage } from '../../contexts/MessageContext';
 
 export default function ChatArea({ 
   activeChatId, 
@@ -86,6 +88,7 @@ const getChatAvatar = (activeChatId, activeChatData, channelsProp, groupChatsPro
 
   //  СОСТОЯНИЯ ДЛЯ UI
   
+  const { sendMessage: retrySend } = useMessage();
   const [contextMenu, setContextMenu] = useState({
     visible: false,
     x: 0,
@@ -101,6 +104,7 @@ const getChatAvatar = (activeChatId, activeChatData, channelsProp, groupChatsPro
   const [editingMessage, setEditingMessage] = useState(null);
   const [replyingTo, setReplyingTo] = useState(null);
   const [localTypingUser, setLocalTypingUser] = useState(null);
+  const [blockStatus, setBlockStatus] = useState({ blockedByMe: false, blockedMe: false });
 
 
   //  ОБРАБОТЧИКИ ДЛЯ КОНТЕКСТНОГО МЕНЮ
@@ -114,7 +118,43 @@ const getChatAvatar = (activeChatId, activeChatData, channelsProp, groupChatsPro
   };
 
   const handleReply = (msg) => {
-    setReplyingTo({ messageId: msg.id, text: msg.text || 'Сообщение' });
+    setReplyingTo({
+      messageId: msg.id,
+      text: msg.text || 'Сообщение',
+      username: msg.sender?.username,
+    });
+  };
+
+  const handleRetryFailed = (msg) => {
+    retrySend(msg.text, msg.mediaUrl, msg.mediaType, {
+      replyToId: msg.replyToId,
+      replyTo: msg.replyTo,
+      retryOf: msg.id,
+    });
+  };
+
+  const handleReport = (msg) => {
+    showConfirm(
+      'Пожаловаться?',
+      'Отправить жалобу модератору на это сообщение?',
+      'Отправить',
+      async () => {
+        try {
+          await apiClient('/api/reports', {
+            method: 'POST',
+            body: JSON.stringify({
+              messageId: msg.id,
+              targetUserId: msg.senderId,
+              reason: 'Жалоба на сообщение',
+            }),
+          });
+          showToast('Жалоба отправлена', 'success');
+        } catch (err) {
+          showToast(err.message || 'Не удалось отправить жалобу', 'error');
+        }
+      },
+      'danger'
+    );
   };
 
   const handleForward = (msg) => {
@@ -208,6 +248,79 @@ const handleForwardSend = (targetChatId, msg) => {
 const [pinnedMessages, setPinnedMessages] = useState([]);
 const [showPinnedList, setShowPinnedList] = useState(false);
 const [pinnedLoading, setPinnedLoading] = useState(false);
+
+useEffect(() => {
+  if (!activeChatId?.startsWith('user_')) {
+    setBlockStatus({ blockedByMe: false, blockedMe: false });
+    return undefined;
+  }
+  const uid = activeChatId.replace('user_', '');
+  let cancelled = false;
+  apiClient(`/api/blocks/status?userId=${uid}`)
+    .then((data) => {
+      if (!cancelled) setBlockStatus({ blockedByMe: !!data.blockedByMe, blockedMe: !!data.blockedMe });
+    })
+    .catch(() => {});
+  return () => { cancelled = true; };
+}, [activeChatId]);
+
+useEffect(() => {
+  if (!socketRef?.on) return undefined;
+  const onBlocked = ({ by }) => {
+    if (activeChatId === `user_${by}`) {
+      setBlockStatus((prev) => ({ ...prev, blockedMe: true }));
+    }
+  };
+  const onUnblocked = ({ by }) => {
+    if (activeChatId === `user_${by}`) {
+      setBlockStatus((prev) => ({ ...prev, blockedMe: false }));
+    }
+  };
+  socketRef.on('user_blocked', onBlocked);
+  socketRef.on('user_unblocked', onUnblocked);
+  const onBlockUpdated = ({ userId, blockedByMe }) => {
+    if (activeChatId === `user_${userId}`) {
+      setBlockStatus((prev) => ({ ...prev, blockedByMe: !!blockedByMe }));
+    }
+  };
+  socketRef.on('block_updated', onBlockUpdated);
+  return () => {
+    socketRef.off('user_blocked', onBlocked);
+    socketRef.off('user_unblocked', onUnblocked);
+    socketRef.off('block_updated', onBlockUpdated);
+  };
+}, [socketRef, activeChatId]);
+
+const jumpToPinned = async (msg) => {
+  const highlight = (element) => {
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    element.classList.add('highlight-animation');
+    setTimeout(() => element.classList.remove('highlight-animation'), 2000);
+  };
+  let el = document.querySelector(`[data-message-id="${msg.id}"]`);
+  if (el) {
+    highlight(el);
+    setShowPinnedList(false);
+    return;
+  }
+  if (typeof onLoadMoreHistory !== 'function') {
+    showToast?.('Сообщение ещё не загружено', 'info');
+    return;
+  }
+  let more = hasMoreHistory;
+  for (let i = 0; i < 20; i += 1) {
+    if (!more) break;
+    more = await onLoadMoreHistory();
+    await new Promise((r) => setTimeout(r, 220));
+    el = document.querySelector(`[data-message-id="${msg.id}"]`);
+    if (el) {
+      highlight(el);
+      setShowPinnedList(false);
+      return;
+    }
+  }
+  showToast?.('Не удалось найти закреплённое сообщение. Пролистайте историю выше.', 'info');
+};
 
 const fetchPinnedMessages = useCallback(async () => {
   if (!activeChatId) return;
@@ -414,6 +527,9 @@ const isReadOnly = activeChatData?.type === 'channel' && (
   activeChatData?.creatorId !== Number(currentUserId) &&
   !(activeChatData?.members || []).some(m => m.userId === Number(currentUserId) && m.role === 'admin')
 );
+const isBlocked = !!(blockStatus.blockedByMe || blockStatus.blockedMe);
+const commentsEnabled = activeChatData?.commentsEnabled !== false;
+const canReplyToMessage = !isBlocked && (activeChatData?.type !== 'channel' || commentsEnabled);
 const isTypingVisible = localTypingUser !== null && activeChatData?.type !== 'channel';
 
 const canPin = (msg) => {
@@ -527,6 +643,7 @@ const chatAvatar = getChatAvatar(activeChatId, activeChatData, channelsProp, gro
           onPin={handlePin}
           onDelete={handleDelete}
           socketRef={socketRef}
+          onRetry={handleRetryFailed}
         />
 {showPinnedList && (
   <div className="mx-4 my-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/30 rounded-xl overflow-hidden max-h-60 overflow-y-auto">
@@ -553,15 +670,7 @@ const chatAvatar = getChatAvatar(activeChatId, activeChatData, channelsProp, gro
           <div
             key={msg.id}
             className="p-3 bg-white dark:bg-zinc-900 rounded-lg mb-2 border border-amber-200/50 dark:border-amber-800/20 hover:bg-amber-50/50 dark:hover:bg-amber-950/30 cursor-pointer transition"
-            onClick={() => {
-              const element = document.querySelector(`[data-message-id="${msg.id}"]`);
-              if (element) {
-                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                element.classList.add('highlight-animation');
-                setTimeout(() => element.classList.remove('highlight-animation'), 2000);
-              }
-              setShowPinnedList(false);
-            }}
+            onClick={() => jumpToPinned(msg)}
           >
 
 
@@ -587,6 +696,11 @@ const chatAvatar = getChatAvatar(activeChatId, activeChatData, channelsProp, gro
     </div>
   </div>
 )}
+        {isBlocked ? (
+          <div className="p-5 bg-zinc-100 dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 text-center text-sm font-medium tracking-wide text-zinc-400 dark:text-zinc-500">
+            {blockStatus.blockedMe ? 'Пользователь вас заблокировал' : 'Вы заблокировали этого пользователя'}
+          </div>
+        ) : (
         <MessageInput
   activeChatId={activeChatId}
   socketRef={socketRef}
@@ -598,6 +712,7 @@ const chatAvatar = getChatAvatar(activeChatId, activeChatData, channelsProp, gro
   setReplyingTo={setReplyingTo}
   showToast={showToast}
 />
+        )}
 
         {/* Контекстное меню */}
         {contextMenu.visible && (
@@ -609,6 +724,8 @@ const chatAvatar = getChatAvatar(activeChatId, activeChatData, channelsProp, gro
             onCopy={handleCopy}
             onEdit={handleEdit}
             onReply={handleReply}
+            onReport={handleReport}
+            canReply={canReplyToMessage}
             onForward={handleForward}
             onPin={handlePin}
             onDelete={handleDelete}

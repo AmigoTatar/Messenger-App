@@ -23,7 +23,7 @@ function validateRegister(req, res, next) {
     }
 
     if (errors.length > 0) {
-        return res.status(400).json({ errors: errors });
+        return res.status(400).json({ error: errors[0], errors });
     }
 
     next();

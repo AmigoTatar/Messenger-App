@@ -163,6 +163,8 @@ app.use('/api/read', readRoutes);
 app.use('/api/unread', unreadRoutes);
 app.use('/api/mute', muteRoutes);
 app.use('/api/contacts', contactRoutes);
+app.use('/api/blocks', require('./src/routes/blockRoutes'));
+app.use('/api/reports', require('./src/routes/reportRoutes'));
 app.use('/api/auth', passwordRoutes);
 app.use('/api/push-token', pushRoutes);
 
