@@ -37,7 +37,7 @@ SMTP_USER=
 SMTP_PASS=
 
 ADMIN_USER_IDS=      # свой User.id из таблицы User, через запятую если несколько
-REPORT_EMAIL=        # куда слать жалобы; если пусто — SMTP_USER
+REPORT_EMAIL=mesengrpotok@gmail.com
 
 S3_ENDPOINT=https://storage.yandexcloud.net
 S3_REGION=ru-central1
@@ -127,7 +127,8 @@ npx cap sync android
 
 Дальше Android Studio → Build → Generate Signed Bundle / APK → **release**.
 
-- Подпись = отпечаток в RuStore Console (debug и release путать нельзя).
+- Подпись = отпечаток в RuStore Console (debug и release путать нельзя). Пока заявка на модерации ключ не перевыпускать.
+- Первая выкладка: `versionCode 1` / `versionName 1.0` в `android/app/build.gradle`. Любой апдейт в стор — поднять `versionCode`.
 - После смены Java-плагинов (StatusBar, RuStore, VoiceRecorder) без `cap sync` + новой сборки APK старая нативка останется.
 - Origin WebView = `https://localhost`. CORS на сервере это уже учитывает. Не ставь `hostname: potokmessenger.ru` в Capacitor.
 
@@ -144,7 +145,7 @@ Live-debug на LAN (не для стора): временно `VITE_API_URL` и
 5. Пуш лички открывает чат с отправителем, не «чат с собой».
 6. В логах pm2 нет `Message is too large` на обычных текстах и нет спама `Сокет … в комнате`.
 
-Полный смоук — в README, раздел «Смоук перед магазином».
+Полный смоук — в README, раздел «Смоук (прод + APK)».
 
 ---
 

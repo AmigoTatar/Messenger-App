@@ -10,6 +10,7 @@ import ContactList from './ContactList';
 import AddContactModal from './AddContactModal';
 import ChannelSearchModal from './ChannelSearchModal';
 import { apiClient } from '../../services/apiClient';
+import { SUPPORT_EMAIL, LEGAL_PAGES } from '../../config';
 
 export default function Sidebar({
   loading,
@@ -51,6 +52,13 @@ export default function Sidebar({
   const [isAdmin, setIsAdmin] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
   const [reports, setReports] = useState([]);
+  const [legalPage, setLegalPage] = useState(null);
+
+  const openSupport = () => {
+    const mailto = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('Potok: обращение в поддержку')}`;
+    window.location.href = mailto;
+    showToast?.(`Напишите на ${SUPPORT_EMAIL}`, 'info');
+  };
 
   useEffect(() => {
     if (!user?.id) return undefined;
@@ -74,10 +82,11 @@ export default function Sidebar({
       if (isAddContactOpen) { e.preventDefault(); setIsAddContactOpen(false); return; }
       if (isChannelSearchOpen) { e.preventDefault(); setIsChannelSearchOpen(false); return; }
       if (reportsOpen) { e.preventDefault(); setReportsOpen(false); return; }
+      if (legalPage) { e.preventDefault(); setLegalPage(null); return; }
     };
     window.addEventListener('potok-hardware-back', onHwBack);
     return () => window.removeEventListener('potok-hardware-back', onHwBack);
-  }, [isNewChannelOpen, isNewGroupOpen, isSearchOpen, isAddContactOpen, isChannelSearchOpen, reportsOpen]);
+  }, [isNewChannelOpen, isNewGroupOpen, isSearchOpen, isAddContactOpen, isChannelSearchOpen, reportsOpen, legalPage]);
 
   if (loading && (!channels?.length && !groupChats?.length && !contacts?.length)) {
   return (
@@ -190,7 +199,7 @@ const filteredGroups = groupChats
       </div>
 
       {/* Нижняя панель */}
-      <div className="p-3 border-t border-zinc-100 dark:border-zinc-900 flex flex-col gap-2 bg-zinc-50/50 dark:bg-zinc-950/20 mt-auto">
+      <div className="p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-zinc-100 dark:border-zinc-900 flex flex-col gap-2 bg-zinc-50/50 dark:bg-zinc-950/20 mt-auto">
         <div className="flex justify-between items-center">
           <span className="text-[11px] text-zinc-400 font-medium">Potok </span>
           <div className="flex items-center gap-1">
@@ -215,6 +224,17 @@ const filteredGroups = groupChats
               {isDarkMode ? '☀️' : '🌙'}
             </button>
           </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-zinc-400">
+          <button type="button" onClick={openSupport} className="hover:text-emerald-500 transition">
+            Техподдержка
+          </button>
+          <button type="button" onClick={() => setLegalPage('terms')} className="hover:text-emerald-500 transition">
+            Соглашение
+          </button>
+          <button type="button" onClick={() => setLegalPage('privacy')} className="hover:text-emerald-500 transition">
+            Конфиденциальность
+          </button>
         </div>
         <button onClick={onLogout} className="w-full flex items-center justify-center gap-2 rounded-xl bg-zinc-100 hover:bg-red-50 dark:bg-zinc-900 dark:hover:bg-red-950/30 px-4 py-2.5 text-sm font-medium text-zinc-600 hover:text-red-600 dark:text-zinc-400 dark:hover:text-red-400 transition">
           🚪 Выйти
@@ -257,9 +277,12 @@ const filteredGroups = groupChats
     showToast={showToast}
 />
       {reportsOpen && (
-        <div className="fixed inset-0 z-[70] bg-black/40 flex items-end sm:items-center justify-center p-4" onClick={() => setReportsOpen(false)}>
+        <div
+          className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+          onClick={() => setReportsOpen(false)}
+        >
           <div
-            className="w-full max-w-md max-h-[70vh] overflow-y-auto rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4"
+            className="w-full max-w-md max-h-[min(70dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-2rem))] overflow-y-auto rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">
@@ -281,6 +304,27 @@ const filteredGroups = groupChats
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+      {legalPage && LEGAL_PAGES[legalPage] && (
+        <div
+          className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+          onClick={() => setLegalPage(null)}
+        >
+          <div
+            className="w-full max-w-md h-[min(85dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-2rem))] flex flex-col overflow-hidden rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-200 dark:border-zinc-800">
+              <h3 className="font-semibold text-sm text-zinc-800 dark:text-zinc-100">{LEGAL_PAGES[legalPage].title}</h3>
+              <button type="button" onClick={() => setLegalPage(null)} className="text-zinc-400">✕</button>
+            </div>
+            <iframe
+              title={LEGAL_PAGES[legalPage].title}
+              src={LEGAL_PAGES[legalPage].path}
+              className="flex-1 w-full border-0 bg-white"
+            />
           </div>
         </div>
       )}

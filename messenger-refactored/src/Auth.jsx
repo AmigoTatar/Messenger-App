@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { SUPPORT_EMAIL, LEGAL_PAGES } from './config';
 
 export default function Auth({ onAuthSuccess, apiBaseUrl }) {
   const [isLogin, setIsLogin] = useState(true);
@@ -294,6 +295,18 @@ if (isForgotPassword) {
               {isLogin ? 'Ещё нет аккаунта? Зарегистрироваться' : 'Уже есть аккаунт? Войти'}
             </button>
           </div>
+          <p className="text-center text-[11px] text-zinc-400 mt-4 leading-relaxed">
+            Регистрируясь, вы принимаете{' '}
+            <a href={LEGAL_PAGES.terms.path} target="_blank" rel="noreferrer" className="text-emerald-500 hover:underline">
+              пользовательское соглашение
+            </a>
+            {' '}и{' '}
+            <a href={LEGAL_PAGES.privacy.path} target="_blank" rel="noreferrer" className="text-emerald-500 hover:underline">
+              политику конфиденциальности
+            </a>
+            . Поддержка:{' '}
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="text-emerald-500 hover:underline">{SUPPORT_EMAIL}</a>
+          </p>
         </div>
 
       </div>

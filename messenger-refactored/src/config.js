@@ -19,6 +19,12 @@ if (typeof window !== 'undefined' && isDevelopment) {
     console.log('🔧 [config] API_BASE_URL =', API_BASE_URL, '| native =', isNativeApp);
 }
 
+export const SUPPORT_EMAIL = 'mesengrpotok@gmail.com';
+export const LEGAL_PAGES = {
+  terms: { title: 'Пользовательское соглашение', path: '/terms.html' },
+  privacy: { title: 'Политика конфиденциальности', path: '/privacy-policy.html' },
+};
+
 export { API_BASE_URL, isDevelopment, isNativeApp };
 
 export const CHAT_IDS = {
