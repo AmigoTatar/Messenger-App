@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { SUPPORT_EMAIL, LEGAL_PAGES } from './config';
+import DownloadAppButton from './components/DownloadAppButton';
 
 export default function Auth({ onAuthSuccess, apiBaseUrl }) {
   const [isLogin, setIsLogin] = useState(true);
@@ -151,6 +152,10 @@ if (isForgotPassword) {
                 ⬅️ Вернуться ко входу
               </button>
             </form>
+          </div>
+
+          <div className="flex justify-center">
+            <DownloadAppButton />
           </div>
 
         </div>
@@ -307,6 +312,10 @@ if (isForgotPassword) {
             . Поддержка:{' '}
             <a href={`mailto:${SUPPORT_EMAIL}`} className="text-emerald-500 hover:underline">{SUPPORT_EMAIL}</a>
           </p>
+        </div>
+
+        <div className="flex justify-center">
+          <DownloadAppButton />
         </div>
 
       </div>

@@ -12,6 +12,7 @@ const {
     onlineUsers,
 } = require('../utils/onlineUsers');
 const { isTokenRevoked } = require('../utils/tokenRevoke');
+const { maybeReplyToUser } = require('../services/aiAssistant');
 
 const setupSocket = (io, prisma) => {
     // === АУТЕНТИФИКАЦИЯ 
@@ -164,7 +165,6 @@ const setupSocket = (io, prisma) => {
                 }
 
                 // Сохраняем в БД
-                console.log('📨 [send_message] Попытка сохранить в БД:', { senderId, receiverId, channelId, chatId, text });
                 const savedMessage = await prisma.message.create({
                     data: {
                         text: text || null,
@@ -190,8 +190,6 @@ const setupSocket = (io, prisma) => {
                         },
                     }
                 });
-
-                console.log(`[send_message] Сохранено сообщение ${savedMessage.id}`);
 
                 // ====== PUSH-УВЕДОМЛЕНИЯ ======
 try {
@@ -374,9 +372,10 @@ try {
                         id: senderId,
                         count: unreadCount
                     });
+                    maybeReplyToUser({ io, prisma, emitToUser, savedMessage, senderId, receiverId })
+                        .catch((err) => console.error('[ai] reply failed', err.message));
                 }
 
-                console.log(`✅ [send_message] Сообщение ${savedMessage.id} разослано`);
                 replyAck({ ok: true, message: newMessage });
             } catch (error) {
                 console.error('❌ [send_message] Ошибка:', error);
@@ -486,7 +485,6 @@ const deletePayload = {
         socket.on('read_messages', async ({ activeChatId }) => {
             if (!activeChatId) return;
             const myId = socket.userId;
-            console.log(`👁️ Юзер ${myId} прочитал ${activeChatId}`);
 
             if (activeChatId === 'chat_general' || activeChatId === 'null') return;
 
@@ -575,7 +573,6 @@ const deletePayload = {
             if (!data || !data.activeChatId) return;
             const { activeChatId } = data;
             const senderId = socket.userId;
-            console.log(`📝 Печатает ${senderId} в ${activeChatId}`);
 
             if (activeChatId === 'chat_general') {
                 socket.to('chat_general').emit('typing', { senderId, isGeneral: true, activeChatId });

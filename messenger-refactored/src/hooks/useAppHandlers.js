@@ -90,7 +90,6 @@ export function useAppHandlers({
   // ====== ПОЛУЧЕНИЕ НОВОГО СООБЩЕНИЯ ======
   const handleReceiveMessage = useCallback((newMessage) => {
     const chatId = getChatIdFromMessage(newMessage, user?.id);
-    console.log('📩 Получено сообщение для чата:', chatId, 'Сообщение:', newMessage);
 
     if (chatId && chatId !== 'chat_general') {
       joinChat(chatId);

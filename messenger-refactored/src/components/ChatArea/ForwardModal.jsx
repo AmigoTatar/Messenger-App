@@ -32,10 +32,6 @@ export default function ForwardModal({
     }
   
   };
-console.log('📤 [ForwardModal] chats (contacts):', chats);
-console.log('📤 [ForwardModal] groupChats:', groupChats);
-console.log('📤 [ForwardModal] channels:', channels);
-console.log('📤 [ForwardModal] Первый контакт:', chats?.[0]);
   // Фильтрация
 const filteredChats = (chats || [])
     .filter(chat => {
@@ -52,7 +48,7 @@ const filteredChats = (chats || [])
   const hasResults = filteredChats.length > 0 || filteredGroups.length > 0 || filteredChannels.length > 0;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 sheet-safe">
       <div className="bg-white dark:bg-zinc-900 rounded-2xl p-6 w-full max-w-md shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[80vh] flex flex-col">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-bold text-zinc-800 dark:text-white">

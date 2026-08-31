@@ -95,7 +95,7 @@ export const requestFCMToken = async () => {
         const token = await getToken(messaging, {
             vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY
         });
-        console.log('📱 [Web] FCM-токен получен:', token);
+        console.log('📱 [Web] FCM-токен получен:', token ? String(token).slice(0, 12) + '…' : token);
         return token;
     } catch (error) {
         console.error('❌ [Web] Ошибка FCM:', error);

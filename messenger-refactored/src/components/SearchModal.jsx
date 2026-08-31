@@ -103,7 +103,7 @@ const SearchModal = ({ isOpen, onClose, onMessageClick }) => {
 
   return (
     <div 
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center pt-16 px-4"
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center px-4 pt-[max(4rem,calc(env(safe-area-inset-top,0px)+1rem))] pb-[max(1rem,env(safe-area-inset-bottom,0px))]"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}

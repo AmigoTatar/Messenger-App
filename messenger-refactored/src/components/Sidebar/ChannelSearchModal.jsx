@@ -146,7 +146,7 @@ export default function ChannelSearchModal({
     };
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 sheet-safe">
             <div className="bg-white dark:bg-zinc-900 rounded-2xl p-6 w-full max-w-md shadow-2xl border border-zinc-100 dark:border-zinc-800 max-h-[90vh] flex flex-col">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-bold text-zinc-800 dark:text-white">

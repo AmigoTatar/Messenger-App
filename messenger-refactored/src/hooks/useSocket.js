@@ -48,28 +48,20 @@ export function useSocket(user, eventHandlers) {
         }
 
         s.on('connect', () => {
-            console.log('✅ Socket connected via', s.io.engine?.transport?.name);
             setIsConnected(true);
             roomsRef.current.forEach((room) => {
                 s.emit('join_chat', room);
-                console.log('🔁 Повторная подписка на комнату:', room);
             });
             if (user?.id) {
                 s.emit('join_chat', `user_${user.id}`);
             }
         });
 
-        s.on('disconnect', (reason) => {
-            console.log('❌ Socket disconnected:', reason);
+        s.on('disconnect', () => {
             setIsConnected(false);
         });
 
-        s.on('reconnect_attempt', (attempt) => {
-            console.log(`🔄 Попытка переподключения #${attempt}`);
-        });
-
         s.on('reconnect', () => {
-            console.log('✅ Socket переподключился');
             setIsConnected(true);
         });
 
@@ -113,7 +105,6 @@ export function useSocket(user, eventHandlers) {
             }
             s.off('connect');
             s.off('disconnect');
-            s.off('reconnect_attempt');
             s.off('reconnect');
             s.off('connect_error');
             s.disconnect();
@@ -139,9 +130,6 @@ export function useSocket(user, eventHandlers) {
         roomsRef.current.add(chatId);
         if (socketRef.current?.connected) {
             socketRef.current.emit('join_chat', chatId);
-            console.log('📡 joinChat:', chatId);
-        } else {
-            console.log('⏳ joinChat отложен до connect:', chatId);
         }
     }, []);
 

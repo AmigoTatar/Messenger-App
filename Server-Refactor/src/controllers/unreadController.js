@@ -3,7 +3,6 @@ const prisma = require('../lib/prisma');
 const getUnread = async (req, res) => {
     try {
         const userId = req.userId;
-        console.log(` Запрос непрочитанных для пользователя ${userId}`);
 
         // 1. Приватные чаты
         const privateMembers = await prisma.privateChatMember.findMany({
@@ -100,7 +99,6 @@ const getUnread = async (req, res) => {
             ...chatUnreadCounts
         };
 
-        console.log(`📊 ИТОГОВЫЕ счетчики для пользователя ${userId}:`, allUnreadCounts);
         res.json(allUnreadCounts);
     } catch (error) {
         console.error('❌ Ошибка получения непрочитанных:', error);

@@ -6,9 +6,6 @@ const { authenticateToken } = require('../middleware/auth');
 // Сохранение push-токена
 router.post('/', authenticateToken, async (req, res) => {
     try {
-        console.log('🔍 [pushRoutes] req.user:', req.user);
-        console.log('🔍 [pushRoutes] req.userId:', req.userId);
-        
         const { token, platform } = req.body;
         const safePlatform = platform === 'rustore' ? 'rustore' : platform === 'web' ? 'web' : 'fcm';
         

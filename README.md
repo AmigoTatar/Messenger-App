@@ -4,12 +4,12 @@ Realtime-мессенджер: веб + Android APK (Capacitor), один Node-�
 
 **Прод:** [potokmessenger.ru](https://potokmessenger.ru)  
 **Пакет Android:** `com.potokmessenger.app` (`versionCode` 1 / `versionName` 1.0)  
-**Слепок:** 20 августа 2026.
+**Слепок:** 31 августа 2026.
 
 Журнал багов и «было → стало» — [`NOTES.md`](NOTES.md).  
 Как заливать сервер и собирать APK — [`DEPLOY.md`](DEPLOY.md).
 
-**Магазины:** заявка в [RuStore](https://www.rustore.ru/) отправлена, ждём модерацию. Galaxy Store для физлица недоступен (нужна компания) — не целимся, пока нет юрлица.
+**Магазины не целимся.** RuStore отклонил (нужен реестр РКН — регистрироваться не будем). Galaxy Store физлицу недоступен. Раздача APK с сайта: кнопка на вебе → [`https://potokmessenger.ru/potok.apk`](https://potokmessenger.ru/potok.apk). SDK RuStore для **пушей** в APK остаётся.
 
 Юридические страницы (должны открываться с телефона):
 
@@ -37,9 +37,9 @@ VPS маленький (примерно 1 vCPU, 1 ГБ RAM, 10 ГБ диск, �
 
 ---
 
-## Статус 20 августа 2026
+## Статус 31 августа 2026
 
-Веб и APK после пакетов 17–20 авг закрывают списки багов этих дней. Сборка ушла в RuStore (`versionCode` 1). Пока модерация: **не менять** `applicationId` и ключ подписи. Следующий апдейт в стор — `versionCode` 2.
+Пакеты 17–20 авг (баги) и пакет 0–5 от 31 авг в коде закрыты. Следующая публичная APK — с сайта, с поднятым `versionCode` (сейчас в gradle всё ещё `1` / `1.0`). `applicationId` и ключ подписи не менять: иначе не обновится уже установленное приложение.
 
 Сделано в том числе:
 
@@ -52,7 +52,13 @@ VPS маленький (примерно 1 vCPU, 1 ГБ RAM, 10 ГБ диск, �
 - FCM не падает на тексте > 4 КБ;
 - плохая сеть: «Не удалось отправить · Повторить»;
 - галочки прочтения в сайдбаре на своих последних;
-- техподдержка, соглашение и политика — ссылки внизу сайдбара; жалобы в APK не прячутся под кнопками навигации.
+- техподдержка, соглашение и политика — ссылки внизу сайдбара; жалобы в APK не прячутся под кнопками навигации;
+- шаг 0: меньше логов (токен сброса больше не пишется), safe-area у модалок;
+- шаг 1: после `register` подписка на канал из `WELCOME_CHANNEL_ID` (канал и посты — руками на проде);
+- шаги 2–3: в полноэкранном фото «Поделиться» и «Скачать» (веб + APK);
+- шаг 4: сайдбар «Potok AI (скоро)» → `/ai`, бота нет;
+- шаг 5: `GET /api/ai/status`, флаг `AI_ENABLED=false`, Ollama на VPS нет;
+- веб: кнопка «Скачать приложение» (в APK скрыта).
 
 **Не делаем сейчас (и не путать с багами):**
 
@@ -61,9 +67,11 @@ VPS маленький (примерно 1 vCPU, 1 ГБ RAM, 10 ГБ диск, �
 | Видео, документы, кнопки в шторке пуша | Нативка / отдельный объём, тот же бакет что видео |
 | Разговорный динамик у голосовых | HTML `<audio>` в WebView не умеет `STREAM_VOICE_CALL` — нужен Java-плагин |
 | Админский бан аккаунта | Пока только личный блок; схема бана обсуждена (`bannedAt` + `tokenVersion`), в код не писали |
-| ИИ по жалобам / бот | После релиза; жалобы уже пишутся в `Report` и на почту |
-| Рефакторинг толстого `App.jsx` | Работает, не трогаем перед стором |
+| Живой ИИ / Ollama | Заглушка `/ai` и бэкенд-флаг есть; модель на этот VPS не ставить. Сервис — отдельно (`potok-ai-bot`) |
+| Рефакторинг толстого `App.jsx` | Работает, не трогаем без нужды |
 | Pull-to-refresh в чате | Ломает пагинацию истории |
+| VK ID | Второй паспорт на вход; имеет смысл при живом притоке, не в 1.1 |
+| Превью ссылок / файлов | Нагрузка VPS + файлы не в продукте; узкий unfurl потом |
 
 Контакт, скрытый **старым** DELETE (до миграции `hidden`), в «Скрытых» не появится — вернуть через поиск ➕ один раз.
 
@@ -74,7 +82,7 @@ VPS маленький (примерно 1 vCPU, 1 ГБ RAM, 10 ГБ диск, �
 | Слой | Что |
 |------|-----|
 | Клиент | React 19, Vite 8, Tailwind 4, React Router 7, Socket.io-client 4 |
-| Натив | Capacitor 8, App, Push, StatusBar, `capacitor-voice-recorder` |
+| Натив | Capacitor 8, App, Push, StatusBar, Share, Filesystem, `capacitor-voice-recorder` |
 | Android | `com.potokmessenger.app`, minSdk 24, target/compile 36, Java 21 |
 | RuStore SDK | `ru.rustore.sdk:pushclient:6.4.0` |
 | Сервер | Node, Express 5, Socket.io 4, Prisma 5.22, JWT, Helmet, cors, rate-limit, bcryptjs |
@@ -156,7 +164,7 @@ REPORT_EMAIL=mesengrpotok@gmail.com
 
 SPA: `App.jsx` — оркестратор. Хуки: `useAppState`, `useSocket`, `useMessages`, `useChats`, `useContacts`, `useUnread`, `useMessageHandlers`, `useMarkAsRead`, `useTheme`, `useToast`.
 
-Экраны: `Sidebar`, `ChatArea`, `ProfilePanel`, `Auth`, `ResetPassword`. Роуты: `/`, `/reset-password`.
+Экраны: `Sidebar`, `ChatArea`, `ProfilePanel`, `Auth`, `ResetPassword`, `AiAssistant`. Роуты: `/`, `/reset-password`, `/ai` (заглушка, бота нет). Nginx для SPA: `try_files` на `index.html`, иначе `/ai` даст 404.
 
 Голос: веб — `getUserMedia`; APK — `capacitor-voice-recorder`. На HTTP live-reload микрофона браузера нет (не secure context) — это норма.
 
@@ -164,7 +172,7 @@ SPA: `App.jsx` — оркестратор. Хуки: `useAppState`, `useSocket`,
 
 - Не подменять `WebViewClient`. Origin APK — `https://localhost` (поэтому CORS обязан пускать localhost).
 - `RuStorePush` регистрировать до `super.onCreate()`.
-- Подпись debug/release = отпечаток в RuStore Console. Пока заявка на модерации ключ не перевыпускать.
+- Подпись debug и release не путать. Ключ релиза не перевыпускать: уже установленные APK иначе не обновятся.
 - После смены нативных плагинов: `npm run build` → `npx cap sync android` → новый release. Hot reload JS плагин не подхватит.
 - Почта в приложении: `SUPPORT_EMAIL` в `src/config.js` (сейчас `mesengrpotok@gmail.com`). Жалобы на сервере — `REPORT_EMAIL` в `.env`.
 
@@ -187,6 +195,7 @@ SPA: `App.jsx` — оркестратор. Хуки: `useAppState`, `useSocket`,
 | `/api/upload` | медиа (лимит аватара 20 МБ) |
 | `/api/read` `/api/unread` `/api/mute` | прочтение, счётчики, мут |
 | `/api/push-token` | POST сохранить, DELETE деактивировать |
+| `/api/ai` | `GET /status`; `POST /complete` (пока 503, `AI_ENABLED=false`) |
 
 CORS: `CORS_ORIGINS` **плюс всегда** `https://localhost`, `http://localhost`, `capacitor://localhost`, `ionic://localhost`.
 
@@ -225,7 +234,7 @@ CORS: `CORS_ORIGINS` **плюс всегда** `https://localhost`, `http://loca
 
 Шаблоны: `Server-Refactor/.env.example`, `.env.production.example`. **`.env` в git не класть.**
 
-Сервер: `PORT`, `NODE_ENV`, `DATABASE_URL` (только `postgresql://`), `JWT_SECRET`, `FRONTEND_URL` (**одна** строка `https://potokmessenger.ru`), `CORS_ORIGINS`, `UNISENDER_*`, SMTP, `S3_*`, Firebase Admin, `RUSTORE_*`, `ADMIN_USER_IDS`, `REPORT_EMAIL`.
+Сервер: `PORT`, `NODE_ENV`, `DATABASE_URL` (только `postgresql://`), `JWT_SECRET`, `FRONTEND_URL` (**одна** строка `https://potokmessenger.ru`), `CORS_ORIGINS`, `UNISENDER_*`, SMTP, `S3_*`, Firebase Admin, `RUSTORE_*`, `ADMIN_USER_IDS`, `REPORT_EMAIL`, `WELCOME_CHANNEL_ID`, `AI_ENABLED` (сейчас `false`, без Ollama на VPS).
 
 Клиент: `VITE_API_URL` (опционально, только отладка), `VITE_FIREBASE_*`, `VITE_FIREBASE_VAPID_KEY`.
 
@@ -266,7 +275,7 @@ Nginx: заголовки `Upgrade` / `Connection` для `/socket.io`.
 
 ## Смоук (прод + APK)
 
-На **проде**, веб + **свежий** APK (старый APK не содержит цитат / блока / жалоб / фикса сайдбара).
+На **проде**, веб + **свежий** APK (сборка после 31 авг: шаринг/сохранение фото, `/ai`; кнопка APK только в браузере).
 
 1. Сброс пароля — ссылка `https://potokmessenger.ru/reset-password?…`, не localhost.
 2. Logout на одном клиенте → второй просит логин; пуш после выхода не приходит.
@@ -283,6 +292,9 @@ Nginx: заголовки `Upgrade` / `Connection` для `/socket.io`.
 13. Жалоба → письмо на `REPORT_EMAIL` и запись в 🛡️ у админа.
 14. Тёмная тема APK: видны время / заряд. Назад закрывает модалку, не приложение.
 15. Низ сайдбара: техподдержка / соглашение / конфиденциальность. Список жалоб не уезжает под системные кнопки.
+16. Веб: «Скачать приложение» качает `/potok.apk`. В установленном APK этой кнопки нет.
+17. Сайдбар «Potok AI (скоро)» → `/ai`, текст про 1.2, без запросов к модели. `GET /api/ai/status` → `enabled: false`.
+18. Если на VPS задан `WELCOME_CHANNEL_ID` — новый аккаунт сразу видит канал-инструкцию.
 
 ---
 

@@ -10,7 +10,9 @@ import ContactList from './ContactList';
 import AddContactModal from './AddContactModal';
 import ChannelSearchModal from './ChannelSearchModal';
 import { apiClient } from '../../services/apiClient';
-import { SUPPORT_EMAIL, LEGAL_PAGES } from '../../config';
+import { SUPPORT_EMAIL, LEGAL_PAGES, isNativeApp } from '../../config';
+import { useNavigate } from 'react-router-dom';
+import DownloadAppButton from '../DownloadAppButton';
 
 export default function Sidebar({
   loading,
@@ -44,6 +46,7 @@ export default function Sidebar({
   onlineUserIds,
   showConfirm,
 }) {
+  const navigate = useNavigate();
   const [isNewChannelOpen, setIsNewChannelOpen] = useState(false);
   const [isNewGroupOpen, setIsNewGroupOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -164,7 +167,19 @@ const filteredGroups = groupChats
 
       {/* Списки чатов */}
       <div className="flex-1 overflow-y-auto no-scrollbar px-2 py-2 space-y-1">
-        
+        <button
+          type="button"
+          onClick={() => navigate('/ai')}
+          className="w-full flex items-center p-3 rounded-xl transition-all select-none text-left cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-300"
+        >
+          <div className="relative mr-3 shrink-0 w-11 h-11 rounded-full bg-violet-100 dark:bg-violet-950/50 flex items-center justify-center text-xl">
+            🤖
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-xs text-zinc-800 dark:text-zinc-100 truncate">Potok AI (скоро)</h3>
+            <p className="text-xs text-zinc-400 dark:text-zinc-500 truncate">Ассистент в версии 1.2</p>
+          </div>
+        </button>
         <ContactList
     contacts={filteredContacts}
     contactsVersion={contactsVersion}
@@ -235,6 +250,7 @@ const filteredGroups = groupChats
           <button type="button" onClick={() => setLegalPage('privacy')} className="hover:text-emerald-500 transition">
             Конфиденциальность
           </button>
+          {!isNativeApp && <DownloadAppButton compact />}
         </div>
         <button onClick={onLogout} className="w-full flex items-center justify-center gap-2 rounded-xl bg-zinc-100 hover:bg-red-50 dark:bg-zinc-900 dark:hover:bg-red-950/30 px-4 py-2.5 text-sm font-medium text-zinc-600 hover:text-red-600 dark:text-zinc-400 dark:hover:text-red-400 transition">
           🚪 Выйти

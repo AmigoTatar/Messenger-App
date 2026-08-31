@@ -17,7 +17,6 @@ export default function ProfilePanel({
   contacts,
   onMuteChange,
 }) {
-  console.log('📤 [ProfilePanel] contacts получены:', contacts);
 const [activeTab, setActiveTab] = useState('media');
 const [members, setMembers] = useState([]);
 const [isLoading, setIsLoading] = useState(false);
@@ -196,24 +195,14 @@ const fetchUsers = async () => {
         const users = await apiClient('/api/users', {
             headers: { Authorization: `Bearer ${token}` },
         });
-        console.log('📤 [ProfilePanel] Все пользователи (users):', users);
-        console.log('📤 [ProfilePanel] members:', members);
-        console.log('📤 [ProfilePanel] contacts:', contacts);
-
         const memberIds = members.map(m => m.userId);
         const contactIds = contacts.map(c => c.id); 
-
-           console.log('📤 [ProfilePanel] memberIds:', memberIds);
-        console.log('📤 [ProfilePanel] contactIds:', contactIds);
         
         const availableUsers = users
             .filter(u => !memberIds.includes(u.dbId || u.id))
             .filter(u => contactIds.includes(u.dbId || u.id));
         
         setAllUsers(availableUsers);
-        console.log('📤 [ProfilePanel] users для групп:', users.map(u => ({ id: u.id, dbId: u.dbId, name: u.name })));
-console.log('📤 [ProfilePanel] memberIds для групп:', memberIds);
-console.log('📤 [ProfilePanel] contactIds для групп:', contactIds);
     } catch (err) {
         console.error('Ошибка загрузки пользователей:', err);
     }
@@ -531,8 +520,6 @@ const handleDeleteChat = async () => {
 
   const isCreator = Number(activeChat.creatorId) === Number(currentUserId);
 
-  console.log(' ProfilePanel: activeChat.creatorId=', activeChat?.creatorId, 'currentUserId=', currentUserId, 'isCreator=', isCreator)
-
 
 
 
@@ -620,8 +607,6 @@ const openEditModal = () => {
               )}
             </div>
 
-            
-              {console.log('📤 [ProfilePanel] allUsers для рендера:', allUsers)}
             {showAddMember && (
               <div className="mb-3 p-3 rounded-lg bg-zinc-100 dark:bg-zinc-900">
                 <div className="max-h-48 overflow-y-auto space-y-1 mb-2">
@@ -782,7 +767,7 @@ const openEditModal = () => {
         </div>
       </div>
       {isEditing && (
-  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 sheet-safe">
     <div className="bg-white dark:bg-zinc-900 rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-zinc-100 dark:border-zinc-800">
       <h3 className="text-lg font-bold text-zinc-800 dark:text-white mb-4">
         Редактировать {activeChat.type === 'channel' ? 'канал' : 'группу'}

@@ -128,7 +128,7 @@ async function registerNativePush() {
 
     if (!listenersAttached) {
       await PushNotifications.addListener('registration', async (token) => {
-        console.log('📱 [PUSH][APK] FCM-токен:', token.value);
+        console.log('📱 [PUSH][APK] FCM-токен:', String(token.value).slice(0, 12) + '…');
         try {
           await savePushTokenToServer(token.value, 'fcm');
         } catch (err) {

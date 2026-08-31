@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import './index.css'
 import App from './App.jsx'
 import ResetPassword from './ResetPassword'
+import AiAssistant from './AiAssistant'
 import { API_BASE_URL } from './config'
 
 createRoot(document.getElementById('root')).render(
@@ -12,6 +13,7 @@ createRoot(document.getElementById('root')).render(
       <Routes>
         <Route path="/" element={<App />} />
         <Route path="/reset-password" element={<ResetPassword apiBaseUrl={API_BASE_URL} />} />
+        <Route path="/ai" element={<AiAssistant />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,

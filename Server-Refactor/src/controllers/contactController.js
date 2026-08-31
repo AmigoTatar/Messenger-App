@@ -249,8 +249,6 @@ const searchUsers = async (req, res) => {
         const userId = req.userId;
         const { query } = req.query;
 
-        console.log('🔍 [server] Поиск:', { userId, query });
-
         if (!query || query.length < 2) {
             return res.status(400).json({ error: 'Минимум 2 символа' });
         }
@@ -290,7 +288,6 @@ const searchUsers = async (req, res) => {
             isHidden: hiddenIds.has(user.id),
         }));
 
-        console.log('🔍 [server] Найдено пользователей:', result.length);
         res.json(result);
     } catch (error) {
         console.error('❌ Ошибка поиска пользователей:', error);

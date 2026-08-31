@@ -110,7 +110,6 @@ export default function MessageInput({
 
     if (socketRef && !isTypingEmitted && activeChatData?.type !== 'channel') {
       setIsTypingEmitted(true);
-      console.log('📤 Отправляю typing для чата:', activeChatId);
       socketRef.emit('typing', { activeChatId });
       setTimeout(() => {
         setIsTypingEmitted(false);

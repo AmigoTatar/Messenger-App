@@ -167,6 +167,7 @@ app.use('/api/blocks', require('./src/routes/blockRoutes'));
 app.use('/api/reports', require('./src/routes/reportRoutes'));
 app.use('/api/auth', passwordRoutes);
 app.use('/api/push-token', pushRoutes);
+app.use('/api/ai', require('./src/routes/aiRoutes'));
 
 
 // ДОПОЛНИТЕЛЬНЫЕ РОУТЫ (для совместимости с фронтендом)

@@ -161,7 +161,6 @@ const getChatAvatar = (activeChatId, activeChatData, channelsProp, groupChatsPro
     setForwardModal({ visible: true, message: msg });
   };
 const handleForwardSend = (targetChatId, msg) => {
-  console.log('📤 Пересылка в чат:', targetChatId, 'Сообщение:', msg);
   const chatId = String(targetChatId)
   // Проверяем, если целевой чат — канал, то проверяем права
   if (targetChatId.startsWith('channel_')) {
@@ -185,7 +184,6 @@ const handleForwardSend = (targetChatId, msg) => {
       activeChatId: targetChatId,
       isForwarded: true,
     });
-    console.log('✅ Переслано через сокет');
     if (typeof onSelectChat === 'function') {
       onSelectChat(targetChatId);
     } else {
@@ -198,7 +196,6 @@ const handleForwardSend = (targetChatId, msg) => {
 };
 
   const handlePin = async (messageId) => {
-  console.log('📌 Закрепление:', messageId);
   const id = typeof messageId === 'object' ? messageId.id : messageId;
   
   //  Проверка прав на клиенте
@@ -366,19 +363,16 @@ const fetchPinnedMessages = useCallback(async () => {
 //  СТАТУС ПЕЧАТАЕТ...
 useEffect(() => {
   if (!socketRef) {
-    console.log('⚠️ socket отсутствует, подписка на typing не выполнена');
     return;
   }
 
   const handleTyping = (data) => {
-    console.log('📝 handleTyping получен:', data);
     if (Number(data.senderId) === Number(currentUserId)) return;
     if (data.activeChatId !== activeChatId) return;
     setLocalTypingUser(data);
   };
 
   const handleStopTyping = (data) => {
-    console.log('📝 handleStopTyping получен:', data);
     if (data.activeChatId !== activeChatId) return;
     setLocalTypingUser(null);
   };
@@ -459,7 +453,6 @@ const handleEditSave = async (messageId, newText) => {
       throw new Error(error.error || 'Ошибка редактирования');
     }
     const data = await response.json();
-    console.log('✅ Редактирование успешно, ответ сервера:', data);
     // Обновляем локальный стейт
     if (setMessages && activeChatId) {
       setMessages(prev => {
@@ -644,6 +637,7 @@ const chatAvatar = getChatAvatar(activeChatId, activeChatData, channelsProp, gro
           onDelete={handleDelete}
           socketRef={socketRef}
           onRetry={handleRetryFailed}
+          showToast={showToast}
         />
 {showPinnedList && (
   <div className="mx-4 my-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/30 rounded-xl overflow-hidden max-h-60 overflow-y-auto">

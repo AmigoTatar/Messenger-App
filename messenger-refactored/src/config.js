@@ -25,6 +25,13 @@ export const LEGAL_PAGES = {
   privacy: { title: 'Политика конфиденциальности', path: '/privacy-policy.html' },
 };
 
+/** Android APK с сайта (не сторы). Файл кладётся на Nginx как /potok.apk */
+export const APK_DOWNLOAD = {
+  url: '/potok.apk',
+  filename: 'potok.apk',
+  versionName: '1.0',
+};
+
 export { API_BASE_URL, isDevelopment, isNativeApp };
 
 export const CHAT_IDS = {

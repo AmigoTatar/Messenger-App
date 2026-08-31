@@ -398,8 +398,6 @@ const searchMessages = async (req, res) => {
             return res.status(400).json({ error: 'Поисковый запрос должен содержать минимум 2 символа' });
         }
 
-        console.log(`🔍 Поиск: userId=${userId}, query="${query}"`);
-
         // Получаем все чаты, каналы и приватные диалоги пользователя
         const userChats = await prisma.chatMember.findMany({
             where: { userId },

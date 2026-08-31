@@ -22,7 +22,7 @@ export default function Toast({ message, type = 'info', duration = 3000, onClose
   };
 
   return (
-    <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl shadow-lg ${styles[type]} transition-all duration-300 animate-fadeIn`}>
+    <div className={`fixed left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl shadow-lg ${styles[type]} transition-all duration-300 animate-fadeIn top-[max(1.5rem,calc(env(safe-area-inset-top,0px)+0.75rem))]`}>
       <div className="flex items-center gap-3">
         <span className="text-sm font-medium">{message}</span>
         <button

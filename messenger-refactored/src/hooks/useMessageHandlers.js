@@ -405,15 +405,7 @@ export function useMessageHandlers({
 
   
 const handleMessageDeleted = useCallback(({ messageId, activeChatId, otherUserId, senderId, receiverId }) => {
-    // Теперь senderId и receiverId доступны
-    console.log(' [handleMessageDeleted] activeChatId:', activeChatId);
-    console.log(' [handleMessageDeleted] messageId:', messageId);
-    console.log(' [handleMessageDeleted] otherUserId:', otherUserId);
-    console.log(' [handleMessageDeleted] senderId:', senderId);
-    console.log(' [handleMessageDeleted] receiverId:', receiverId);
-    
     if (!activeChatId) {
-        console.log(' [handleMessageDeleted] Нет activeChatId');
         return;
     }
 
@@ -479,8 +471,6 @@ const handleMessageDeleted = useCallback(({ messageId, activeChatId, otherUserId
         userIdToUpdate = otherUserId || parseInt(activeChatId.replace('user_', ''), 10);
     }
 
-    console.log(' [handleMessageDeleted] Обновляю приватный чат для userId:', userIdToUpdate);
-
     setChats(prev => {
         const updated = prev.map(ch => {
             const chUserId = parseInt(ch.id?.replace('user_', ''), 10);
@@ -509,7 +499,6 @@ const handleMessageDeleted = useCallback(({ messageId, activeChatId, otherUserId
 }, [setMessagesByChat, setChats, setChannels, setGroupChats, setChatsVersion, setChannelsVersion, setGroupChatsVersion, setContacts, setContactsVersion]);
   const handleUserUpdated = useCallback((data) => {
     const { userId, username, avatar } = data;
-    console.log(' [user_updated] Получено:', data);
 
     if (userId === user?.id) {
       const updatedUser = { ...user, username, avatar };
@@ -601,10 +590,8 @@ const handleMessageDeleted = useCallback(({ messageId, activeChatId, otherUserId
     else if (type === 'private') chatKey = `user_${id}`;
 
     const currentActive = activeChatIdRef?.current;
-    console.log(' [handleUnreadUpdated] chatKey:', chatKey, 'active:', currentActive, 'count:', count);
 
     if (chatKey === currentActive && currentActive !== null) {
-      console.log(' Сбрасываю unread для активного чата:', chatKey);
       updateUnread(chatKey, 0);
     } else {
       updateUnread(chatKey, count);
@@ -613,7 +600,6 @@ const handleMessageDeleted = useCallback(({ messageId, activeChatId, otherUserId
 
   const handleMessagesReadUpdate = useCallback(({ activeChatId: readChatId, readerId }) => {
     if (Number(readerId) === Number(user?.id)) return;
-    console.log(' [handleMessagesReadUpdate] Чат:', readChatId, 'Прочитал:', readerId);
 
     setMessagesByChat(prev => {
       const newState = { ...prev };

@@ -58,8 +58,7 @@ const forgotPassword = async (req, res) => {
 const emailSent = await sendResetEmail(email, token);
 
 if (!emailSent) {
-   
-    console.log(`🔐 Токен для сброса пароля (${email}): ${token}`);
+    console.error('❌ Не удалось отправить письмо сброса пароля');
 }
 
         

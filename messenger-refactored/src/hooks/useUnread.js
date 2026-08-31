@@ -28,12 +28,7 @@ const updateUnread = useCallback((chatKey, count) => {
 }, []);
 
   const resetUnread = useCallback((chatKey) => {
-  console.log('🔄 resetUnread для', chatKey);
-  setUnreadCounts(prev => {
-    const newState = { ...prev, [chatKey]: 0 };
-    console.log('📊 Новые unreadCounts:', newState);
-    return newState;
-  });
+  setUnreadCounts(prev => ({ ...prev, [chatKey]: 0 }));
 }, []);
 
   const clearUnread = useCallback(() => {

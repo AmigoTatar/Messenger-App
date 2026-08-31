@@ -1,5 +1,6 @@
 import React, { useRef, useLayoutEffect, useCallback, useState, useEffect } from 'react';
 import MessageItem from './MessageItem';
+import { shareImage, saveImage } from '../../services/shareImage';
 
 export default function MessageList({
   messages,
@@ -17,6 +18,7 @@ export default function MessageList({
   onDelete,
   socketRef, 
   onRetry,
+  showToast = () => {},
 }) {
   const containerRef = useRef(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
@@ -29,6 +31,7 @@ export default function MessageList({
   const prevChatIdRef = useRef(activeChatId);
   const [previewIndex, setPreviewIndex] = useState(-1);
   const [zoom, setZoom] = useState(1);
+  const [previewBusy, setPreviewBusy] = useState(false);
   const pinchRef = useRef({ dist: 0, startZoom: 1 });
   const swipeRef = useRef({ x: 0 });
 
@@ -43,6 +46,36 @@ export default function MessageList({
   };
 
   const closePreview = () => setPreviewIndex(-1);
+
+  const handleShare = async (e) => {
+    e.stopPropagation();
+    const url = imageUrls[previewIndex];
+    if (!url || previewBusy) return;
+    setPreviewBusy(true);
+    try {
+      await shareImage(url);
+    } catch (err) {
+      showToast(err?.message || 'Не удалось поделиться фото', 'error');
+    } finally {
+      setPreviewBusy(false);
+    }
+  };
+
+  const handleSave = async (e) => {
+    e.stopPropagation();
+    const url = imageUrls[previewIndex];
+    if (!url || previewBusy) return;
+    setPreviewBusy(true);
+    try {
+      const result = await saveImage(url);
+      if (result === 'saved') showToast('Фото сохранено', 'success');
+      if (result === 'opened') showToast('Сохраните фото из открывшейся вкладки', 'info');
+    } catch (err) {
+      showToast(err?.message || 'Не удалось сохранить фото', 'error');
+    } finally {
+      setPreviewBusy(false);
+    }
+  };
 
   useEffect(() => {
     if (previewIndex < 0) return undefined;
@@ -107,7 +140,6 @@ export default function MessageList({
         isMarking.current = true;
         if (socketRef && socketRef.connected) {
           socketRef.emit('read_messages', { activeChatId });
-          console.log(' Отправлено read_messages для чата:', activeChatId);
         }
         setTimeout(() => { isMarking.current = false; }, 500);
       }
@@ -181,11 +213,34 @@ export default function MessageList({
       )}
       {previewIndex >= 0 && imageUrls[previewIndex] && (
         <div
-          className="fixed inset-0 z-[80] bg-black/90 flex items-center justify-center p-4"
+          className="fixed inset-0 z-[80] bg-black/90 flex items-center justify-center sheet-safe"
           onClick={closePreview}
           role="button"
           tabIndex={0}
         >
+          <div
+            className="absolute top-0 right-0 z-[81] p-2 flex gap-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={previewBusy}
+              className="h-10 px-4 rounded-full bg-white/20 text-white text-sm font-medium disabled:opacity-50"
+              aria-label="Скачать фото"
+            >
+              {previewBusy ? '…' : 'Скачать'}
+            </button>
+            <button
+              type="button"
+              onClick={handleShare}
+              disabled={previewBusy}
+              className="h-10 px-4 rounded-full bg-white/20 text-white text-sm font-medium disabled:opacity-50"
+              aria-label="Поделиться фото"
+            >
+              Поделиться
+            </button>
+          </div>
           <div
             className="relative max-w-full max-h-full"
             onClick={(e) => e.stopPropagation()}

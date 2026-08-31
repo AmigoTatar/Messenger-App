@@ -2,6 +2,7 @@ const { containsBadWord } = require('../utils/badWords');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../lib/prisma');
+const { subscribeToWelcomeChannel } = require('../utils/welcomeChannel');
 
 
 // РЕГИСТРАЦИЯ
@@ -95,6 +96,8 @@ const register = async (req, res) => {
                 avatar: '👤'
             }
         });
+
+        await subscribeToWelcomeChannel(newUser.id);
 
         // Генерация токена
         const token = jwt.sign(

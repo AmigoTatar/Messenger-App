@@ -1,8 +1,8 @@
-# Деплой: VPS + release APK
+# Деплой: VPS + APK с сайта
 
 VPS слабый — **не** гонять на нём `npm run build`, Vite, Gradle, Android Studio. Иначе не хватит RAM.
 
-Клиент (`dist`, APK) собирается на ПК. На сервер уезжает только `Server-Refactor` (+ при необходимости уже собранный `dist` для Nginx).
+Клиент (`dist`, APK) собирается на ПК. На сервер уезжает `Server-Refactor` и уже собранный `dist` для Nginx. Магазины не используем: APK кладётся на сайт как `/potok.apk`.
 
 Шаблоны env: `Server-Refactor/.env.example`, `Server-Refactor/.env.production.example`.  
 Живой `.env` в git не класть.
@@ -38,6 +38,7 @@ SMTP_PASS=
 
 ADMIN_USER_IDS=      # свой User.id из таблицы User, через запятую если несколько
 REPORT_EMAIL=mesengrpotok@gmail.com
+WELCOME_CHANNEL_ID=  # Channel.id канала-инструкции. Канал и посты — руками, потом restart
 
 S3_ENDPOINT=https://storage.yandexcloud.net
 S3_REGION=ru-central1
@@ -51,11 +52,25 @@ GOOGLE_APPLICATION_CREDENTIALS=./potok-messenger-firebase-adminsdk.json
 
 RUSTORE_PROJECT_ID=  # тот же, что в android/.../strings.xml
 RUSTORE_SERVICE_TOKEN=
+AI_ENABLED=false            # не true на этом VPS; Ollama сюда не ставить
+
 ```
 
 `FRONTEND_URL` — **одна** строка. Вторая с localhost сверху ломает ссылку сброса пароля (dotenv берёт первую).
 
 `ADMIN_USER_IDS` — не отдельный админский логин, а id твоего обычного аккаунта. После рестарта в сайдбаре появится щит жалоб.
+
+`WELCOME_CHANNEL_ID` — id канала из таблицы `Channel`. Без переменной регистрация работает как раньше. Уже существующие пользователи сами не подпишутся.
+
+`AI_ENABLED=false` — заготовка под бота. На этом VPS **не** ставить Ollama и **не** ставить `true`. Когда будет отдельный сервис (`potok-ai-bot`): `AI_USER_ID` (аккаунт-бот в таблице User), `AI_SERVICE_URL`, `AI_SERVICE_TOKEN`, затем флаг. Пока выключено — `GET /api/ai/status` отвечает `{ enabled: false }`, личка к боту не проксируется.
+
+Когда будешь заливать сервер на VPS:
+
+1. Своим аккаунтом создай канал (например «Potok») и напиши посты-инструкции.
+2. Узнай id: Prisma Studio / SQL `SELECT id, name FROM "Channel";`
+3. В `.env` на VPS добавь `WELCOME_CHANNEL_ID=этот_id` (рядом с `ADMIN_USER_IDS`).
+4. `pm2 restart` процесса сервера. Миграции для этого шага не нужны.
+5. Проверка: зарегистрируй тестовый аккаунт — канал должен сразу быть в сайдбаре.
 
 ### Команды на VPS
 
@@ -93,7 +108,24 @@ proxy_set_header Connection "upgrade";
 proxy_set_header Host $host;
 ```
 
-Без этого веб «логинится», а сообщения не приходят в реальном времени.
+SPA-роуты (`/`, `/reset-password`, `/ai`):
+
+```
+location / {
+    try_files $uri $uri/ /index.html;
+}
+```
+
+APK (после `npm run build` файл **не** попадает в `dist` сам — копируй отдельно):
+
+```
+location = /potok.apk {
+    default_type application/vnd.android.package-archive;
+    add_header Content-Disposition "attachment; filename=potok.apk";
+}
+```
+
+Без WebSocket-upgrade веб «логинится», а сообщения не приходят в реальном времени.
 
 После рестарта: `pm2 logs messenger --lines 80` — нет падений Prisma «Unknown arg `replyToId`» / «table Report does not exist».
 
@@ -111,11 +143,13 @@ npm run build
 
 Папку `dist/` залей туда, откуда Nginx отдаёт фронт (как у тебя уже настроено).
 
+APK для кнопки «Скачать приложение» на вебе: положи подписанный файл как **`/potok.apk`** рядом с `index.html` (тот же корень Nginx). Кнопка видна только в браузере, в APK её нет.
+
 После сборки в бандле не должно быть `localhost:5001` / `192.168.` — иначе APK/веб с прода будут стучаться на твой ПК.
 
 ---
 
-## 3. Release APK
+## 3. Release APK (сайт, не стор)
 
 Конфиг уже прод: в `capacitor.config.json` **нет** блока `server.url`, в `.env.local` **нет** `VITE_API_URL`.
 
@@ -125,14 +159,14 @@ npm run build
 npx cap sync android
 ```
 
-Дальше Android Studio → Build → Generate Signed Bundle / APK → **release**.
+Дальше Android Studio → Build → Generate Signed Bundle / APK → **release**. Готовый файл положи на Nginx как `/potok.apk` (кнопка на вебе качает именно его).
 
-- Подпись = отпечаток в RuStore Console (debug и release путать нельзя). Пока заявка на модерации ключ не перевыпускать.
-- Первая выкладка: `versionCode 1` / `versionName 1.0` в `android/app/build.gradle`. Любой апдейт в стор — поднять `versionCode`.
-- После смены Java-плагинов (StatusBar, RuStore, VoiceRecorder) без `cap sync` + новой сборки APK старая нативка останется.
+- Подпись debug и release не путать. Ключ релиза не перевыпускать — уже стоящие APK не обновятся.
+- Сейчас в gradle: `versionCode 1` / `versionName 1.0`. Эта сборка (шаринг фото, Filesystem) — подними `versionCode` (например 2), иначе Android может отказаться обновлять.
+- После смены Java-плагинов (StatusBar, RuStore Push, VoiceRecorder, Share, Filesystem) без `cap sync` + новой сборки APK старая нативка останется.
 - Origin WebView = `https://localhost`. CORS на сервере это уже учитывает. Не ставь `hostname: potokmessenger.ru` в Capacitor.
 
-Live-debug на LAN (не для стора): временно `VITE_API_URL` и блок `server` в Capacitor — см. `NOTES.md` → Live-debug APK. Перед стором оба вернуть как было.
+Live-debug на LAN (не для публичного APK): временно `VITE_API_URL` и блок `server` в Capacitor — см. `NOTES.md` → Live-debug APK. Перед выкладкой оба вернуть как было.
 
 ---
 
@@ -144,6 +178,9 @@ Live-debug на LAN (не для стора): временно `VITE_API_URL` и
 4. Жалоба: строка в БД / щит у админа / письмо на `REPORT_EMAIL`.
 5. Пуш лички открывает чат с отправителем, не «чат с собой».
 6. В логах pm2 нет `Message is too large` на обычных текстах и нет спама `Сокет … в комнате`.
+7. Веб: кнопка «Скачать приложение», файл `/potok.apk` отдаётся. В APK кнопки нет.
+8. `/ai` открывается (не 404 Nginx). `GET /api/ai/status` → `enabled: false`.
+9. Новый тестовый аккаунт видит welcome-канал, если `WELCOME_CHANNEL_ID` задан.
 
 Полный смоук — в README, раздел «Смоук (прод + APK)».
 
@@ -161,5 +198,8 @@ Live-debug на LAN (не для стора): временно `VITE_API_URL` и
 | Нет realtime | Nginx WebSocket upgrade |
 | Щита жалоб нет | `ADMIN_USER_IDS` не тот id, нет `pm2 restart` |
 | Письма жалоб нет | `REPORT_EMAIL` / Unisender / SMTP; жалоба в БД всё равно должна быть |
+| `/ai` или `/reset-password` — 404 | Nginx без `try_files` на `index.html` |
+| «Скачать приложение» 404 | Нет файла `/potok.apk` в корне сайта |
+| Новый юзер без канала-инструкции | Пустой или неверный `WELCOME_CHANNEL_ID`, нет `pm2 restart` |
 
 Откат кода: верни предыдущие файлы сервера и `pm2 restart`. Миграции Prisma **назад сами не откатываются** — новые таблицы (`UserBlock`, `Report`) безопасно оставить, они не мешают старому клиенту.

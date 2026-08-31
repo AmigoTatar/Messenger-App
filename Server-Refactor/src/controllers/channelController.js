@@ -41,7 +41,6 @@ const getChannels = async (req, res) => {
 // --- GET /api/channels/:channelId ---
 const getChannel = async (req, res) => {
     try {
-         console.log(' getChannel вызвана! channelId:', req.params.channelId);
         const channelId = parseInt(req.params.channelId);
         const userId = req.userId;
 
@@ -415,18 +414,13 @@ const removeChannelMember = async (req, res) => {
 
 const searchChannels = async (req, res) => {
     try {
-        console.log(' 1. Функция searchChannels вызвана!');
         const { query } = req.query;
         const userId = req.userId;
-        
-        console.log(`2. query: "${query}", userId: ${userId}`);
 
         if (!query || query.length < 2) {
-            console.log(' 3. Запрос слишком короткий');
             return res.status(400).json({ error: 'Минимум 2 символа' });
         }
 
-        console.log(' 4. Начинаю поиск в БД...');
         const channels = await prisma.channel.findMany({
             where: {
                 name: { 
@@ -443,8 +437,6 @@ const searchChannels = async (req, res) => {
             take: 20
         });
 
-        console.log(` 5. Найдено каналов: ${channels.length}`);
-
         const result = channels.map(channel => {
             const isMember = channel.members.some(m => m.userId === userId);
             const isAdmin = channel.members.some(m => m.userId === userId && m.role === 'admin');
@@ -459,16 +451,11 @@ const searchChannels = async (req, res) => {
             };
         });
 
-        console.log('. Отправляю результат:', result.length, 'каналов');
         res.json(result);
     } catch (error) {
         console.error('❌ ОШИБКА в searchChannels:', error);
         console.error('❌ Стек ошибки:', error.stack);
-        res.status(500).json({ 
-            error: 'Не удалось найти каналы',
-            details: error.message,
-            stack: error.stack
-        });
+        res.status(500).json({ error: 'Не удалось найти каналы' });
     }
 };
 
@@ -728,9 +715,6 @@ const cancelJoinRequest = async (req, res) => {
         res.status(500).json({ error: 'Не удалось отменить заявку' });
     }
 };
-console.log(' channelController экспортирует:');
-console.log('  - approveJoinRequest:', typeof approveJoinRequest);
-console.log('  - rejectJoinRequest:', typeof rejectJoinRequest);
 module.exports = {
 
     getChannels,

@@ -7,6 +7,90 @@
 
 ---
 
+## Пакет 31 авг 2026 (после сторов)
+
+RuStore отклонил (реестр РКН). Магазины не целимся — APK с сайта (`/potok.apk`). Код шагов 0–5 и кнопка скачивания на вебе **сделаны**. Следующая сборка APK: поднять `versionCode`.
+
+| # | Что | Статус |
+|---|-----|--------|
+| 0 | UX / логи / safe-area | Сделано 31 авг |
+| 1 | Welcome-канал после register (`WELCOME_CHANNEL_ID`) | Код готов. На проде: канал руками, id в env, `pm2 restart` |
+| 2 | «Поделиться» фото | Сделано. В APK после `cap sync` + новой сборки |
+| 3 | «Скачать» фото | Сделано. То же |
+| 4 | Заглушка `/ai` | Сделано. Бота нет |
+| 5 | Бэкенд `AI_ENABLED=false` | Сделано. Ollama на VPS нет |
+| — | Кнопка «Скачать приложение» на вебе | Сделано 31 авг. Файл `/potok.apk` на Nginx |
+
+**Дальше не в этом пакете:** VK ID, превью ссылок/файлов, админский бан, разговорный динамик, видео, живой ИИ.
+
+---
+
+## 31 авг 2026
+
+Кнопка «Скачать приложение» только в вебе.
+
+| | |
+|---|---|
+| **Было** | APK негде было взять с сайта |
+| **Стало** | `DownloadAppButton` на Auth и в футере сайдбара. APK скрывает кнопку (`isNativeApp`). Ссылка `/potok.apk` |
+| **Где** | `DownloadAppButton.jsx`, `Auth.jsx`, `Sidebar.jsx`, `config.js` → `APK_DOWNLOAD` |
+| **Прод** | Положить подписанный файл в корень Nginx |
+
+Шаг 5: заготовка бэкенда ИИ.
+
+| | |
+|---|---|
+| **Было** | Не было `/api/ai` |
+| **Стало** | `GET /api/ai/status` → `{ enabled: false }`. `POST /api/ai/complete` при выключенном флаге 503. В `send_message` хук `maybeReplyToUser` — сразу выход, пока нет `AI_ENABLED=true` + `AI_USER_ID` + токен. Процесс не ходит в Ollama |
+| **Где** | `aiConfig.js`, `aiAssistant.js`, `aiRoutes.js`, `socketHandlers.js` |
+| **Потом** | Отдельная машина/контейнер с `potok-ai-bot`, env как в DEPLOY |
+
+Шаг 4: заглушка Potok AI.
+
+| | |
+|---|---|
+| **Было** | В сайдбаре не было пункта про ИИ |
+| **Стало** | Строка «Potok AI (скоро)» → `/ai`. Текст: скоро в 1.2. Запросов к модели нет. Системная «Назад» в APK возвращает в чаты |
+| **Где** | `AiAssistant.jsx`, `main.jsx`, `Sidebar.jsx` |
+
+Шаг 3: сохранить фото из полноэкранного просмотра.
+
+| | |
+|---|---|
+| **Было** | Только «Поделиться» |
+| **Стало** | Кнопка «Скачать»: веб — файл в загрузки браузера. APK — `Documents/Potok`, плагин сам прогоняет MediaScanner. Если нет прав — системный шаринг (сохранить в галерею) |
+| **Где** | `shareImage.js` (`saveImage`), `MessageList.jsx`, `AndroidManifest.xml` |
+
+Шаг 2: «Поделиться» из полноэкранного фото.
+
+| | |
+|---|---|
+| **Было** | Превью только зум/свайп |
+| **Стало** | Кнопка «Поделиться»: веб — файл через `navigator.share`, иначе ссылка. APK — файл в Cache + `@capacitor/share`, если fetch не вышел — ссылка |
+| **Где** | `shareImage.js`, `MessageList.jsx` |
+| **APK** | `@capacitor/share` + `@capacitor/filesystem`, `npx cap sync android` |
+
+Шаг 1: после регистрации — member на канал-инструкцию.
+
+| | |
+|---|---|
+| **Было** | `register` создавал User и сразу JWT, канала не было |
+| **Стало** | Если в env есть `WELCOME_CHANNEL_ID` и канал существует — `channelMember` role=member. Сбой подписки не валит регистрацию. Старые аккаунты не трогаем |
+| **Где** | `welcomeChannel.js`, `authController.js` |
+| **Прод** | Создать канал руками, посты, вписать id, `pm2 restart` |
+
+Шаг 0 пакета после сторов: проход по логам и safe-area, без новых фич.
+
+### Логи и токены
+
+| | |
+|---|---|
+| **Было** | Сброс пароля при сбое почты писал сырой токен в лог. Клиент логировал каждое сообщение / typing / joinChat / unread. Поиск каналов нумеровал шаги. `searchChannels` отдавал `stack` клиенту |
+| **Стало** | Токен не логируется. Hot-path `console.log` снят, `warn`/`error` остались. Оверлеи модалок — класс `.sheet-safe`, тост выше выреза |
+| **Где** | `passwordController.js`, хуки чата, модалки, `index.css`, `Toast.jsx`, `socketHandlers.js`, `channelController.js` |
+
+---
+
 ## 19 авг 2026
 
 Пакет багов + то, что осталось с 17–18 (цитата, комменты канала, блок, жалобы, галочки сайдбара). Разговорный динамик и админский бан аккаунта **не** делали — см. README.
@@ -225,7 +309,7 @@
 
 ---
 
-## Live-debug APK (не для стора)
+## Live-debug APK (не для публичной сборки)
 
 Два конфига:
 
@@ -265,10 +349,10 @@ Release: убрать блок `"server"`, убрать `VITE_API_URL`, `npm run
 | JS | `src/plugins/rustorePush.js`, `pushRegistration.js` — FCM **и** RuStore |
 | Server | `PushToken.platform` (`fcm` \| `rustore`), `vkpns.rustore.ru` |
 
-`rustore_project_id` в `strings.xml`. На телефоне без RuStore `checkAvailability` = false — норма, останется FCM. Подпись APK = отпечаток в Console.
+`rustore_project_id` в `strings.xml`. На телефоне без RuStore `checkAvailability` = false — норма, останется FCM. Подпись APK одна и та же для обновлений с сайта.
 
 ---
 
-## ИИ-бот (не сейчас)
+## ИИ-бот (живой — не на этом VPS)
 
-Набросок на GitHub отдельно. Идея: Ollama + маленький сервис, в Node не мешать LLM. Жалобы уже в `Report` — боту потом читать оттуда. В этом репо не стартовать до релиза.
+Заглушка `/ai` и `GET /api/ai/status` уже в репо, `AI_ENABLED=false`. Код прокси: `aiAssistant.js` (как drop-in из `potok-ai-bot`). LLM и Ollama на этот VPS не ставить. Когда будет отдельный сервис: `AI_USER_ID`, `AI_SERVICE_URL`, `AI_SERVICE_TOKEN`, затем флаг. Жалобы уже в `Report` — боту потом читать оттуда.
