@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { SUPPORT_EMAIL, LEGAL_PAGES } from './config';
 import DownloadAppButton from './components/DownloadAppButton';
+import UpdateAppButton from './components/UpdateAppButton';
 
 export default function Auth({ onAuthSuccess, apiBaseUrl }) {
   const [isLogin, setIsLogin] = useState(true);
@@ -156,6 +157,7 @@ if (isForgotPassword) {
 
           <div className="flex justify-center">
             <DownloadAppButton />
+            <UpdateAppButton />
           </div>
 
         </div>
@@ -316,6 +318,7 @@ if (isForgotPassword) {
 
         <div className="flex justify-center">
           <DownloadAppButton />
+          <UpdateAppButton />
         </div>
 
       </div>

@@ -145,6 +145,8 @@ npm run build
 
 APK для кнопки «Скачать приложение» на вебе: положи подписанный файл как **`/potok.apk`** рядом с `index.html` (тот же корень Nginx). Кнопка видна только в браузере, в APK её нет.
 
+В том же корне должен лежать **`/version.json`** (копируется из `public/version.json` при `npm run build`). APK сравнивает `versionCode` с установленным и показывает «Обновить приложение». При каждой новой APK поднимай `versionCode` в `android/app/build.gradle`, `src/config.js` (`APK_DOWNLOAD`) и `public/version.json` — одно число.
+
 После сборки в бандле не должно быть `localhost:5001` / `192.168.` — иначе APK/веб с прода будут стучаться на твой ПК.
 
 ---
@@ -162,7 +164,7 @@ npx cap sync android
 Дальше Android Studio → Build → Generate Signed Bundle / APK → **release**. Готовый файл положи на Nginx как `/potok.apk` (кнопка на вебе качает именно его).
 
 - Подпись debug и release не путать. Ключ релиза не перевыпускать — уже стоящие APK не обновятся.
-- Сейчас в gradle: `versionCode 2` / `versionName 1.0.1`. Следующая сборка — снова подними `versionCode`.
+- Сейчас в gradle: `versionCode 3` / `versionName 1.0.2`. Следующая сборка — снова подними `versionCode`.
 - После смены Java-плагинов (StatusBar, RuStore Push, VoiceRecorder, Share, Filesystem) без `cap sync` + новой сборки APK старая нативка останется.
 - Origin WebView = `https://localhost`. CORS на сервере это уже учитывает. Не ставь `hostname: potokmessenger.ru` в Capacitor.
 
@@ -178,7 +180,7 @@ Live-debug на LAN (не для публичного APK): временно `VI
 4. Жалоба: строка в БД / щит у админа / письмо на `REPORT_EMAIL`.
 5. Пуш лички открывает чат с отправителем, не «чат с собой».
 6. В логах pm2 нет `Message is too large` на обычных текстах и нет спама `Сокет … в комнате`.
-7. Веб: кнопка «Скачать приложение», файл `/potok.apk` отдаётся. В APK кнопки нет.
+7. Веб: «Скачать приложение», файл `/potok.apk` отдаётся. В APK этой кнопки нет. Если на сайте `version.json` с большим `versionCode` — в APK кнопка «Обновить приложение».
 8. `/ai` открывается (не 404 Nginx). `GET /api/ai/status` → `enabled: false`.
 9. Новый тестовый аккаунт видит welcome-канал, если `WELCOME_CHANNEL_ID` задан.
 

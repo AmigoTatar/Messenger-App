@@ -13,6 +13,7 @@ import { apiClient } from '../../services/apiClient';
 import { SUPPORT_EMAIL, LEGAL_PAGES, isNativeApp } from '../../config';
 import { useNavigate } from 'react-router-dom';
 import DownloadAppButton from '../DownloadAppButton';
+import UpdateAppButton from '../UpdateAppButton';
 
 export default function Sidebar({
   loading,
@@ -240,6 +241,7 @@ const filteredGroups = groupChats
             </button>
           </div>
         </div>
+        {isNativeApp && <UpdateAppButton block />}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-zinc-400">
           <button type="button" onClick={openSupport} className="hover:text-emerald-500 transition">
             Техподдержка

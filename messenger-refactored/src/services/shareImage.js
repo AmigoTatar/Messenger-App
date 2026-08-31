@@ -1,6 +1,9 @@
+import { CapacitorHttp } from '@capacitor/core';
 import { Directory, Filesystem } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { isNativeApp } from '../config';
+
+const CACHE_DIR = 'potok-share';
 
 function isShareCanceled(err) {
     const msg = String(err?.message || err || '').toLowerCase();
@@ -26,27 +29,67 @@ async function fetchImageBlob(url) {
     return res.blob();
 }
 
-/** Native HTTP — обходит CORS WebView (S3 с <img> открывается, fetch с localhost — нет). */
-async function nativeDownloadTo(url, path, directory) {
-    const downloaded = await Filesystem.downloadFile({
-        url,
-        path,
-        directory,
-        recursive: true,
-    });
-    if (downloaded?.path) return downloaded.path;
-    const { uri } = await Filesystem.getUri({ path, directory });
-    return uri;
+async function ensureCacheDir() {
+    try {
+        await Filesystem.mkdir({
+            path: CACHE_DIR,
+            directory: Directory.Cache,
+            recursive: true,
+        });
+    } catch {
+        /* already exists */
+    }
 }
 
-async function shareNativeFile(url, dialogTitle = 'Поделиться фото') {
+function asBase64(data) {
+    if (typeof data !== 'string') return null;
+    const s = data.trim();
+    if (!s) return null;
+    return s.includes(',') ? s.split(',')[1] : s;
+}
+
+/** Native HTTP + запись в Cache. downloadFile сам mkdir не делает — папки создаём заранее. */
+async function cacheNativeFile(url) {
     const name = fileNameFromUrl(url);
-    const path = `share/${name}`;
-    await nativeDownloadTo(url, path, Directory.Cache);
+    const path = `${CACHE_DIR}/${name}`;
+    await ensureCacheDir();
+
+    try {
+        await Filesystem.downloadFile({
+            url,
+            path,
+            directory: Directory.Cache,
+        });
+    } catch {
+        const res = await CapacitorHttp.get({
+            url,
+            responseType: 'arraybuffer',
+            connectTimeout: 30000,
+            readTimeout: 60000,
+        });
+        if (res.status < 200 || res.status >= 300) {
+            throw new Error('Не удалось скачать фото');
+        }
+        const data = asBase64(res.data);
+        if (!data) throw new Error('Не удалось скачать фото');
+        await Filesystem.writeFile({
+            path,
+            data,
+            directory: Directory.Cache,
+            recursive: true,
+        });
+    }
+
     const { uri } = await Filesystem.getUri({
         path,
         directory: Directory.Cache,
     });
+    if (!uri) throw new Error('Не удалось подготовить файл');
+    return uri;
+}
+
+async function shareNativeFile(url, dialogTitle = 'Поделиться фото') {
+    const uri = await cacheNativeFile(url);
     await Share.share({
         files: [uri],
         dialogTitle,
@@ -110,18 +153,12 @@ async function saveWeb(url) {
 }
 
 /**
- * Сначала Documents (без запроса WRITE_EXTERNAL_STORAGE — на Android 13+ его нет).
- * Если папка недоступна — Cache + системный шаринг «сохранить в галерею».
+ * APK: системный шит (Галерея / Файлы / Диск). Тихая запись в Documents
+ * на Android 11+ часто падает, а downloadFile не создаёт подпапки.
  */
 async function saveNative(url) {
-    const name = fileNameFromUrl(url);
-    try {
-        await nativeDownloadTo(url, `Potok/${name}`, Directory.Documents);
-        return 'saved';
-    } catch {
-        await shareNativeFile(url, 'Сохранить фото');
-        return 'shared';
-    }
+    await shareNativeFile(url, 'Сохранить фото');
+    return 'shared';
 }
 
 /**
