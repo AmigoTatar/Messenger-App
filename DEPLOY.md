@@ -162,7 +162,7 @@ npx cap sync android
 Дальше Android Studio → Build → Generate Signed Bundle / APK → **release**. Готовый файл положи на Nginx как `/potok.apk` (кнопка на вебе качает именно его).
 
 - Подпись debug и release не путать. Ключ релиза не перевыпускать — уже стоящие APK не обновятся.
-- Сейчас в gradle: `versionCode 1` / `versionName 1.0`. Эта сборка (шаринг фото, Filesystem) — подними `versionCode` (например 2), иначе Android может отказаться обновлять.
+- Сейчас в gradle: `versionCode 2` / `versionName 1.0.1`. Следующая сборка — снова подними `versionCode`.
 - После смены Java-плагинов (StatusBar, RuStore Push, VoiceRecorder, Share, Filesystem) без `cap sync` + новой сборки APK старая нативка останется.
 - Origin WebView = `https://localhost`. CORS на сервере это уже учитывает. Не ставь `hostname: potokmessenger.ru` в Capacitor.
 

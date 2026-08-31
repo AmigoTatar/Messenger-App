@@ -3,7 +3,7 @@
 Realtime-мессенджер: веб + Android APK (Capacitor), один Node-сервер, PostgreSQL, пуши FCM и RuStore.
 
 **Прод:** [potokmessenger.ru](https://potokmessenger.ru)  
-**Пакет Android:** `com.potokmessenger.app` (`versionCode` 1 / `versionName` 1.0)  
+**Пакет Android:** `com.potokmessenger.app` (`versionCode` 2 / `versionName` 1.0.1)  
 **Слепок:** 31 августа 2026.
 
 Журнал багов и «было → стало» — [`NOTES.md`](NOTES.md).  
@@ -39,7 +39,7 @@ VPS маленький (примерно 1 vCPU, 1 ГБ RAM, 10 ГБ диск, �
 
 ## Статус 31 августа 2026
 
-Пакеты 17–20 авг (баги) и пакет 0–5 от 31 авг в коде закрыты. Следующая публичная APK — с сайта, с поднятым `versionCode` (сейчас в gradle всё ещё `1` / `1.0`). `applicationId` и ключ подписи не менять: иначе не обновится уже установленное приложение.
+Пакеты 17–20 авг (баги) и пакет 0–5 от 31 авг в коде закрыты. Публичная APK с сайта — `versionCode` 2 / `1.0.1`. `applicationId` и ключ подписи не менять: иначе не обновится уже установленное приложение.
 
 Сделано в том числе:
 

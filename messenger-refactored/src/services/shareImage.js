@@ -10,25 +10,14 @@ function isShareCanceled(err) {
 function fileNameFromUrl(url) {
     try {
         const raw = decodeURIComponent(String(url).split('?')[0].split('/').pop() || '');
-        if (/\.(jpe?g|png|gif|webp|bmp)$/i.test(raw)) {
-            return raw.slice(-80);
+        const safe = raw.replace(/[^a-zA-Z0-9._-]/g, '_');
+        if (/\.(jpe?g|png|gif|webp|bmp)$/i.test(safe)) {
+            return safe.slice(-80);
         }
     } catch {
         /* ignore */
     }
     return `potok-${Date.now()}.jpg`;
-}
-
-function blobToBase64(blob) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            const s = String(reader.result || '');
-            resolve(s.includes(',') ? s.split(',')[1] : s);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-    });
 }
 
 async function fetchImageBlob(url) {
@@ -37,24 +26,30 @@ async function fetchImageBlob(url) {
     return res.blob();
 }
 
-async function shareNativeFile(url) {
-    const name = fileNameFromUrl(url);
-    const path = `share/${name}`;
-    const blob = await fetchImageBlob(url);
-    const data = await blobToBase64(blob);
-    await Filesystem.writeFile({
+/** Native HTTP — обходит CORS WebView (S3 с <img> открывается, fetch с localhost — нет). */
+async function nativeDownloadTo(url, path, directory) {
+    const downloaded = await Filesystem.downloadFile({
+        url,
         path,
-        data,
-        directory: Directory.Cache,
+        directory,
         recursive: true,
     });
+    if (downloaded?.path) return downloaded.path;
+    const { uri } = await Filesystem.getUri({ path, directory });
+    return uri;
+}
+
+async function shareNativeFile(url, dialogTitle = 'Поделиться фото') {
+    const name = fileNameFromUrl(url);
+    const path = `share/${name}`;
+    await nativeDownloadTo(url, path, Directory.Cache);
     const { uri } = await Filesystem.getUri({
         path,
         directory: Directory.Cache,
     });
     await Share.share({
         files: [uri],
-        dialogTitle: 'Поделиться фото',
+        dialogTitle,
     });
 }
 
@@ -114,25 +109,18 @@ async function saveWeb(url) {
     setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
 }
 
+/**
+ * Сначала Documents (без запроса WRITE_EXTERNAL_STORAGE — на Android 13+ его нет).
+ * Если папка недоступна — Cache + системный шаринг «сохранить в галерею».
+ */
 async function saveNative(url) {
     const name = fileNameFromUrl(url);
-    const blob = await fetchImageBlob(url);
-    const data = await blobToBase64(blob);
-    const write = () => Filesystem.writeFile({
-        path: `Potok/${name}`,
-        data,
-        directory: Directory.Documents,
-        recursive: true,
-    });
     try {
-        await write();
-        return;
+        await nativeDownloadTo(url, `Potok/${name}`, Directory.Documents);
+        return 'saved';
     } catch {
-        const perm = await Filesystem.requestPermissions();
-        if (perm?.publicStorage !== 'granted') {
-            throw new Error('no-permission');
-        }
-        await write();
+        await shareNativeFile(url, 'Сохранить фото');
+        return 'shared';
     }
 }
 
@@ -153,16 +141,9 @@ export async function saveImage(url) {
     }
 
     try {
-        await saveNative(url);
-        return 'saved';
+        return await saveNative(url);
     } catch (err) {
         if (isShareCanceled(err)) return 'canceled';
-        try {
-            await shareNativeFile(url);
-            return 'shared';
-        } catch (shareErr) {
-            if (isShareCanceled(shareErr)) return 'canceled';
-            throw new Error('Не удалось сохранить фото');
-        }
+        throw new Error('Не удалось сохранить фото');
     }
 }

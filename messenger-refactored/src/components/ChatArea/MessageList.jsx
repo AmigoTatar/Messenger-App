@@ -69,6 +69,7 @@ export default function MessageList({
     try {
       const result = await saveImage(url);
       if (result === 'saved') showToast('Фото сохранено', 'success');
+      if (result === 'shared') showToast('Выберите, куда сохранить фото', 'info');
       if (result === 'opened') showToast('Сохраните фото из открывшейся вкладки', 'info');
     } catch (err) {
       showToast(err?.message || 'Не удалось сохранить фото', 'error');
@@ -213,13 +214,13 @@ export default function MessageList({
       )}
       {previewIndex >= 0 && imageUrls[previewIndex] && (
         <div
-          className="fixed inset-0 z-[80] bg-black/90 flex items-center justify-center sheet-safe"
+          className="fixed inset-0 z-[80] bg-black/90 flex flex-col"
           onClick={closePreview}
           role="button"
           tabIndex={0}
         >
           <div
-            className="absolute top-0 right-0 z-[81] p-2 flex gap-2"
+            className="shrink-0 z-[81] flex justify-end gap-2 px-3 pb-2 pt-[max(2.75rem,calc(env(safe-area-inset-top,0px)+0.75rem))]"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -242,7 +243,7 @@ export default function MessageList({
             </button>
           </div>
           <div
-            className="relative max-w-full max-h-full"
+            className="relative flex-1 min-h-0 flex items-center justify-center px-2 pb-[max(1rem,env(safe-area-inset-bottom,0px))]"
             onClick={(e) => e.stopPropagation()}
             onTouchStart={(e) => {
               if (e.touches.length === 2) {
@@ -274,7 +275,7 @@ export default function MessageList({
             <img
               src={imageUrls[previewIndex]}
               alt=""
-              className="max-w-full max-h-[85vh] object-contain select-none"
+              className="max-w-full max-h-full object-contain select-none"
               style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
               draggable={false}
             />
