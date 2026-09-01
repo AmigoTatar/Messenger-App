@@ -2,6 +2,7 @@ import { CapacitorHttp } from '@capacitor/core';
 import { Directory, Filesystem } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { isNativeApp } from '../config';
+import { saveFileToGallery } from './saveToGallery';
 
 const CACHE_DIR = 'potok-share';
 
@@ -153,12 +154,14 @@ async function saveWeb(url) {
 }
 
 /**
- * APK: системный шит (Галерея / Файлы / Диск). Тихая запись в Documents
- * на Android 11+ часто падает, а downloadFile не создаёт подпапки.
+ * APK: файл в кэш (как «Поделиться»), затем MediaStore → Галерея/Pictures/Potok.
+ * Шит шаринга здесь не открываем.
  */
 async function saveNative(url) {
-    await shareNativeFile(url, 'Сохранить фото');
-    return 'shared';
+    const name = fileNameFromUrl(url);
+    const uri = await cacheNativeFile(url);
+    await saveFileToGallery(uri, name);
+    return 'saved';
 }
 
 /**

@@ -2,7 +2,12 @@
 
 VPS слабый — **не** гонять на нём `npm run build`, Vite, Gradle, Android Studio. Иначе не хватит RAM.
 
-Клиент (`dist`, APK) собирается на ПК. На сервер уезжает `Server-Refactor` и уже собранный `dist` для Nginx. Магазины не используем: APK кладётся на сайт как `/potok.apk`.
+Клиент (`dist`, APK) собирается на ПК. На сервер уезжает `Server-Refactor` и уже собранный `dist` для Nginx.
+
+**Корень сайта на этом VPS:** `~/messenger/messenger-refactored/dist/`  
+(не папка проекта и не `messenger-refactored/` целиком). Nginx отдаёт `index.html`, `/version.json`, `/potok.apk` из этой папки.
+
+Магазины не используем: подписанный APK кладётся **внутрь `dist/`** как `potok.apk`. Файл в корне проекта (`messenger-refactored/potok.apk`) сайт не отдаёт. После каждой заливки нового `dist` APK копировать снова — `npm run build` его туда не кладёт.
 
 Шаблоны env: `Server-Refactor/.env.example`, `Server-Refactor/.env.production.example`.  
 Живой `.env` в git не класть.
@@ -141,11 +146,13 @@ cd messenger-refactored
 npm run build
 ```
 
-Папку `dist/` залей туда, откуда Nginx отдаёт фронт (как у тебя уже настроено).
+Папку `dist/` залей в `~/messenger/messenger-refactored/dist/` (корень Nginx). Не путать с корнем репозитория на VPS.
 
-APK для кнопки «Скачать приложение» на вебе: положи подписанный файл как **`/potok.apk`** рядом с `index.html` (тот же корень Nginx). Кнопка видна только в браузере, в APK её нет.
+APK для кнопки «Скачать приложение» на вебе: подписанный файл **`dist/potok.apk`** рядом с `index.html`. Кнопка видна только в браузере, в APK её нет. URL `/dist/potok.apk` неверный: корень Nginx уже и есть `dist`, получится SPA-fallback.
 
-В том же корне должен лежать **`/version.json`** (копируется из `public/version.json` при `npm run build`). APK сравнивает `versionCode` с установленным и показывает «Обновить приложение». При каждой новой APK поднимай `versionCode` в `android/app/build.gradle`, `src/config.js` (`APK_DOWNLOAD`) и `public/version.json` — одно число.
+В том же корне должен лежать **`/version.json`** (Vite копирует из `public/version.json`). Нативка сравнивает `versionCode` с `App.getInfo().build` и показывает «Обновить приложение», **только если число на сайте больше установленного**.
+
+Сейчас на проде **3 / 1.0.2**. В локальном репо уже **4 / 1.0.3** — не выкатывать, пока не решите включить кнопку. Когда будете: одно число сразу в трёх местах (`android/app/build.gradle`, `src/config.js` → `APK_DOWNLOAD`, `public/version.json`), новая подписанная APK, оба файла в `dist`. Иначе сайт скажет «есть 4», а скачается старый файл с кодом 3 — Android обновление не примет.
 
 После сборки в бандле не должно быть `localhost:5001` / `192.168.` — иначе APK/веб с прода будут стучаться на твой ПК.
 
@@ -161,12 +168,13 @@ npm run build
 npx cap sync android
 ```
 
-Дальше Android Studio → Build → Generate Signed Bundle / APK → **release**. Готовый файл положи на Nginx как `/potok.apk` (кнопка на вебе качает именно его).
+Дальше Android Studio → Build → Generate Signed Bundle / APK → **release**. Готовый файл положи на Nginx как `dist/potok.apk` (кнопка на вебе качает именно его). Gradle `assembleRelease` без подписи даёт `app-release-unsigned.apk` — **не** заливать. Исторически подписанный файл: `android/app/release/potok.apk`.
 
-- Подпись debug и release не путать. Ключ релиза не перевыпускать — уже стоящие APK не обновятся.
-- Сейчас в gradle: `versionCode 3` / `versionName 1.0.2`. Следующая сборка — снова подними `versionCode`.
-- После смены Java-плагинов (StatusBar, RuStore Push, VoiceRecorder, Share, Filesystem) без `cap sync` + новой сборки APK старая нативка останется.
+- Подпись debug и release не путать. Ключ релиза не перевыпускать (CN=RuslanValiullin) — уже стоящие APK не обновятся.
+- На сайте сейчас `versionCode` 3 / `1.0.2`. Следующая публичная сборка — **4 / 1.0.3** (уже проставлено локально). Не поднимать только `version.json` без APK с тем же кодом.
+- После смены Java-плагинов (StatusBar, RuStore Push, VoiceRecorder, Share, Filesystem, **SaveToGallery**) без `cap sync` + новой сборки APK старая нативка останется.
 - Origin WebView = `https://localhost`. CORS на сервере это уже учитывает. Не ставь `hostname: potokmessenger.ru` в Capacitor.
+- `CapacitorHttp.enabled` оставлять **false**. Точечный `CapacitorHttp.get` в `shareImage.js` — только запасной кач файла.
 
 Live-debug на LAN (не для публичного APK): временно `VITE_API_URL` и блок `server` в Capacitor — см. `NOTES.md` → Live-debug APK. Перед выкладкой оба вернуть как было.
 
@@ -180,9 +188,10 @@ Live-debug на LAN (не для публичного APK): временно `VI
 4. Жалоба: строка в БД / щит у админа / письмо на `REPORT_EMAIL`.
 5. Пуш лички открывает чат с отправителем, не «чат с собой».
 6. В логах pm2 нет `Message is too large` на обычных текстах и нет спама `Сокет … в комнате`.
-7. Веб: «Скачать приложение», файл `/potok.apk` отдаётся. В APK этой кнопки нет. Если на сайте `version.json` с большим `versionCode` — в APK кнопка «Обновить приложение».
+7. Веб: «Скачать приложение», файл `/potok.apk` отдаётся (лежит в `dist/`, не в корне проекта). В APK этой кнопки нет. «Обновить приложение» в APK — только если `/version.json` больше установленного кода (сейчас оба 3 — кнопки нет, так и задумано).
 8. `/ai` открывается (не 404 Nginx). `GET /api/ai/status` → `enabled: false`.
 9. Новый тестовый аккаунт видит welcome-канал, если `WELCOME_CHANNEL_ID` задан.
+10. APK: «Скачать» фото → `Pictures/Potok` без шита «Поделиться».
 
 Полный смоук — в README, раздел «Смоук (прод + APK)».
 
@@ -201,7 +210,9 @@ Live-debug на LAN (не для публичного APK): временно `VI
 | Щита жалоб нет | `ADMIN_USER_IDS` не тот id, нет `pm2 restart` |
 | Письма жалоб нет | `REPORT_EMAIL` / Unisender / SMTP; жалоба в БД всё равно должна быть |
 | `/ai` или `/reset-password` — 404 | Nginx без `try_files` на `index.html` |
-| «Скачать приложение» 404 | Нет файла `/potok.apk` в корне сайта |
+| «Скачать приложение» 404 | Нет файла `dist/potok.apk` (лежит в корне проекта, а не в `dist`, или стёрся при заливке `dist`) |
+| «Обновить» в APK нет | Одинаковый `versionCode` у сайта и телефона, или установлен APK без `UpdateAppButton`, или смотришь веб |
 | Новый юзер без канала-инструкции | Пустой или неверный `WELCOME_CHANNEL_ID`, нет `pm2 restart` |
+| «Скачать» фото открывает шит «Поделиться» | Старый APK без плагина `SaveToGallery` |
 
 Откат кода: верни предыдущие файлы сервера и `pm2 restart`. Миграции Prisma **назад сами не откатываются** — новые таблицы (`UserBlock`, `Report`) безопасно оставить, они не мешают старому клиенту.

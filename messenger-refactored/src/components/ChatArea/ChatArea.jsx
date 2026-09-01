@@ -44,7 +44,9 @@ export default function ChatArea({
   showToast,
   onPinMessage, 
   showConfirm,
-  contacts
+  contacts,
+  scrollToMessageId = null,
+  onFocusMessageDone,
 }) {
 
 const getChatName = (activeChatId, activeChatData, channelsProp, groupChatsProp, chatsProp, contacts) => {
@@ -288,36 +290,57 @@ useEffect(() => {
   };
 }, [socketRef, activeChatId]);
 
-const jumpToPinned = async (msg) => {
+const jumpToMessage = useCallback(async (messageId) => {
+  if (!messageId) return false;
   const highlight = (element) => {
     element.scrollIntoView({ behavior: 'smooth', block: 'center' });
     element.classList.add('highlight-animation');
     setTimeout(() => element.classList.remove('highlight-animation'), 2000);
   };
-  let el = document.querySelector(`[data-message-id="${msg.id}"]`);
+  let el = document.querySelector(`[data-message-id="${messageId}"]`);
   if (el) {
     highlight(el);
-    setShowPinnedList(false);
-    return;
+    return true;
   }
-  if (typeof onLoadMoreHistory !== 'function') {
-    showToast?.('Сообщение ещё не загружено', 'info');
-    return;
-  }
+  if (typeof onLoadMoreHistory !== 'function') return false;
   let more = hasMoreHistory;
   for (let i = 0; i < 20; i += 1) {
     if (!more) break;
     more = await onLoadMoreHistory();
     await new Promise((r) => setTimeout(r, 220));
-    el = document.querySelector(`[data-message-id="${msg.id}"]`);
+    el = document.querySelector(`[data-message-id="${messageId}"]`);
     if (el) {
       highlight(el);
-      setShowPinnedList(false);
-      return;
+      return true;
     }
+  }
+  return false;
+}, [onLoadMoreHistory, hasMoreHistory]);
+
+const jumpToPinned = async (msg) => {
+  const found = await jumpToMessage(msg.id);
+  if (found) {
+    setShowPinnedList(false);
+    return;
   }
   showToast?.('Не удалось найти закреплённое сообщение. Пролистайте историю выше.', 'info');
 };
+
+useEffect(() => {
+  if (!scrollToMessageId || !activeChatId) return undefined;
+  if (isHistoryLoading && (!messages || messages.length === 0)) return undefined;
+  let cancelled = false;
+  (async () => {
+    await new Promise((r) => setTimeout(r, 80));
+    if (cancelled) return;
+    const found = await jumpToMessage(scrollToMessageId);
+    if (!found) {
+      showToast?.('Сообщение не загрузилось. Пролистайте историю выше.', 'info');
+    }
+    if (!cancelled) onFocusMessageDone?.();
+  })();
+  return () => { cancelled = true; };
+}, [scrollToMessageId, activeChatId, isHistoryLoading, messages?.length, jumpToMessage, onFocusMessageDone, showToast]);
 
 const fetchPinnedMessages = useCallback(async () => {
   if (!activeChatId) return;

@@ -173,6 +173,15 @@ const handleAuthSuccess = (userData, token) => {
     setUser(u);
   }, [setUser]);
 
+  const [scrollToMessageId, setScrollToMessageId] = useState(null);
+  const onFocusMessageDone = useCallback(() => setScrollToMessageId(null), []);
+
+  const selectChat = useCallback(async (chatId, chatData = null, messageId = null) => {
+    setScrollToMessageId(null);
+    await handleSelectChat(chatId, chatData);
+    if (messageId != null) setScrollToMessageId(messageId);
+  }, [handleSelectChat]);
+
   // ====== МОДАЛКА ПОДТВЕРЖДЕНИЯ ======
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
@@ -904,7 +913,7 @@ useEffect(() => {
 <div className="w-full h-full min-h-0 md:max-w-5xl md:h-[90vh] md:rounded-2xl md:border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex overflow-hidden shadow-2xl transition-colors duration-300">
 
   {/* Сайдбар — скрыт на мобилках когда чат открыт */}
-  <div className={`${activeChatId ? 'hidden' : 'flex'} md:flex w-full md:w-[380px] flex-shrink-0 flex-col min-h-0`}>
+  <div className={`${activeChatId ? 'hidden' : 'flex'} md:flex w-full md:w-[380px] flex-shrink-0 flex-col min-h-0 h-full`}>
     <Sidebar
       loading={chatsLoading}
       chats={chats}
@@ -913,7 +922,7 @@ useEffect(() => {
       groupChats={groupChats}
       activeChatId={activeChatId}
       unreadCounts={unreadCounts}
-      onSelectChat={handleSelectChat}
+      onSelectChat={selectChat}
       onCreateChannel={handleCreateChannel}
       onCreateGroupChat={handleCreateGroupChat}
       chatsVersion={chatsVersion}
@@ -964,12 +973,14 @@ useEffect(() => {
         setActiveChatId={setActiveChatId}
         onBack={handleNavigateBack}
         onDeleteMessage={handleDeleteMessage}
-        onSelectChat={handleSelectChat}
+        onSelectChat={selectChat}
         chatsProp={chats}
         contacts={contacts}
         showToast={showToast}
         groupChatsProp={groupChats}
         channelsProp={channels}
+        scrollToMessageId={scrollToMessageId}
+        onFocusMessageDone={onFocusMessageDone}
         onLoadMoreHistory={() => {
           const oldest = activeMessages.length > 0 ? activeMessages[0]?.id : null;
           return loadHistory(activeChatId, oldest);

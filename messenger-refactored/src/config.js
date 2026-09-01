@@ -29,8 +29,8 @@ export const LEGAL_PAGES = {
 export const APK_DOWNLOAD = {
   url: '/potok.apk',
   filename: 'potok.apk',
-  versionCode: 3,
-  versionName: '1.0.2',
+  versionCode: 4,
+  versionName: '1.0.3',
 };
 
 export { API_BASE_URL, isDevelopment, isNativeApp };

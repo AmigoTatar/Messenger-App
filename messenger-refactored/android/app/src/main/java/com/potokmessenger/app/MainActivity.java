@@ -9,6 +9,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(RuStorePushPlugin.class);
+        registerPlugin(SaveToGalleryPlugin.class);
         super.onCreate(savedInstanceState);
 
         boolean isDebuggable = (getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0;

@@ -7,9 +7,31 @@
 
 ---
 
+## Слепок 1 сен 2026
+
+**Прод:** сайт отдаёт APK `versionCode` 3 / `1.0.2`. Nginx root — `~/messenger/messenger-refactored/dist/` (`index.html`, `version.json`, `potok.apk` рядом). ИИ / Ollama на VPS нет.
+
+| | Код | Прод |
+|---|-----|------|
+| Поиск → скролл к сообщению | готово | фронт заливали |
+| Вкладки Чаты / Группы / Каналы + зелёный unread | готово | фронт заливали |
+| Пустой список не поднимает вкладки | готово | в том же `dist` |
+| Тулбар превью фото ниже шторки | готово | да |
+| «Поделиться» фото (файл, не ссылка) | готово | нужен APK с Share/Filesystem |
+| «Скачать» → галерея `Pictures/Potok` (`SaveToGallery`) | готово | APK залит в `dist`, на телефон ещё не ставили |
+| «Скачать приложение» на вебе | готово | `/potok.apk` |
+| «Обновить приложение» в APK | код есть (`UpdateAppButton`) | **не включено**: сайт и телефон оба код 3 |
+| Welcome-канал после register | код есть | нужен `WELCOME_CHANNEL_ID` + `pm2 restart` |
+
+Локально уже размечено `4` / `1.0.3` (gradle, `APK_DOWNLOAD`, `public/version.json`) — на VPS `version.json` оставляем **3**, пока не будем включать кнопку обновления.
+
+Когда включать: поднять сайт и подписанный APK **одним** числом (4), файл только в `dist/potok.apk`. Кнопка видна, если `remote.versionCode >` установленного. Веб кнопку не показывает. Старый APK без `UpdateAppButton` сам её не получит — один раз поставить сборку с кнопкой с сайта.
+
+---
+
 ## Пакет 31 авг 2026 (после сторов)
 
-RuStore отклонил (реестр РКН). Магазины не целимся — APK с сайта (`/potok.apk`). Код шагов 0–5 и кнопка скачивания на вебе **сделаны**. APK: `versionCode` 3 / `1.0.2`.
+RuStore отклонил (реестр РКН). Магазины не целимся — APK с сайта (`/potok.apk`). Код шагов 0–5 и кнопка скачивания на вебе **сделаны**. Публичная APK: `versionCode` 3 / `1.0.2`.
 
 | # | Что | Статус |
 |---|-----|--------|
@@ -25,14 +47,27 @@ RuStore отклонил (реестр РКН). Магазины не целим
 
 ---
 
+## 1 сен 2026 — поиск, вкладки, галерея
+
+| | |
+|---|---|
+| **Поиск** | Клик по хиту звал `selectChat(chatId)` без `messageId` — открывался только чат. Стало `selectChat(chatId, null, messageId)` → `ChatArea.jumpToMessage` (тот же цикл load-more, что у закрепов). Переключает вкладку сайдбара |
+| **Сайдбар** | Три вкладки **над** «Potok» + тема. Unread → зелёное свечение. Пустой список сжимал колонку — вкладки уезжали вверх. Фикс: `h-full min-h-0`, футер `shrink-0`, заглушки «Пока нет чатов/групп/каналов». `ChannelList` / `GroupList`: `hideTitle` |
+| **Скачать фото** | WebView `fetch(S3)` — CORS. Потом `Filesystem.downloadFile` без mkdir. Потом ошибочно тот же шит, что «Поделиться». Стало: кэш + плагин `SaveToGallery` → MediaStore `Pictures/Potok`, тост «Фото сохранено». Java: `android/.../SaveToGalleryPlugin.java`, регистрация в `MainActivity` рядом с `RuStorePush`. JS: `src/services/saveToGallery.js` |
+| **Обновить APK** | `UpdateAppButton`: только натив, `GET /version.json` (`cache: no-store`), кнопка если `remote.versionCode > App.getInfo().build`, открывает `/potok.apk`. Пока не выкатываем |
+| **Welcome** | `subscribeToWelcomeChannel` после register. На проде: `WELCOME_CHANNEL_ID` + `pm2 restart`. Старые аккаунты сами не подписываются |
+
+---
+
 ## 31 авг 2026 — превью фото: шторка и «не удалось сохранить»
 
 | | |
 |---|---|
 | **Было** | Кнопки «Скачать» / «Поделиться» — `absolute top-0`. Сохранение: `Filesystem.downloadFile` в `Potok/` и `share/` без mkdir (нативка `recursive` игнорирует) → оба пути падали, шита не было, тост «Не удалось сохранить фото» |
-| **Стало** | Тулбар ниже шторки. «Скачать» в APK: mkdir Cache → качнуть файл → системный шит «Сохранить фото» (Галерея / Файлы / Диск). Запасной кач через `CapacitorHttp.get` без включения глобального CapacitorHttp |
-| **Где** | `MessageList.jsx`, `shareImage.js`, `file_paths.xml` |
-| **APK** | Нужна новая сборка |
+| **Стало (31 авг)** | Тулбар ниже шторки. Скачивание через Filesystem + шит «Сохранить фото». Запасной кач через `CapacitorHttp.get` без глобального CapacitorHttp |
+| **Потом (1 сен)** | Шит у «Скачать» убрали: MediaStore через `SaveToGallery`. «Поделиться» по-прежнему системный шит с файлом |
+| **Где** | `MessageList.jsx`, `shareImage.js`, `saveToGallery.js`, `SaveToGalleryPlugin.java`, `file_paths.xml` |
+| **APK** | Нужна сборка с плагином |
 
 ---
 

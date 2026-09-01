@@ -3,8 +3,10 @@
 Realtime-мессенджер: веб + Android APK (Capacitor), один Node-сервер, PostgreSQL, пуши FCM и RuStore.
 
 **Прод:** [potokmessenger.ru](https://potokmessenger.ru)  
-**Пакет Android:** `com.potokmessenger.app` (`versionCode` 3 / `versionName` 1.0.2)  
-**Слепок:** 31 августа 2026.
+**Пакет Android на сайте:** `com.potokmessenger.app` (`versionCode` 3 / `versionName` 1.0.2)  
+**Слепок:** 1 сентября 2026.
+
+Следующий релиз в локальном репо уже размечен как `4` / `1.0.3` (gradle, `config.js`, `public/version.json`) — **на прод не выкатывали**. Кнопка «Обновить приложение» в APK появится только когда `version.json` на сайте будет **больше** установленного `versionCode`.
 
 Журнал багов и «было → стало» — [`NOTES.md`](NOTES.md).  
 Как заливать сервер и собирать APK — [`DEPLOY.md`](DEPLOY.md).
@@ -33,15 +35,22 @@ Realtime-мессенджер: веб + Android APK (Capacitor), один Node-�
 
 Один аккаунт может быть онлайн в вебе и в APK сразу (`userId → набор socket.id`). Offline — когда отвалился **последний** сокет.
 
-VPS маленький (примерно 1 vCPU, 1 ГБ RAM, 10 ГБ диск, без swap). **Vite и Gradle на сервере не собирать** — упадёт по памяти. `dist` и APK только с ПК.
+VPS маленький (примерно 1 vCPU, 1 ГБ RAM, 10 ГБ диск, без swap). **Vite и Gradle на сервере не собирать** — упадёт по памяти. `dist` и APK только с ПК. Корень Nginx: `~/messenger/messenger-refactored/dist/` (`index.html`, `version.json`, `potok.apk` в одной папке).
 
 ---
 
-## Статус 31 августа 2026
+## Статус 1 сентября 2026
 
-Пакеты 17–20 авг (баги) и пакет 0–5 от 31 авг в коде закрыты. Публичная APK с сайта — `versionCode` 3 / `1.0.2`. `applicationId` и ключ подписи не менять: иначе не обновится уже установленное приложение.
+Пакеты 17–20 авг (баги), пакет 0–5 от 31 авг и правки 1 сен в коде закрыты. Публичная APK с сайта — `versionCode` 3 / `1.0.2`. `applicationId` и ключ подписи не менять: иначе не обновится уже установленное приложение.
 
-Сделано в том числе:
+**1 сен (в коде; фронт на прод заливали, новый APK в `dist` — на телефон ещё не ставили):**
+
+- поиск: клик по результату открывает чат и скроллит к сообщению;
+- сайдбар: вкладки Чаты / Группы / Каналы над «Potok»; непрочитанное — зелёная подсветка; пустой список не поднимает вкладки;
+- «Скачать» фото в APK — в галерею `Pictures/Potok` (плагин `SaveToGallery`), без шита «Поделиться»;
+- кнопка «Обновить приложение» в APK — код есть, на проде не включена (сайт и телефон оба на коде 3).
+
+Сделано ранее, в том числе:
 
 - сессии через `User.tokenVersion` (logout гасит все устройства);
 - скрытие контакта (не удаление переписки);
@@ -82,7 +91,7 @@ VPS маленький (примерно 1 vCPU, 1 ГБ RAM, 10 ГБ диск, �
 | Слой | Что |
 |------|-----|
 | Клиент | React 19, Vite 8, Tailwind 4, React Router 7, Socket.io-client 4 |
-| Натив | Capacitor 8, App, Push, StatusBar, Share, Filesystem, `capacitor-voice-recorder` |
+| Натив | Capacitor 8, App, Push, StatusBar, Share, Filesystem, `SaveToGallery` (свой плагин), `capacitor-voice-recorder` |
 | Android | `com.potokmessenger.app`, minSdk 24, target/compile 36, Java 21 |
 | RuStore SDK | `ru.rustore.sdk:pushclient:6.4.0` |
 | Сервер | Node, Express 5, Socket.io 4, Prisma 5.22, JWT, Helmet, cors, rate-limit, bcryptjs |
@@ -173,7 +182,7 @@ SPA: `App.jsx` — оркестратор. Хуки: `useAppState`, `useSocket`,
 - Не подменять `WebViewClient`. Origin APK — `https://localhost` (поэтому CORS обязан пускать localhost).
 - `RuStorePush` регистрировать до `super.onCreate()`.
 - Подпись debug и release не путать. Ключ релиза не перевыпускать: уже установленные APK иначе не обновятся.
-- После смены нативных плагинов: `npm run build` → `npx cap sync android` → новый release. Hot reload JS плагин не подхватит.
+- После смены нативных плагинов (`SaveToGallery`, RuStore Push, Share, Filesystem): `npm run build` → `npx cap sync android` → новый release. Hot reload JS плагин не подхватит.
 - Почта в приложении: `SUPPORT_EMAIL` в `src/config.js` (сейчас `mesengrpotok@gmail.com`). Жалобы на сервере — `REPORT_EMAIL` в `.env`.
 
 ---
@@ -270,12 +279,14 @@ Nginx: заголовки `Upgrade` / `Connection` для `/socket.io`.
 7. Своё сообщение с другого устройства не было в сайдбаре, потому что рассылка `receive_message` пропускала отправителя.
 8. Панели `fixed` (профиль) игнорируют padding `App` — safe-area вешать на саму панель.
 9. React #310 в сайдбаре: хуки нельзя после `return`. Спиннер загрузки — после всех хуков.
+10. APK для сайта класть **в корень Nginx** (`dist/potok.apk` рядом с `index.html`), не в корень проекта `messenger-refactored/`. После заливки нового `dist` файл APK копировать снова.
+11. Кнопка «Обновить» в APK сравнивает `https://potokmessenger.ru/version.json` с `App.getInfo().build`. Равные номера — кнопки нет. Веб её не показывает.
 
 ---
 
 ## Смоук (прод + APK)
 
-На **проде**, веб + **свежий** APK (сборка после 31 авг: шаринг/сохранение фото, `/ai`; кнопка APK только в браузере).
+На **проде**, веб + **свежий** APK (сборка с `SaveToGallery`: шаринг и сохранение в галерею, вкладки, поиск к сообщению; кнопка APK только в браузере).
 
 1. Сброс пароля — ссылка `https://potokmessenger.ru/reset-password?…`, не localhost.
 2. Logout на одном клиенте → второй просит логин; пуш после выхода не приходит.
@@ -295,6 +306,10 @@ Nginx: заголовки `Upgrade` / `Connection` для `/socket.io`.
 16. Веб: «Скачать приложение» качает `/potok.apk`. В установленном APK этой кнопки нет.
 17. Сайдбар «Potok AI (скоро)» → `/ai`, текст про 1.2, без запросов к модели. `GET /api/ai/status` → `enabled: false`.
 18. Если на VPS задан `WELCOME_CHANNEL_ID` — новый аккаунт сразу видит канал-инструкцию.
+19. Поиск: клик по сообщению открывает нужный чат и скроллит к нему (вкладка Чаты/Группы/Каналы тоже переключается).
+20. Сайдбар: три вкладки на месте при пустом списке (заглушка «Пока нет …»), не прыгают вверх.
+21. APK, полноэкранное фото: «Скачать» кладёт в `Pictures/Potok` без шита «Поделиться»; «Поделиться» — системный шит с файлом.
+22. Кнопка «Обновить приложение» в APK **не** должна быть видна, пока `/version.json` и установленный APK с одним `versionCode` (сейчас оба 3).
 
 ---
 
